@@ -1,0 +1,6 @@
+(version 1)
+(allow default)
+(deny network*)
+@@CREDENTIAL_RULES@@
+@@RESOLVER_RULES@@
+@@NETWORK_RULES@@

@@ -14,6 +14,7 @@ from swale.api.problems import Problem
     ("flood_event", "sensor:é洪水:2026-10-16"),
     ("flood_event", "000123"),
     ("flood_event", "⟨inside⟩:⟩"),
+    # Raw delimiter keys remain valid through their canonical SDK full IDs.
     ("flood_event", "⟨unclosed"),
     ("flood_event", "⟨wrapped⟩"),
     ("flood_event", "sensor/opaque:part"),
@@ -31,7 +32,7 @@ def test_feature_key_round_trips_sdk_string_identifiers(table, key):
 
 
 @pytest.mark.parametrize("key", ["sensor:2026:00", "quotes'\"`[]", "literal%3A", "é洪水"])
-def test_feature_key_preserves_existing_raw_key_inputs(key):
+def test_feature_key_preserves_existing_unwrapped_key_inputs(key):
     assert feature_key(f"flood_event:{key}", "flood_event") == key
 
 
@@ -40,7 +41,7 @@ def test_feature_key_preserves_existing_raw_key_inputs(key):
     "flood_event_wrong:key", "flood_event:⟨⟩", "flood_event:⟨unclosed",
     "flood_event:⟨key⟩trailing", "flood_event:⟨unescaped⟩inside⟩",
 ])
-def test_feature_key_invalid_ids_keep_path_and_query_error_semantics(feature_id):
+def test_feature_key_invalid_full_ids_keep_path_and_query_error_semantics(feature_id):
     with pytest.raises(Problem) as path_error:
         feature_key(feature_id, "flood_event")
     assert path_error.value.status == 404
