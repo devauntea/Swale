@@ -1,5 +1,6 @@
 // Semantic/geometry contracts only. Actual visibility and pointer picking need WebGL QA.
 import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import type {
   InfrastructureMapState,
   InfrastructurePrimitive,
@@ -9,6 +10,12 @@ import {
   infrastructureFocusPositions,
   infrastructureMapLayers,
 } from "../map/infrastructureLayers";
+import {
+  parseInfrastructureChunk,
+  parseInfrastructureManifest,
+} from "../infrastructure/contracts";
+import { parseEntranceCatalog } from "../infrastructure/entranceCatalog";
+import { buildEntranceDetail } from "../infrastructure/entranceGeometry";
 
 const platform: InfrastructurePrimitive = {
   id: "platform:F21:1",
@@ -91,6 +98,55 @@ function layers(current = state(), valid = () => true) {
 }
 
 describe("station infrastructure geometry and selection contracts", () => {
+  it("keeps source-linked component labels out of overview and includes them at close tour scale", () => {
+    const asset = (path: string) =>
+      JSON.parse(
+        readFileSync(
+          new URL(`../../public/infrastructure/${path}`, import.meta.url),
+          "utf8",
+        ),
+      ) as unknown;
+    const manifest = parseInfrastructureManifest(asset("index.json"));
+    const catalog = parseEntranceCatalog(asset("entrance-details.json"));
+    const station = manifest.stations.find((station) => station.id === "F21")!;
+    const source = catalog.entrances.find(
+      (entry) => entry.id === "row-y4aj-tepy-nbif",
+    )!;
+    const chunk = parseInfrastructureChunk(asset("stations/F21.json"), "F21");
+    const current = {
+      ...state(),
+      chunk,
+      entranceDetail: buildEntranceDetail(station, chunk, source)!,
+    };
+    const atZoom = (zoom: number) =>
+      infrastructureMapLayers(
+        current,
+        "light",
+        vi.fn(),
+        vi.fn(),
+        undefined,
+        zoom,
+      );
+    expect(
+      atZoom(16).some(
+        (layer) => layer.id === "swale-infrastructure-component-labels",
+      ),
+    ).toBe(false);
+    expect(
+      atZoom(20.49).some(
+        (layer) => layer.id === "swale-infrastructure-component-labels",
+      ),
+    ).toBe(false);
+    const labels = atZoom(20.5).find(
+      (layer) => layer.id === "swale-infrastructure-component-labels",
+    )!;
+    expect(labels.props.data).toEqual(current.entranceDetail.components);
+    expect(
+      atZoom(22).filter(
+        (layer) => layer.id === "swale-infrastructure-component-labels",
+      ),
+    ).toHaveLength(1);
+  });
   it("keeps negative canonical heights and applies display exaggeration around surface zero without altering inputs", () => {
     const current = state(),
       before = JSON.stringify(current);
@@ -216,7 +272,7 @@ describe("station infrastructure geometry and selection contracts", () => {
     current.chunk!.stationId = "F22";
     expect(infrastructureFocusPositions(current)).toEqual([]);
   });
-  it("retains GTFS source colors in canonical input while using Swale's owned blue palette", () => {
+  it("keeps unassociated source colors in canonical input without inventing a service identity", () => {
     const { call } = layers();
     const color = call(
       "swale-infrastructure-route-paths",
@@ -225,5 +281,35 @@ describe("station infrastructure geometry and selection contracts", () => {
     ) as number[];
     expect(color[2]).toBeGreaterThan(color[0]);
     expect(route.sourceColor).toBe("#FFCC00");
+  });
+  it("renders explicit source-associated routes in official colors across themes and selection", () => {
+    const current = state();
+    const associated = {
+      ...route,
+      sourceIds: ["S1:segment", "S2:route=F"],
+      sourceColor: "#EB6800",
+    };
+    current.chunk!.primitives = [associated];
+    current.selectedPrimitiveId = associated.id;
+    const before = JSON.stringify(associated.path);
+    for (const theme of ["light", "dark"] as const) {
+      const rendered = infrastructureMapLayers(
+        current,
+        theme,
+        vi.fn(),
+        vi.fn(),
+      );
+      const path = rendered.find(
+        (layer) => layer.id === "swale-infrastructure-route-paths",
+      )!;
+      expect(
+        (
+          (path.props as unknown as Record<string, unknown>)
+            .getColor as Function
+        )(associated),
+      ).toEqual([235, 104, 0, 255]);
+    }
+    expect(JSON.stringify(associated.path)).toBe(before);
+    expect(associated.sourceColor).toBe("#EB6800");
   });
 });

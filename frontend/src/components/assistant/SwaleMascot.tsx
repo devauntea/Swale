@@ -6,6 +6,7 @@ export type MascotExpression =
   | "opening"
   | "greeting"
   | "processing"
+  | "speaking"
   | "highlighting"
   | "information"
   | "error"
@@ -14,10 +15,15 @@ export type MascotExpression =
 interface Props {
   expression?: MascotExpression;
   className?: string;
+  carryHandle?: boolean;
 }
 
 /** Original, compact vector interpretation of the supplied Swale character. */
-export function SwaleMascot({ expression = "idle", className = "" }: Props) {
+export function SwaleMascot({
+  expression = "idle",
+  className = "",
+  carryHandle = false,
+}: Props) {
   const id = useId();
   const happy = expression === "greeting" || expression === "opening";
   return (
@@ -94,6 +100,22 @@ export function SwaleMascot({ expression = "idle", className = "" }: Props) {
         />
       </g>
       <g className="mascot-body">
+        {carryHandle && (
+          <g className="mascot-carry-handle">
+            <path
+              d="M29 59c-8-4-14-1-14 6-1 7 3 11 13 11"
+              stroke="#10294F"
+              strokeWidth="5"
+              strokeLinecap="round"
+            />
+            <path
+              d="M28 60c-7-3-11-1-11 5-1 5 2 9 11 9"
+              stroke="#4599FF"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </g>
+        )}
         <path
           d="m41 105-3 13c-1 3 5 4 13 3l3-17M61 104l2 17c9 1 15 0 14-3l-5-13"
           fill={`url(#${id}-blue)`}

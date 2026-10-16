@@ -159,26 +159,6 @@
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
-.transit-routes {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 6px 0;
-}
-.transit-routes > span {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-inline-size: 23px;
-  min-block-size: 23px;
-  padding: 3px 5px;
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  background: var(--surface-soft);
-  font-size: 11px;
-  font-weight: 650;
-}
 .transit-station-list .transit-routes {
   display: flex;
 }
@@ -483,4 +463,40 @@
 .transit-sources .icon-button {
   min-inline-size: 24px;
   min-block-size: 24px;
+}
+
+/* The final reference brief gives light mode cool-white planning surfaces.
+   Scope these overrides to the sidebar; dark mode retains its existing tokens. */
+:root:not([data-theme="dark"]) .control-sidebar {
+  --surface: #ffffff;
+  --surface-elevated: #f1f6fe;
+  --surface-soft: #eaf3ff;
+  --text: #10254b;
+  --text-secondary: #536b89;
+  --border: #ccd9eb;
+  --accent: #1b68cc;
+  --accent-hover: #1253ad;
+  --accent-soft: #eaf3ff;
+  --focus: #165ec5;
+  --line: #ccd9eb;
+  --sidebar-deep: #f1f6fe;
+  --sidebar-text: #10254b;
+  --sidebar-muted: #536b89;
+  --sidebar-border: #ccd9eb;
+  --sidebar-accent: #1b68cc;
+  --sidebar-selected: #eaf3ff;
+  color-scheme: light;
+}
+:root:not([data-theme="dark"]) .control-sidebar .backend-view-switch button {
+  color: var(--text-secondary);
+  background: var(--surface-elevated);
+  border-color: var(--border);
+}
+:root:not([data-theme="dark"])
+  .control-sidebar
+  .backend-view-switch
+  button[aria-pressed="true"] {
+  color: var(--text);
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }

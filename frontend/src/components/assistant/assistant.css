@@ -34,6 +34,9 @@
 .swale-mascot[data-expression="processing"] .mascot-eyes {
   transform: translateY(-1px) rotate(-7deg);
 }
+.swale-mascot[data-expression="speaking"] .mascot-wave-arm {
+  transform: rotate(25deg);
+}
 .swale-mascot[data-expression="closing"] .mascot-body {
   animation: swale-settle 180ms ease-out both;
 }

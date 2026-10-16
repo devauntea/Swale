@@ -32,7 +32,6 @@ import { installLocalBasemapGlyphs } from "./spriteFallbacks";
 import type {
   BackendBbox,
   BackendData,
-  BackendFeature,
   BackendKind,
 } from "../backend/contracts";
 import type {
@@ -48,6 +47,10 @@ import type {
   InfrastructureCameraRequest,
   InfrastructureMapState,
 } from "../infrastructure/contracts";
+import { backendMapLayers } from "./backendHazardLayers";
+import { useHazardPulse } from "./useHazardPulse";
+import { boundedPulsingIds } from "./hazards";
+import type { ProjectedMascotTarget } from "../contextual/MascotCarry";
 
 type InfrastructureRenderer = typeof import("./infrastructureLayers");
 interface SavedInfrastructureCamera {
@@ -88,6 +91,10 @@ export type TransitCameraRequest = { nonce: number } & (
 setWorkerUrl(workerUrl);
 
 export interface SwaleMapProps {
+  hazardPaused?: boolean;
+  mascotTarget?: { key: string; position: Coordinate; label: string } | null;
+  onMascotProjection?: (target: ProjectedMascotTarget | null) => void;
+  onManualCamera?: () => void;
   infrastructure?: InfrastructureMapState | null;
   infrastructureCamera?: InfrastructureCameraRequest | null;
   onSelectInfrastructure?: (id: string) => void;
@@ -155,6 +162,17 @@ function shortDate(instant: string): string {
 }
 
 export function SwaleMap(props: SwaleMapProps) {
+  const trackMascot = !!props.onMascotProjection || !!props.onManualCamera;
+  const hazardPulse = useHazardPulse(
+    !props.hazardPaused &&
+      !!props.backend &&
+      props.layers.complaints &&
+      boundedPulsingIds(
+        props.backend.incidents.features,
+        props.backend.incidents,
+        props.backendSelectedId,
+      ).size > 0,
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
   const overlayRef = useRef<MapLibreOverlay | null>(null);
@@ -206,8 +224,9 @@ export function SwaleMap(props: SwaleMapProps) {
     setTooltip(null);
   }, [backendMode]);
 
+  const infrastructureEnabled = !!props.infrastructure;
   useEffect(() => {
-    if (!props.infrastructure || infrastructureRenderer) return;
+    if (!infrastructureEnabled || infrastructureRenderer) return;
     let cancelled = false;
     // Download detail renderer code only after explicit exploration. The module
     // uses the same installed deck primitives and existing overlay owner.
@@ -225,7 +244,7 @@ export function SwaleMap(props: SwaleMapProps) {
     return () => {
       cancelled = true;
     };
-  }, [props.infrastructure, infrastructureRenderer]);
+  }, [infrastructureEnabled, infrastructureRenderer]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -491,6 +510,7 @@ export function SwaleMap(props: SwaleMapProps) {
                 )
               );
             },
+            map.getZoom(),
           )
         : [];
     if (props.transit && props.transitLayers && props.transitSelection) {
@@ -523,78 +543,17 @@ export function SwaleMap(props: SwaleMapProps) {
     if (props.backend) {
       const data = props.backend;
       const selectedId = props.backendSelectedId;
-      const backendLayers: Layer[] = [];
-      for (const [kind, collection, visible] of [
-        ["basin", data.basins, layers.basins],
-        ["incident", data.incidents, layers.complaints],
-      ] as const) {
-        const features: BackendFeature[] = collection.features.filter(
-          (feature) => feature.geometry !== null,
-        );
-        backendLayers.push(
-          new ScatterplotLayer<BackendFeature, InterleavedLayerProps>({
-            id: `swale-backend-${kind}`,
-            data: features,
-            beforeId: labelLayerRef.current,
-            visible,
-            pickable: true,
-            getPosition: (feature) =>
-              feature.geometry!.coordinates as Coordinate,
-            radiusUnits: "pixels",
-            getRadius: (feature) =>
-              feature.id === selectedId ? 7 : kind === "basin" ? 3.8 : 5.2,
-            filled: kind === "basin",
-            stroked: true,
-            opacity: collection.stale ? 0.55 : 1,
-            getFillColor: collection.stale
-              ? colors.priority.unavailable
-              : colors.highlightOutline,
-            getLineColor: (feature) =>
-              feature.id === selectedId
-                ? colors.selectedOutline
-                : kind === "basin"
-                  ? colors.markerOutline
-                  : collection.stale
-                    ? colors.priority.unavailable
-                    : colors.complaint,
-            getLineWidth: (feature) =>
-              feature.id === selectedId ? 2.8 : kind === "basin" ? 1 : 2,
-            lineWidthUnits: "pixels",
-            parameters: { depthCompare: "always", depthWriteEnabled: false },
-            updateTriggers: {
-              getLineColor: [theme, selectedId, collection.stale],
-              getLineWidth: [selectedId],
-              getRadius: [selectedId],
-            },
-            onHover: (info) => {
-              if (!propsRef.current.backend) return;
-              const feature = info.object;
-              const fetched = collection.sources.find(
-                (source) => source.id === feature?.properties.source.id,
-              )?.fetched_at;
-              setTooltip(
-                feature
-                  ? {
-                      x: info.x,
-                      y: info.y,
-                      title: feature.id,
-                      detail:
-                        feature.properties.layer === "catch_basins"
-                          ? "Observed inventory · condition unavailable"
-                          : `${feature.properties.category_label} · reported ${feature.properties.reported_at}`,
-                      context: `${collection.stale ? "STALE / " : ""}LOCAL SNAPSHOT · ${feature.properties.source.id} · fetched ${fetched ?? "unknown"}`,
-                    }
-                  : null,
-              );
-            },
-            onClick: (info) => {
-              if (!propsRef.current.backend || !info.object) return false;
-              propsRef.current.onSelectBackend?.(kind, info.object.id);
-              return true;
-            },
-          }),
-        );
-      }
+      const backendLayers = backendMapLayers(
+        data,
+        layers,
+        selectedId,
+        theme,
+        labelLayerRef.current,
+        (kind, id) => propsRef.current.onSelectBackend?.(kind, id),
+        setTooltip,
+        hazardPulse,
+        map.getZoom(),
+      );
       if (buildingLayerRef.current)
         map.setLayoutProperty(
           buildingLayerRef.current,
@@ -815,6 +774,7 @@ export function SwaleMap(props: SwaleMapProps) {
     highlightedIds,
     theme,
     props.backend,
+    hazardPulse,
     props.backendSelectedId,
     props.transit,
     props.transitLayers,
@@ -905,6 +865,7 @@ export function SwaleMap(props: SwaleMapProps) {
       map.flyTo({
         center: request.position,
         zoom: 16.6,
+        minZoom: Math.max(14, Math.min(16.1, map.getZoom() - 0.6)),
         padding: cameraPadding(map.getContainer().clientWidth),
         duration,
         essential: false,
@@ -971,6 +932,11 @@ export function SwaleMap(props: SwaleMapProps) {
         essential: false,
       });
     } else if (request.kind === "entrance_detail") {
+      if (!previousInfrastructureCameraRef.current) {
+        previousInfrastructureCameraRef.current = captureMapCamera(map);
+      }
+      activeInfrastructureStationRef.current =
+        propsRef.current.infrastructure?.stationId ?? null;
       map.setCenterClampedToGround?.(false);
       // MapLibre 6.14's animated camera path does not apply options.elevation.
       // Its public setter updates the shared map/deck camera before the planar move.
@@ -1006,6 +972,54 @@ export function SwaleMap(props: SwaleMapProps) {
     }
     setTooltip(null);
   }, [ready, props.infrastructureCamera]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map || !trackMascot) return;
+    const project = () => {
+      const target = propsRef.current.mascotTarget;
+      if (!target) {
+        propsRef.current.onMascotProjection?.(null);
+        return;
+      }
+      const point = map.project(target.position);
+      const rect = map.getContainer().getBoundingClientRect();
+      const x = point.x + rect.left;
+      const y = point.y + rect.top - 65;
+      propsRef.current.onMascotProjection?.({
+        key: target.key,
+        x,
+        y,
+        label: target.label,
+        visible:
+          Number.isFinite(x) &&
+          Number.isFinite(y) &&
+          x > 350 &&
+          x < rect.right - 370 &&
+          y > 150 &&
+          y < rect.bottom - 135,
+        moving: map.isMoving(),
+      });
+    };
+    const interrupt = (event: { originalEvent?: unknown }) => {
+      if (event.originalEvent) propsRef.current.onManualCamera?.();
+    };
+    project();
+    map.on("move", project);
+    map.on("moveend", project);
+    map.on("resize", project);
+    map.on("dragstart", interrupt);
+    map.on("zoomstart", interrupt);
+    map.on("rotatestart", interrupt);
+    return () => {
+      map.off("move", project);
+      map.off("moveend", project);
+      map.off("resize", project);
+      map.off("dragstart", interrupt);
+      map.off("zoomstart", interrupt);
+      map.off("rotatestart", interrupt);
+    };
+  }, [ready, props.mascotTarget, trackMascot]);
 
   useEffect(() => {
     const map = mapRef.current;

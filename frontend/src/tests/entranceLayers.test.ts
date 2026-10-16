@@ -16,6 +16,7 @@ import {
   entranceDisplayPosition,
   entranceWaterSurfaces,
 } from "../map/entranceLayers";
+import { infrastructureMapLayers } from "../map/infrastructureLayers";
 
 const asset = (path: string) =>
   JSON.parse(
@@ -34,6 +35,57 @@ const makeDetail = (stationId = "F21", sourceId = "row-y4aj-tepy-nbif") =>
   )!;
 
 describe("selected entrance structural/water rendering contracts", () => {
+  it("binds spatial labels to actual modeled components, preserving surface visibility and exact selection IDs", () => {
+    const detail = makeDetail();
+    const chunk = parseInfrastructureChunk(asset("stations/F21.json"), "F21");
+    const pick = vi.fn();
+    const current = {
+      stationId: "F21",
+      chunk,
+      mode: "xray" as const,
+      verticalExaggeration: 1,
+      visible: {
+        structure: true,
+        routes: true,
+        platforms: true,
+        entrances: true,
+      },
+      selectedPrimitiveId: null,
+      entranceDetail: detail,
+    };
+    const layers = infrastructureMapLayers(current, "light", pick, vi.fn());
+    const labels = layers.find(
+      (layer) => layer.id === "swale-infrastructure-component-labels",
+    )!;
+    expect(labels.props.data).toEqual(detail.components);
+    const component = detail.components[1];
+    expect(
+      (
+        (labels.props as unknown as Record<string, unknown>)
+          .getPosition as Function
+      )(component),
+    ).toEqual(component.position);
+    (labels.props.onClick as Function)({ object: component });
+    expect(pick).toHaveBeenCalledWith(component.id);
+    const surface = infrastructureMapLayers(
+      { ...current, mode: "surface" },
+      "dark",
+      vi.fn(),
+      vi.fn(),
+    ).find((layer) => layer.id === labels.id)!;
+    expect(
+      [...(surface.props.data as Iterable<{ position: number[] }>)].every(
+        (item) => item.position[2] >= 0,
+      ),
+    ).toBe(true);
+    const stale = infrastructureMapLayers(
+      { ...current, entranceDetail: { ...detail, stationId: "F22" } },
+      "dark",
+      vi.fn(),
+      vi.fn(),
+    );
+    expect(stale.some((layer) => layer.id === labels.id)).toBe(false);
+  });
   it("reuses static geometry arrays across scenario frames and display changes while dynamic water remains frame-specific", () => {
     const detail = makeDetail();
     const trajectory = simulateFloodScenario(detail.floodGeometry, {

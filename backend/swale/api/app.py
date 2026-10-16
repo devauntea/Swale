@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse
 
 from swale import __version__
 from swale.api import problems
-from swale.api.routes import alerts, briefings, catch_basins, flood_maps, flooding, incidents, inspections, meta, risk, simulation, transit, weather
+from swale.api.routes import alerts, briefings, catch_basins, contextual, flood_maps, flooding, incidents, inspections, meta, risk, simulation, transit, weather
 from swale.config import BACKEND_DIR, Settings
 from swale.db.connection import connect
 from swale.db.connection import run_one
@@ -33,6 +33,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             apply_schema(db)
             app.state.db = db
             app.state.db_lock = threading.RLock()
+            from swale.ai.contextual import ContextualService
+
+            app.state.contextual = ContextualService()
             app.state.sim = SimulationService(db, app.state.db_lock, BACKEND_DIR / "var" / "runs")
             app.state.sim.startup(run_one(db, "SELECT VALUE code FROM area;"))
             app.state.tracer = tracer_from_env()
@@ -48,6 +51,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             try:
                 yield
             finally:
+                app.state.contextual.close()
                 app.state.alerts.stop()
                 app.state.changes.stop()
                 app.state.sim.shutdown()
@@ -56,7 +60,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_methods=["GET", "POST"], allow_headers=["*"])
     problems.install(app)
-    for module in (meta, catch_basins, incidents, flooding, simulation, risk, briefings, weather, flood_maps, inspections, transit, alerts):
+    for module in (meta, catch_basins, incidents, flooding, simulation, risk, briefings, contextual, weather, flood_maps, inspections, transit, alerts):
         app.include_router(module.router, prefix="/api/v1")
     if settings.dev_map:
 

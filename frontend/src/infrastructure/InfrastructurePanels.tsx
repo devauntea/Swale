@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ServiceBadges } from "../components/transit/ServiceBadges";
 import type {
   InfrastructureBinding,
   InfrastructureChunk,
@@ -114,6 +115,7 @@ export function InfrastructureControls(p: ControlsProps) {
           </option>
         ))}
       </select>
+      {p.station && <ServiceBadges routes={p.station.routes} />}
       <p className="transit-copy">
         {stations.length} matching model stations. Live coverage is validated
         separately.
@@ -274,6 +276,7 @@ export function InfrastructureInspection({
         {state.mode === "xray" ? "X-RAY" : "SURFACE"}
       </span>
       <h3>{station.name} infrastructure</h3>
+      <ServiceBadges routes={station.routes} />
       <p className="transit-copy">
         GTFS {station.gtfsStopId} · complex {station.complexId ?? "unavailable"}{" "}
         · source structure: {station.structure}

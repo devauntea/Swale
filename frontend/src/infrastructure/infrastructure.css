@@ -4,16 +4,20 @@
   min-width: 0;
   margin: 5px 0 10px;
   padding: 9px 8px;
-  color: var(--sidebar-text);
-  background: var(--sidebar-elevated);
-  border: 1px solid var(--sidebar-border);
+  color: var(--text);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
   border-radius: 5px;
   font: inherit;
   font-size: 11px;
 }
 .infrastructure-controls select option {
-  color: var(--sidebar-text);
-  background: var(--sidebar-elevated);
+  color: var(--text);
+  background: var(--surface-elevated);
+}
+.infrastructure-controls input[type="search"]::placeholder {
+  color: var(--text-secondary);
+  opacity: 1;
 }
 .infrastructure-tag {
   display: block;
@@ -34,8 +38,8 @@
   flex: 1;
 }
 .infrastructure-mode button[aria-pressed="true"] {
-  border-color: var(--sidebar-accent);
-  background: var(--sidebar-selected);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 .infrastructure-explore {
   width: 100%;
@@ -54,11 +58,11 @@
 }
 .infrastructure-controls input[type="range"] {
   width: 100%;
-  accent-color: var(--sidebar-accent);
+  accent-color: var(--accent);
   margin: 10px 0;
 }
 .infrastructure-controls input[type="checkbox"] {
-  accent-color: var(--sidebar-accent);
+  accent-color: var(--accent);
 }
 .infrastructure-inspection {
   padding: 12px;
@@ -85,7 +89,7 @@
   padding: 0;
 }
 .infrastructure-controls :focus-visible {
-  outline: 2px solid var(--sidebar-accent);
+  outline: 2px solid var(--focus);
   outline-offset: 3px;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -99,9 +103,9 @@
 .infrastructure-entry button {
   min-height: 32px;
   padding: 8px 9px;
-  color: var(--sidebar-text);
-  background: var(--sidebar-elevated);
-  border: 1px solid var(--sidebar-border);
+  color: var(--text);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
   border-radius: 5px;
   font-size: 10px;
   line-height: 1.5;
@@ -110,6 +114,6 @@
   margin-top: 10px;
 }
 .infrastructure-controls a {
-  color: var(--sidebar-accent);
+  color: var(--accent);
   text-underline-offset: 3px;
 }

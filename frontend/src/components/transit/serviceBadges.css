@@ -1,0 +1,23 @@
+.transit-routes {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0;
+  vertical-align: middle;
+}
+.transit-routes > .service-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 25px;
+  min-block-size: 25px;
+  padding: 3px 5px;
+  color: var(--text);
+  border: 1px solid var(--border-strong, var(--border));
+  border-radius: 50%;
+  background: var(--surface-soft);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.2;
+  box-shadow: 0 0 0 1px var(--surface);
+}

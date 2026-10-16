@@ -103,7 +103,7 @@ describe("explicit data modes (isolated DOM)", () => {
     ).toEqual(prior);
   });
 
-  it("cancels a pending fixture command, disables backend script controls and retains fixture history", async () => {
+  it("cancels a pending fixture command, opens contextual backend controls and retains fixture history", async () => {
     const map = await open();
     vi.useFakeTimers();
     fireEvent.click(
@@ -114,25 +114,27 @@ describe("explicit data modes (isolated DOM)", () => {
     await act(async () => {
       vi.advanceTimersByTime(1000);
     });
-    const suggestion = screen.getByRole("button", {
-      name: /Switch to extreme/,
-    }) as HTMLButtonElement;
-    expect(suggestion.disabled).toBe(true);
+    expect(
+      screen.queryByRole("button", { name: /Switch to extreme/ }),
+    ).toBeNull();
+    expect(screen.getByText("Select a map feature to begin")).toBeTruthy();
     expect(
       (
         screen.getByLabelText(
-          "Ask the demonstration assistant",
+          "Ask Swale about the selected context",
         ) as HTMLTextAreaElement
-      ).readOnly,
+      ).disabled,
     ).toBe(true);
-    expect(screen.getByText(/Fixture history only/)).toBeTruthy();
+    expect(
+      screen.getByRole("combobox", { name: "Briefing language" }),
+    ).toBeTruthy();
+    mode("fixture");
+    expect(map.getAttribute("data-scenario")).toBe("moderate_current");
     expect(
       within(screen.getByRole("log")).getByText(
         "Switch to the extreme scenario and show the top 20",
       ),
     ).toBeTruthy();
-    mode("fixture");
-    expect(map.getAttribute("data-scenario")).toBe("moderate_current");
     fireEvent.keyDown(
       screen.getByLabelText("Ask the demonstration assistant"),
       { key: "Escape" },

@@ -4,6 +4,7 @@ import type { InfrastructureStation } from "./contracts";
 import type { EntranceSourceRecord } from "./entranceCatalog";
 import type { EntranceDetailGeometry } from "./entranceGeometry";
 import type { FloodPlayback } from "./useFloodPlayback";
+import { ServiceBadges } from "../components/transit/ServiceBadges";
 import "./entranceExperience.css";
 
 export function EntranceExperience({
@@ -64,7 +65,8 @@ export function EntranceExperience({
       </span>
       <h3>From street to stairwell</h3>
       <p className="transit-copy">
-        {station.name} · {station.routes.join(" / ")} · GTFS {station.id}
+        {station.name} · <ServiceBadges routes={station.routes} /> · GTFS{" "}
+        {station.id}
       </p>
       {status === "loading" && (
         <p role="status">Loading cached entrance types…</p>

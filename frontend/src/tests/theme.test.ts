@@ -139,7 +139,7 @@ describe("design palette contracts (not rendered acceptance)", () => {
       );
     });
   }
-  it("has no yellow color literals in Swale-owned source outside the mascot", () => {
+  it("reserves yellow literals for the mascot and the verified MTA service palette", () => {
     const visit = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
         entry.isDirectory() && entry.name !== "tests"
@@ -157,6 +157,11 @@ describe("design palette contracts (not rendered acceptance)", () => {
       for (const match of readFileSync(file, "utf8").matchAll(
         /#[\da-f]{6}(?:[\da-f]{2})?\b/gi,
       )) {
+        if (
+          file.endsWith("/map/servicePalette.ts") &&
+          ["#F6BC26", "#EB6800", "#799534"].includes(match[0].toUpperCase())
+        )
+          continue;
         const [r, g, b] = channels(match[0]);
         // Saturated yellow/amber: strong red+green and substantially less blue.
         expect(

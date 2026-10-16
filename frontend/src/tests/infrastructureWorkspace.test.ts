@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // App regression with the map and resource hooks replaced; no browser/live calls.
-import { createElement, useMemo } from "react";
+import { createElement, useEffect, useMemo } from "react";
 import {
   act,
   cleanup,
@@ -15,17 +15,66 @@ import { App } from "../app/App";
 import { emptyTransitData } from "../backend/useTransitData";
 import { emptyBackendData } from "../backend/provider";
 import type { TransitStation } from "../backend/transitContracts";
-import type { InfrastructureManifest } from "../infrastructure/contracts";
+import type {
+  InfrastructureManifest,
+  InfrastructureMapState,
+} from "../infrastructure/contracts";
 import type { EntranceCatalog } from "../infrastructure/entranceCatalog";
 
-const mapProps = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
+const mapProps = vi.hoisted(() => ({
+  current: {} as Record<string, unknown>,
+  renders: 0,
+  projections: 0,
+}));
 
 vi.mock("../map/SwaleMap", () => ({
-  default: (props: Record<string, unknown>) => {
+  default: function MockMap(props: Record<string, unknown>) {
     mapProps.current = props;
+    mapProps.renders += 1;
+    useEffect(() => {
+      const target = props.mascotTarget as {
+        key: string;
+        label: string;
+      } | null;
+      const project = props.onMascotProjection as
+        | ((
+            value: {
+              key: string;
+              label: string;
+              x: number;
+              y: number;
+              visible: boolean;
+              moving: boolean;
+            } | null,
+          ) => void)
+        | undefined;
+      if (!project) return;
+      mapProps.projections += 1;
+      if (mapProps.projections > 50)
+        throw new Error("Projection feedback did not settle.");
+      project(
+        target
+          ? {
+              key: target.key,
+              label: target.label,
+              x: 650,
+              y: 400,
+              visible: true,
+              moving: false,
+            }
+          : null,
+      );
+    }, [props.mascotTarget, props.onMascotProjection]);
+    const infrastructure =
+      props.infrastructure as InfrastructureMapState | null;
     return createElement("div", {
       "data-testid": "infrastructure-map-double",
-      "data-infrastructure": JSON.stringify(props.infrastructure),
+      // The actual full geometry is retained in mapProps for assertions. This
+      // DOM attribute only represents identity; repeatedly serializing all XYZ
+      // faces made the worker-loaded harness unnecessarily expensive.
+      "data-infrastructure": JSON.stringify(
+        infrastructure ? { stationId: infrastructure.stationId } : null,
+      ),
       "data-transit-selection": JSON.stringify(props.transitSelection),
       "data-transit-layers": JSON.stringify(props.transitLayers),
     });
@@ -56,7 +105,9 @@ vi.mock("../backend/useBackendData", () => ({
 vi.mock("../backend/useTransitData", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../backend/useTransitData")>()),
   useTransitData: () => ({
-    data: transitData,
+    // The real hook derives a fresh live wrapper while retaining its data body.
+    // Presentation updates must not turn that wrapper into a projection loop.
+    data: { ...transitData, live: { ...transitData.live } },
     paused: true,
     setPaused: vi.fn(),
     refresh: vi.fn(),
@@ -257,6 +308,8 @@ afterEach(() => {
   Reflect.deleteProperty(document, "hidden");
 });
 async function openTransit() {
+  mapProps.renders = 0;
+  mapProps.projections = 0;
   localStorage.clear();
   Element.prototype.scrollTo = vi.fn();
   render(createElement(App));
@@ -268,16 +321,41 @@ async function openTransit() {
   fireEvent.click(screen.getByRole("button", { name: /Carroll test station/ }));
 }
 describe("infrastructure identity and failure isolation in App", () => {
-  it("loads entrance sources only after exploration, propagates local scenario state to the original map and resets on source/station changes", async () => {
+  it("settles mascot projection with fresh live wrappers and retains the target through presentation rerenders", async () => {
+    await openTransit();
+    await waitFor(() =>
+      expect(
+        (mapProps.current.mascotTarget as { key: string } | null)?.key,
+      ).toBe("entrance/model_entrance:test-entrance-one"),
+    );
+    const target = mapProps.current.mascotTarget;
+    const projections = mapProps.projections;
+    const renders = mapProps.renders;
+    fireEvent.click(screen.getByRole("button", { name: "Dark mode" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open Swale assistant" }),
+    );
+    expect(mapProps.current.mascotTarget).toBe(target);
+    expect(mapProps.projections).toBe(projections);
+    expect(mapProps.renders - renders).toBeLessThan(10);
+    expect(mapProps.projections).toBeLessThan(8);
+    expect(
+      screen.getByRole("heading", { name: "Swale assistant" }),
+    ).toBeTruthy();
+  });
+  it("loads a selected station for shared overview and exploration, propagates the local snapshot and invalidates changed entrance identities", async () => {
     Object.defineProperty(document, "hidden", {
       configurable: true,
       get: () => false,
     });
     const liveBefore = JSON.stringify(transitData);
     await openTransit();
-    expect(catalogLoad).not.toHaveBeenCalled();
+    expect(
+      (mapProps.current.layers as import("../types").LayerVisibility).buildings,
+    ).toBe(true);
+    await waitFor(() => expect(catalogLoad).toHaveBeenCalledOnce());
     fireEvent.click(
-      screen.getByRole("button", { name: "Explore infrastructure" }),
+      screen.getByRole("button", { name: "Explore station — Normal view" }),
     );
     await waitFor(() => expect(catalogLoad).toHaveBeenCalledOnce());
     const entranceChoice = await screen.findByRole("combobox", {
@@ -301,6 +379,14 @@ describe("infrastructure identity and failure isolation in App", () => {
     );
     expect(state().verticalExaggeration).toBe(1);
     expect(state().entranceScenario).toBeUndefined();
+    expect(
+      (mapProps.current.layers as import("../types").LayerVisibility).buildings,
+    ).toBe(false);
+    expect(
+      screen
+        .getByRole("button", { name: "3D buildings" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
     expect(camera().kind).toBe("entrance_detail");
     fireEvent.click(screen.getByRole("button", { name: "3 · Landing" }));
     expect(state().selectedDetailComponentId).toBe(
@@ -313,16 +399,18 @@ describe("infrastructure identity and failure isolation in App", () => {
         kind: "entrance_detail",
         elevation: expect.any(Number),
         zoom: 22,
+        pitch: 62,
+        position: state()
+          .entranceDetail!.components.find((item) => item.kind === "landing")!
+          .position.slice(0, 2),
       }),
     );
     vi.useFakeTimers();
     fireEvent.click(
       screen.getByRole("button", { name: "What-if flood simulation" }),
     );
-    expect(state().entranceScenario?.frame).toBeNull();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Run illustrative scenario" }),
-    );
+    expect(state().entranceScenario?.frame?.timeS).toBe(600);
+    fireEvent.click(screen.getByRole("button", { name: "Play / resume" }));
     act(() => vi.advanceTimersByTime(1000));
     expect(state().entranceScenario!.frame!.timeS).toBe(30);
     expect(state().entranceScenario!.frame!.ledger.suppliedM3).toBeGreaterThan(
@@ -332,6 +420,32 @@ describe("infrastructure identity and failure isolation in App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Baseline geometry" }));
     expect(state().entranceScenario?.compareBaseline).toBe(true);
     expect(state().entranceScenario?.frame).toBe(frame);
+    const snapshotAtPause = state().entranceScenario!.frame;
+    const entranceAtPause = state().entranceDetail;
+    fireEvent.click(screen.getByRole("button", { name: "Normal view" }));
+    expect(state().entranceScenario).toBeUndefined();
+    fireEvent.click(screen.getByRole("button", { name: "Dark mode" }));
+    expect(state().entranceDetail).toBe(entranceAtPause);
+    fireEvent.click(screen.getByRole("button", { name: "Flood simulation" }));
+    expect(state().entranceScenario!.frame).toBe(snapshotAtPause);
+    fireEvent.click(
+      within(
+        screen.getByRole("region", { name: "Scene and water view" }),
+      ).getByRole("button", { name: "Return to overview" }),
+    );
+    expect(
+      (mapProps.current.layers as import("../types").LayerVisibility).buildings,
+    ).toBe(true);
+    expect(state().entranceDetail).toBe(entranceAtPause);
+    expect(state().entranceScenario!.frame).toBe(snapshotAtPause);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Explore station — Normal view",
+      }),
+    );
+    expect(state().entranceScenario).toBeUndefined();
+    fireEvent.click(screen.getByRole("button", { name: "Flood simulation" }));
+    expect(state().entranceScenario!.frame).toBe(snapshotAtPause);
     fireEvent.change(
       screen.getByRole("combobox", { name: "Source-linked entrance" }),
       {
@@ -342,7 +456,7 @@ describe("infrastructure identity and failure isolation in App", () => {
     expect(state().entranceDetail?.sourcePosition).toEqual(
       catalog.entrances[1].position,
     );
-    expect(state().entranceScenario).toBeUndefined();
+    expect(state().entranceScenario?.frame?.timeS).toBe(600);
     expect(state().selectedDetailComponentId).toBeNull();
     expect(
       screen
@@ -353,9 +467,7 @@ describe("infrastructure identity and failure isolation in App", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "What-if flood simulation" }),
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Run illustrative scenario" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Play / resume" }));
     fireEvent.change(
       screen.getByRole("combobox", { name: "Select geometry" }),
       { target: { value: "R99" } },
@@ -370,7 +482,7 @@ describe("infrastructure identity and failure isolation in App", () => {
   it("keeps genuine backend error and stale board visible while supported static geometry remains usable", async () => {
     await openTransit();
     fireEvent.click(
-      screen.getByRole("button", { name: "Explore infrastructure" }),
+      screen.getByRole("button", { name: "Explore station — Normal view" }),
     );
     expect(
       screen.getByText(/Backend identity verified: subway_station:opaque-F21/),
@@ -386,11 +498,11 @@ describe("infrastructure identity and failure isolation in App", () => {
     ).toBe("true");
     expect(screen.queryByText("EXAMPLE INSPECTION QUEUE")).toBeNull();
   });
-  it("removes the previous station board for geometry-only picks, clears evidence and restores selection/layers on exit", async () => {
+  it("removes the previous station board for geometry-only picks and retains the selected model and layers on return", async () => {
     await openTransit();
     fireEvent.click(screen.getByRole("switch", { name: "Station entrances" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "Explore infrastructure" }),
+      screen.getByRole("button", { name: "Explore station — Normal view" }),
     );
     fireEvent.change(
       screen.getByRole("combobox", { name: "Select geometry" }),
@@ -421,15 +533,17 @@ describe("infrastructure identity and failure isolation in App", () => {
       within(inspector).getByRole("button", { name: "Return to previous map" }),
     );
     await waitFor(() =>
-      expect(map.getAttribute("data-infrastructure")).toBe("null"),
+      expect(
+        JSON.parse(map.getAttribute("data-infrastructure")!).stationId,
+      ).toBe("R99"),
     );
     expect(
       JSON.parse(map.getAttribute("data-transit-selection")!).stationId,
-    ).toBe(station.id);
+    ).toBeNull();
     expect(JSON.parse(map.getAttribute("data-transit-layers")!).entrances).toBe(
       false,
     );
-    expect(screen.getByText("fixture-carroll-trip")).toBeTruthy();
+    expect(screen.queryByText("fixture-carroll-trip")).toBeNull();
     expect(document.activeElement).toBe(
       screen.getByRole("button", { name: "Browse infrastructure" }),
     );

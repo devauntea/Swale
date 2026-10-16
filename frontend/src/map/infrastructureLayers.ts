@@ -1,4 +1,9 @@
-import { PathLayer, PolygonLayer, ScatterplotLayer } from "@deck.gl/layers";
+import {
+  PathLayer,
+  PolygonLayer,
+  ScatterplotLayer,
+  TextLayer,
+} from "@deck.gl/layers";
 import type { Layer, PickingInfo } from "@deck.gl/core";
 import type { Theme } from "../app/theme";
 import type { Coordinate } from "../types";
@@ -9,6 +14,8 @@ import type {
 import type { TransitMapTooltip } from "./transitLayers";
 import { MAP_THEMES } from "./presentation";
 import { buildEntranceLayers } from "./entranceLayers";
+import { primitiveService, serviceRgba } from "./servicePalette";
+import type { EntranceComponent } from "../infrastructure/entranceGeometry";
 
 type Position = [number, number, number];
 type Color = [number, number, number, number];
@@ -79,6 +86,7 @@ export function infrastructureMapLayers(
   onPick: (id: string) => void,
   onTooltip: (tip: TransitMapTooltip | null) => void,
   isCurrent: (primitive: InfrastructurePrimitive) => boolean = () => true,
+  mapZoom = 22,
 ): Layer[] {
   if (!state.chunk || state.chunk.stationId !== state.stationId) return [];
   const colors = MAP_THEMES[theme];
@@ -103,6 +111,11 @@ export function infrastructureMapLayers(
   );
   const knownIds = new Set(primitives.map((primitive) => primitive.id));
   const color = (primitive: InfrastructurePrimitive): Color => {
+    if (primitive.kind === "route") {
+      const route = primitiveService(primitive.sourceIds);
+      const fill = route ? serviceRgba(route) : null;
+      if (fill) return fill;
+    }
     if (primitive.id === state.selectedPrimitiveId)
       return colors.selectedOutline;
     if (primitive.kind === "platform")
@@ -122,7 +135,7 @@ export function infrastructureMapLayers(
             x: info.x,
             y: info.y,
             title: `${primitive.kind[0].toUpperCase()}${primitive.kind.slice(1)} · ${state.stationId}`,
-            detail: primitive.assumption,
+            detail: `${primitive.kind === "route" && primitiveService(primitive.sourceIds) ? `MTA service ${primitiveService(primitive.sourceIds)} · ` : ""}${primitive.assumption}`,
             context: `STATIC / SCHEMATIC · ${primitive.sourceIds.join(" + ")} · ${state.chunk!.metadata.modelVintage} · ${exaggeration}× display`,
           }
         : null,
@@ -159,6 +172,13 @@ export function infrastructureMapLayers(
     "entrance",
   ] as const) {
     const records = primitives.filter((primitive) => primitive.kind === kind);
+    const routeServices = [
+      ...new Set(
+        records
+          .map((record) => primitiveService(record.sourceIds))
+          .filter((route) => route !== null),
+      ),
+    ];
     layers.push(
       new PolygonLayer<InfrastructurePrimitive>({
         id: `swale-infrastructure-${kind}-polygons`,
@@ -192,7 +212,18 @@ export function infrastructureMapLayers(
         getPath: (primitive) => primitive.path!.map(display),
         getColor: color,
         getWidth: (primitive) =>
-          primitive.width ??
+          (kind === "route" && primitiveService(primitive.sourceIds)
+            ? (primitive.width ?? 2) +
+              2 *
+                Math.max(
+                  0,
+                  routeServices.length -
+                    1 -
+                    routeServices.indexOf(
+                      primitiveService(primitive.sourceIds)!,
+                    ),
+                )
+            : primitive.width) ??
           (kind === "structure" ? 9 : kind === "connector" ? 1.2 : 1.5),
         widthUnits: "meters",
         widthMinPixels: kind === "structure" ? 4 : 2,
@@ -246,5 +277,59 @@ export function infrastructureMapLayers(
         state.entranceScenario,
       ),
     );
+  if (
+    state.entranceDetail &&
+    state.entranceDetail.stationId === state.stationId &&
+    state.visible.entrances &&
+    mapZoom >= 20.5
+  ) {
+    const components = state.entranceDetail.components.filter(
+      (component) =>
+        finitePosition(component.position) &&
+        (state.mode === "xray" || component.position[2] >= 0),
+    );
+    layers.push(
+      new TextLayer<EntranceComponent>({
+        id: "swale-infrastructure-component-labels",
+        data: components,
+        getPosition: (component) => display(component.position),
+        getText: (component) => component.label,
+        getSize: 11,
+        sizeUnits: "pixels",
+        fontWeight: 650,
+        getPixelOffset: [0, -22],
+        getColor: theme === "dark" ? [240, 247, 255, 255] : [16, 37, 75, 255],
+        background: true,
+        getBackgroundColor:
+          theme === "dark" ? [16, 32, 57, 235] : [255, 255, 255, 240],
+        backgroundPadding: [5, 3],
+        billboard: true,
+        pickable: true,
+        parameters,
+        onClick: (info) => {
+          if (!info.object) return false;
+          onPick(info.object.id);
+          return true;
+        },
+        onHover: (info) =>
+          onTooltip(
+            info.object
+              ? {
+                  x: info.x,
+                  y: info.y,
+                  title: info.object.label,
+                  detail: info.object.assumption,
+                  context: `STATIC / SCHEMATIC · ${state.entranceDetail!.entranceId} · virtual model component`,
+                }
+              : null,
+          ),
+        updateTriggers: {
+          getPosition: [exaggeration],
+          getColor: [theme],
+          getBackgroundColor: [theme],
+        },
+      }),
+    );
+  }
   return layers;
 }

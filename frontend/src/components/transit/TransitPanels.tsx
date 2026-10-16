@@ -18,6 +18,7 @@ import {
 import { safeBackendLink } from "../../backend/contracts";
 import { formatTime, displayNumber } from "../../app/format";
 import { Icon } from "../controls/Icon";
+import { ServiceBadges } from "./ServiceBadges";
 import "./transit.css";
 
 type LayerKey = keyof TransitLayerVisibility;
@@ -298,7 +299,7 @@ export function TransitInspector(p: {
   onEvidence: (id: string) => void;
   evidence: TransitEvidenceState;
   clearEvidence?: () => void;
-  onExploreInfrastructure?: () => void;
+  onExploreInfrastructure?: (waterView?: "normal" | "flood_simulation") => void;
   infrastructureInspection?: ReactNode;
 }) {
   const panel = useRef<HTMLElement>(null);
@@ -422,9 +423,18 @@ export function TransitInspector(p: {
             </p>
             <div className="transit-button-row">
               {p.onExploreInfrastructure && (
-                <button onClick={p.onExploreInfrastructure}>
-                  Explore infrastructure
-                </button>
+                <>
+                  <button onClick={() => p.onExploreInfrastructure?.("normal")}>
+                    Explore station — Normal view
+                  </button>
+                  <button
+                    onClick={() =>
+                      p.onExploreInfrastructure?.("flood_simulation")
+                    }
+                  >
+                    Explore station — Flood simulation
+                  </button>
+                </>
               )}
               <button disabled={!station.geometry} onClick={p.onFocus}>
                 Focus station
@@ -536,7 +546,7 @@ export function TransitInspector(p: {
                                   key={`${arrival.trip_id}-${arrival.predicted_at}-${index}`}
                                 >
                                   <th scope="row">
-                                    {arrival.route}
+                                    <ServiceBadges routes={[arrival.route]} />
                                     <small>{arrival.trip_id}</small>
                                   </th>
                                   <td>
@@ -920,8 +930,12 @@ function AlertEvidence({
               </dd>
               <dt>Routes / stop references</dt>
               <dd>
-                {alert.routes.join(", ") || "Not supplied"} /{" "}
-                {alert.stops.join(", ") || "Not supplied"}
+                {alert.routes.length ? (
+                  <ServiceBadges routes={alert.routes} />
+                ) : (
+                  "Not supplied"
+                )}{" "}
+                / {alert.stops.join(", ") || "Not supplied"}
               </dd>
               <dt>Active from</dt>
               <dd>
@@ -975,7 +989,8 @@ function TrainAssociations({
       <ul className="transit-text-list">
         {trains.map((train, index) => (
           <li key={`${train.trip_id}-${train.direction}-${index}`}>
-            {train.route} · {train.direction} · {train.status}
+            <ServiceBadges routes={[train.route]} /> · {train.direction} ·{" "}
+            {train.status}
             <small>
               Trip {train.trip_id} · stop {train.stop_id}
             </small>
@@ -1631,6 +1646,9 @@ export function TransitLegend({
           <p className="legend-source">
             BK0601 loaded coverage · {data.feedState} transit feed
             <br />
+            MTA service colors identify routes, not service health or flood
+            risk.
+            <br />
             Zones are modeled extents or derived sensor buffers, not live flood
             boundaries. Text labels distinguish meanings.
           </p>
@@ -1761,16 +1779,7 @@ function FeedTimes({ data }: { data: TransitData }) {
   );
 }
 function RouteLabels({ routes }: { routes: string[] }) {
-  return (
-    <span
-      className="transit-routes"
-      aria-label={`Routes ${routes.join(", ") || "unavailable"}`}
-    >
-      {routes.map((route) => (
-        <span key={route}>{route}</span>
-      ))}
-    </span>
-  );
+  return <ServiceBadges routes={routes} />;
 }
 function TransitTime({ value }: { value: string | null | undefined }) {
   return value ? (

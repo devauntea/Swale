@@ -1,0 +1,45 @@
+.hazard-motion-control {
+  min-block-size: 32px;
+  padding: 6px 9px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-size: 10px;
+  cursor: pointer;
+}
+.hazard-motion-control:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+.hazard-legend {
+  display: grid;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 9px;
+  line-height: 1.6;
+}
+.hazard-legend > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.hazard-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 16px;
+  block-size: 16px;
+  border: 1px solid var(--text-secondary);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font-style: normal;
+}
+.hazard-key.pothole {
+  border-radius: 50%;
+}
+.hazard-key.active {
+  border: 2px solid #b93c4a;
+  border-radius: 50%;
+}

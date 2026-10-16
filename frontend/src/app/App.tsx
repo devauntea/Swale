@@ -3,6 +3,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useEffectEvent,
   useLayoutEffect,
   useMemo,
   useReducer,
@@ -60,6 +61,17 @@ import { buildEntranceDetail } from "../infrastructure/entranceGeometry";
 import { useFloodPlayback } from "../infrastructure/useFloodPlayback";
 import { EntranceExperience } from "../infrastructure/EntranceExperience";
 import { StationEvidence } from "../infrastructure/StationEvidence";
+import { ViewingModes } from "../infrastructure/ViewingModes";
+import { modelTourCamera } from "../infrastructure/tourCamera";
+import { contextSnapshot, snapshotFingerprint } from "./contextSnapshot";
+import type { ContextAction, ContextRequest } from "../contextual/contracts";
+import {
+  MascotCarry,
+  type ProjectedMascotTarget,
+} from "../contextual/MascotCarry";
+import { HazardMotionControl } from "../components/controls/HazardMotionControl";
+import { useHazardMotionPreference } from "../map/useHazardPulse";
+import type { FloodFrame } from "../infrastructure/floodModel";
 import {
   InfrastructureControls,
   InfrastructureInspection,
@@ -162,6 +174,55 @@ function Workspace({
   onSettings: (settings: Required<LocalFixtureOptions>) => void;
 }) {
   const [theme, setTheme] = useTheme();
+  const [hazardPaused, setHazardPaused] = useHazardMotionPreference();
+  const [mascotMovement, setMascotMovement] = useState(() => {
+    try {
+      return localStorage.getItem("swale.mascotMovement") !== "false";
+    } catch {
+      return true;
+    }
+  });
+  const [autoCamera, setAutoCamera] = useState(() => {
+    try {
+      return localStorage.getItem("swale.autoCamera") !== "false";
+    } catch {
+      return true;
+    }
+  });
+  const [mascotProjection, setMascotProjection] =
+    useState<ProjectedMascotTarget | null>(null);
+  const updateMascotProjection = useCallback(
+    (next: ProjectedMascotTarget | null) => {
+      setMascotProjection((previous) =>
+        previous === next ||
+        (previous &&
+          next &&
+          previous.key === next.key &&
+          previous.x === next.x &&
+          previous.y === next.y &&
+          previous.visible === next.visible &&
+          previous.moving === next.moving &&
+          previous.label === next.label)
+          ? previous
+          : next,
+      );
+    },
+    [],
+  );
+  const [manualCamera, setManualCamera] = useState(0);
+  const [mascotDock, setMascotDock] = useState({
+    x: Math.max(100, window.innerWidth - 420),
+    y: Math.max(140, window.innerHeight - 180),
+  });
+  useEffect(() => {
+    const resize = () =>
+      setMascotDock({
+        x: Math.max(100, window.innerWidth - 420),
+        y: Math.max(140, window.innerHeight - 180),
+      });
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
   const [state, dispatch] = useReducer(
     appReducer,
     snapshot,
@@ -176,6 +237,9 @@ function Workspace({
   );
   const transitActive = sourceMode === "backend" && backendView === "transit";
   const [infrastructureOpen, setInfrastructureOpen] = useState(false);
+  const [waterView, setWaterView] = useState<"normal" | "flood_simulation">(
+    "normal",
+  );
   const [infrastructureStationId, setInfrastructureStationId] = useState<
     string | null
   >(null);
@@ -199,7 +263,7 @@ function Workspace({
   const [infrastructureTransitBounds, setInfrastructureTransitBounds] =
     useState<BackendBbox | null>(null);
   const infrastructure = useInfrastructure(
-    infrastructureOpen && transitActive,
+    transitActive && (infrastructureOpen || infrastructureStationId !== null),
     infrastructureStationId,
   );
   const modelHasBackendCrosswalk =
@@ -266,18 +330,22 @@ function Workspace({
     infrastructure.manifest?.stations.find(
       (station) => station.id === infrastructureStationId,
     ) ?? null;
-  const infrastructureBinding = modelStation
-    ? resolveInfrastructureBinding(modelStation, [
-        ...new Map([
-          ...knownTransitStations.map(
-            (station) => [station.id, station] as const,
-          ),
-          ...transit.data.stations.features.map(
-            (station) => [station.id, station] as const,
-          ),
-        ]).values(),
-      ])
-    : null;
+  const infrastructureBinding = useMemo(
+    () =>
+      modelStation
+        ? resolveInfrastructureBinding(modelStation, [
+            ...new Map([
+              ...knownTransitStations.map(
+                (station) => [station.id, station] as const,
+              ),
+              ...transit.data.stations.features.map(
+                (station) => [station.id, station] as const,
+              ),
+            ]).values(),
+          ])
+        : null,
+    [modelStation, knownTransitStations, transit.data.stations.features],
+  );
   const [entranceCatalog, setEntranceCatalog] =
     useState<EntranceCatalog | null>(null);
   const [entranceCatalogStatus, setEntranceCatalogStatus] = useState("idle");
@@ -287,7 +355,6 @@ function Workspace({
     string | null
   >(null);
   const needsEntranceCatalog =
-    infrastructureOpen &&
     transitActive &&
     !!infrastructure.chunk?.primitives.some(
       (primitive) => primitive.kind === "entrance",
@@ -350,10 +417,10 @@ function Workspace({
   );
   const floodPlayback = useFloodPlayback(
     entranceDetail?.floodGeometry ?? null,
-    infrastructureOpen && transitActive,
+    transitActive && !!modelStation,
   );
   const infrastructureMapState: InfrastructureMapState | null =
-    infrastructureOpen && transitActive && modelStation
+    transitActive && modelStation
       ? {
           stationId: modelStation.id,
           chunk: infrastructure.chunk,
@@ -363,20 +430,23 @@ function Workspace({
           selectedPrimitiveId,
           entranceDetail,
           selectedDetailComponentId,
-          entranceScenario: floodPlayback.showScenario
-            ? {
-                frame: floodPlayback.frame,
-                inputs: floodPlayback.inputs,
-                compareBaseline: floodPlayback.compareBaseline,
-                playing: floodPlayback.playing,
-              }
-            : undefined,
+          entranceScenario:
+            waterView === "flood_simulation" && floodPlayback.showScenario
+              ? {
+                  frame: floodPlayback.frame,
+                  inputs: floodPlayback.inputs,
+                  compareBaseline: floodPlayback.compareBaseline,
+                  playing: floodPlayback.playing,
+                }
+              : undefined,
         }
       : null;
   const [transitCamera, setTransitCamera] =
     useState<TransitCameraRequest | null>(null);
   const transitCameraSequence = useRef(0);
-  const enterInfrastructure = (stationId: string | null = null) => {
+  const enterInfrastructure = (
+    stationId: string | null = infrastructureStationId,
+  ) => {
     if (!transitActive) return;
     transit.clearEvidence();
     if (!infrastructureOpen) {
@@ -393,24 +463,17 @@ function Workspace({
       setInfrastructureTransitBounds(bounds);
     }
     setInfrastructureOpen(true);
-    setInfrastructureStationId(stationId);
-    setSelectedPrimitiveId(null);
+    if (stationId !== infrastructureStationId) {
+      setInfrastructureStationId(stationId);
+      setSelectedPrimitiveId(null);
+    }
   };
   const exitInfrastructure = () => {
-    const previous = priorInfrastructureState.current;
     setInfrastructureOpen(false);
-    setInfrastructureStationId(null);
-    setSelectedPrimitiveId(null);
     setInfrastructureCamera({
       kind: "return",
       nonce: ++infrastructureCameraSequence.current,
     });
-    if (previous) {
-      setSelectedStation(previous.station);
-      setSelectedEntrance(previous.entrance);
-      setSelectedZone(previous.zone);
-      setTransitLayers(previous.layers);
-    }
     priorInfrastructureState.current = null;
     refocusInfrastructure.current = true;
   };
@@ -443,11 +506,10 @@ function Workspace({
     if (visible) setSelectedPrimitiveId(id);
   };
   const focusEntranceDetail = (
-    part: "entrance" | "stairwell" | "landing" | "overview",
+    part: "entrance" | "stairwell" | "landing" | "platform" | "overview",
   ) => {
     if (!entranceDetail || !modelStation) return;
     if (part === "overview") {
-      floodPlayback.evidence();
       setInfrastructureCamera({
         kind: "explore",
         stationId: modelStation.id,
@@ -464,34 +526,58 @@ function Workspace({
     setSelectedDetailComponentId(component.id);
     setInfrastructureMode("xray");
     setInfrastructureVisible((previous) => ({ ...previous, entrances: true }));
+    const camera = modelTourCamera(entranceDetail, part, verticalExaggeration);
+    if (!camera) return;
     setInfrastructureCamera({
       kind: "entrance_detail",
-      position: [component.position[0], component.position[1]],
-      elevation: component.position[2] * verticalExaggeration,
-      bearing: entranceDetail.orientationDeg + 175,
-      zoom: part === "entrance" ? 21.8 : 22,
-      pitch: part === "entrance" ? 48 : 57,
+      ...camera,
       nonce: ++infrastructureCameraSequence.current,
     });
   };
   useEffect(() => {
     setSelectedDetailComponentId(null);
-    if (!entranceDetail) return;
+    if (!entranceDetail || !infrastructureOpen || !autoCamera) return;
     setVerticalExaggeration(1);
     setInfrastructureMode("xray");
-    const center = entranceDetail.components.find(
-      (item) => item.kind === "flight",
-    )!.position;
+    const camera = modelTourCamera(entranceDetail, "entrance", 1);
+    if (!camera) return;
     setInfrastructureCamera({
       kind: "entrance_detail",
-      position: [center[0], center[1]],
-      elevation: center[2],
-      bearing: entranceDetail.orientationDeg + 175,
-      zoom: 21.8,
-      pitch: 50,
+      ...camera,
       nonce: ++infrastructureCameraSequence.current,
     });
-  }, [entranceDetail]);
+  }, [entranceDetail, infrastructureOpen, autoCamera]);
+
+  useEffect(() => {
+    if (!selectedPrimitiveId && detailEntrances.length) {
+      const first =
+        detailEntrances.find((entry) => entry.type === "Stair") ??
+        detailEntrances[0];
+      setSelectedPrimitiveId(`entrance_${first.id}`);
+    }
+  }, [detailEntrances, selectedPrimitiveId]);
+
+  const changeWaterView = (next: "normal" | "flood_simulation") => {
+    setWaterView(next);
+    if (next === "normal") floodPlayback.evidence();
+    else
+      floodPlayback.snapshot(
+        floodPlayback.trajectory
+          ? undefined
+          : Math.min(600, floodPlayback.inputs.durationS),
+      );
+  };
+  const prepareWaterSnapshot = useEffectEvent(() => {
+    if (
+      waterView === "flood_simulation" &&
+      entranceDetail &&
+      !floodPlayback.trajectory
+    )
+      floodPlayback.snapshot(Math.min(600, floodPlayback.inputs.durationS));
+  });
+  useEffect(() => {
+    prepareWaterSnapshot();
+  }, [waterView, entranceDetail]);
   const fitInfrastructureEntrances = () => {
     const positions =
       infrastructure.chunk?.primitives
@@ -707,7 +793,13 @@ function Workspace({
       (item) => item.id === id,
     );
     if (!station) return;
-    if (infrastructureOpen) {
+    if (
+      selectedStation?.id === station.id &&
+      !selectedEntrance &&
+      !selectedZone
+    )
+      return;
+    if (infrastructureStationId !== station.properties.gtfs_stop_id) {
       setInfrastructureStationId(station.properties.gtfs_stop_id);
       setSelectedPrimitiveId(null);
     }
@@ -715,7 +807,7 @@ function Workspace({
     setSelectedEntrance(null);
     setSelectedZone(null);
     transit.clearEvidence();
-    if (move) focusTransit(station);
+    if (move && autoCamera) focusTransit(station);
     if (controlsOpen) {
       setControlsOpen(false);
       controlsTrigger.current?.focus({ preventScroll: true });
@@ -822,7 +914,10 @@ function Workspace({
       : null
     : selectedStation;
   const infrastructureInspection =
-    modelStation && infrastructureMapState && infrastructureBinding ? (
+    infrastructureOpen &&
+    modelStation &&
+    infrastructureMapState &&
+    infrastructureBinding ? (
       <>
         <EntranceExperience
           key={modelStation.id}
@@ -845,8 +940,10 @@ function Workspace({
             ...floodPlayback,
             open: () => {
               setVerticalExaggeration(1);
+              setWaterView("flood_simulation");
               floodPlayback.open();
             },
+            evidence: () => {},
           }}
           evidence={
             <StationEvidence
@@ -888,6 +985,13 @@ function Workspace({
         transit.clearEvidence();
         setInfrastructureStationId(id);
         setSelectedPrimitiveId(null);
+        setSelectedStation(
+          [...knownTransitStations, ...transit.data.stations.features].find(
+            (station) => station.properties.gtfs_stop_id === id,
+          ) ?? null,
+        );
+        setSelectedEntrance(null);
+        setSelectedZone(null);
       }}
       onMode={setInfrastructureMode}
       onVisibility={(key) =>
@@ -905,6 +1009,282 @@ function Workspace({
       onRetry={infrastructure.retry}
     />
   );
+  const [lastPausedFrame, setLastPausedFrame] = useState<FloodFrame | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!floodPlayback.playing) setLastPausedFrame(floodPlayback.frame);
+  }, [floodPlayback.playing, floodPlayback.frame]);
+  const briefingSnapshot = useMemo(
+    () =>
+      entranceDetail
+        ? contextSnapshot(
+            entranceDetail.stationId,
+            entranceDetail.entranceId,
+            floodPlayback.inputs,
+            lastPausedFrame,
+          )
+        : undefined,
+    [entranceDetail, floodPlayback.inputs, lastPausedFrame],
+  );
+  const contextualRequest: ContextRequest | null = useMemo(() => {
+    if (sourceMode !== "backend") return null;
+    const common = {
+      water_view: waterView,
+      view_scope: infrastructureOpen
+        ? ("station_exploration" as const)
+        : ("overview" as const),
+    };
+    if (transitActive) {
+      const station =
+        infrastructureBinding?.kind === "supported"
+          ? infrastructureBinding.station
+          : selectedStation;
+      const entrance = selectedEntrance;
+      const id =
+        entrance?.id ??
+        (selectedSourceEntrance
+          ? `model_entrance:${selectedSourceEntrance.id}`
+          : station?.id);
+      if (!id) return null;
+      return {
+        ...common,
+        kind: entrance || selectedSourceEntrance ? "entrance" : "station",
+        id,
+        station_id:
+          station?.id ??
+          (modelStation ? `subway_station:${modelStation.id}` : undefined),
+        state_version: snapshotFingerprint([
+          id,
+          transit.data.stations.sources,
+          transit.data.live.data?.fetched_at,
+          transit.data.live.data?.stations.find(
+            (item) => item.station_id === station?.id,
+          )?.status,
+          transit.data.live.data?.feed_times,
+          transit.data.feedState,
+          waterView,
+          common.view_scope,
+          briefingSnapshot,
+        ]),
+        snapshot: briefingSnapshot,
+      };
+    }
+    if (!backend.detail.id || !backend.detail.kind) return null;
+    return {
+      ...common,
+      kind: backend.detail.kind,
+      id: backend.detail.id,
+      state_version: snapshotFingerprint([
+        backend.detail.id,
+        backend.detail.feature,
+        waterView,
+      ]),
+    };
+  }, [
+    sourceMode,
+    transitActive,
+    infrastructureBinding,
+    selectedStation,
+    selectedEntrance,
+    selectedSourceEntrance,
+    modelStation,
+    infrastructureOpen,
+    waterView,
+    briefingSnapshot,
+    backend.detail,
+    transit.data.stations,
+    transit.data.live.data,
+    transit.data.feedState,
+  ]);
+  const contextualKind = contextualRequest?.kind;
+  const contextualId = contextualRequest?.id;
+  const mascotTarget = useMemo(() => {
+    if (!contextualKind || !contextualId) return null;
+    const position = transitActive
+      ? (selectedEntrance?.geometry?.coordinates ??
+        selectedSourceEntrance?.position ??
+        modelStation?.position ??
+        selectedStation?.geometry?.coordinates)
+      : backend.detail.feature?.geometry?.coordinates;
+    return position
+      ? {
+          key: `${contextualKind}/${contextualId}`,
+          position: [position[0], position[1]] as [number, number],
+          label:
+            modelStation?.name ??
+            selectedStation?.properties.name ??
+            contextualId,
+        }
+      : null;
+  }, [
+    contextualKind,
+    contextualId,
+    transitActive,
+    selectedEntrance,
+    selectedSourceEntrance,
+    modelStation,
+    selectedStation,
+    backend.detail.feature,
+  ]);
+  const contextualAction = (action: ContextAction) => {
+    switch (action.type) {
+      case "set_view":
+        if (action.view_scope === "overview") exitInfrastructure();
+        else if (modelStation || selectedStation)
+          enterInfrastructure(
+            modelStation?.id ?? selectedStation!.properties.gtfs_stop_id,
+          );
+        else throw new Error("This selection has no supported station model.");
+        return;
+      case "set_water_view":
+        changeWaterView(action.water_view);
+        return;
+      case "seek_simulation":
+        if (
+          !entranceDetail ||
+          action.elapsed_seconds > floodPlayback.inputs.durationS
+        )
+          throw new Error("Requested time is outside this selected scenario.");
+        setWaterView("flood_simulation");
+        floodPlayback.snapshot(action.elapsed_seconds);
+        return;
+      case "select_station": {
+        const station = [
+          ...knownTransitStations,
+          ...transit.data.stations.features,
+        ].find((item) => item.id === action.station_id);
+        if (!station)
+          throw new Error("Station is outside the loaded inventory.");
+        setSelectedStation(station);
+        setSelectedEntrance(null);
+        setSelectedZone(null);
+        setInfrastructureStationId(station.properties.gtfs_stop_id);
+        setSelectedPrimitiveId(null);
+        if (autoCamera) focusTransit(station);
+        return;
+      }
+      case "set_layers":
+        if (
+          transitActive &&
+          Object.keys(action.layers).some((key) => key !== "buildings")
+        )
+          throw new Error(
+            "Those layers belong to the snapshot records view. Choose Snapshot records to change them.",
+          );
+        setBackendLayers((previous) => ({ ...previous, ...action.layers }));
+        return;
+      case "highlight":
+        if (
+          action.ids.length !== 1 ||
+          (!backend.data.basins.features.some(
+            (item) => item.id === action.ids[0],
+          ) &&
+            !backend.data.incidents.features.some(
+              (item) => item.id === action.ids[0],
+            ))
+        )
+          throw new Error("Highlight requires one loaded evidence record.");
+        backend.select(
+          backend.data.basins.features.some((item) => item.id === action.ids[0])
+            ? "basin"
+            : "incident",
+          action.ids[0],
+        );
+        return;
+      case "fly_to":
+        if (action.target_id !== contextualRequest?.id)
+          throw new Error(
+            "Camera target differs from the current validated subject.",
+          );
+        if (transitActive) focusTransit(selectedEntrance ?? selectedStation);
+        else if (backend.detail.feature?.geometry)
+          setBackendFocus({
+            position: backend.detail.feature.geometry.coordinates as [
+              number,
+              number,
+            ],
+            nonce: ++backendFocusSequence.current,
+          });
+        return;
+      case "play_briefing":
+      case "stop_audio":
+        return;
+    }
+  };
+  const contextualActions = (actions: ContextAction[]) => {
+    if (actions.length > 8)
+      throw new Error("Too many actions in one response.");
+    const stations = [
+      ...knownTransitStations,
+      ...transit.data.stations.features,
+    ];
+    const selectedIds = new Set(
+      actions
+        .filter((action) => action.type === "select_station")
+        .map((action) => action.station_id),
+    );
+    if (selectedIds.size > 1)
+      throw new Error("One response cannot select multiple stations.");
+    const requestedStationId = [...selectedIds][0];
+    const destination = requestedStationId
+      ? (stations.find((station) => station.id === requestedStationId) ?? null)
+      : selectedStation;
+    if (requestedStationId && !destination)
+      throw new Error("Requested station is outside the loaded inventory.");
+    for (const action of actions) {
+      if (
+        action.type === "set_view" &&
+        action.view_scope === "station_exploration" &&
+        !modelStation &&
+        !destination
+      )
+        throw new Error("Select a supported station first.");
+      if (
+        action.type === "seek_simulation" &&
+        (!entranceDetail ||
+          (destination &&
+            destination.properties.gtfs_stop_id !== entranceDetail.stationId) ||
+          action.elapsed_seconds > floodPlayback.inputs.durationS)
+      )
+        throw new Error(
+          "Load the selected station scenario before seeking it.",
+        );
+      if (
+        action.type === "set_layers" &&
+        transitActive &&
+        Object.keys(action.layers).some((key) => key !== "buildings")
+      )
+        throw new Error("Requested layers are outside the active view.");
+      if (
+        action.type === "highlight" &&
+        (action.ids.length !== 1 ||
+          ![
+            ...backend.data.basins.features,
+            ...backend.data.incidents.features,
+          ].some((feature) => feature.id === action.ids[0]))
+      )
+        throw new Error("Highlight target is outside the loaded evidence.");
+      if (
+        action.type === "fly_to" &&
+        action.target_id !== contextualRequest?.id &&
+        action.target_id !== destination?.id
+      )
+        throw new Error("Camera target is not the validated subject.");
+    }
+    for (const action of actions) {
+      if (
+        action.type === "set_view" &&
+        action.view_scope === "station_exploration"
+      )
+        enterInfrastructure(
+          destination?.properties.gtfs_stop_id ?? modelStation!.id,
+        );
+      else if (action.type === "fly_to" && action.target_id === destination?.id)
+        focusTransit(destination);
+      else contextualAction(action);
+    }
+  };
   return (
     // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape is delegated from descendant controls; the landmark has no activation behavior.
     <main
@@ -935,10 +1315,29 @@ function Workspace({
           }
         >
           <SwaleMap
+            mascotTarget={mascotTarget}
+            onMascotProjection={updateMascotProjection}
+            onManualCamera={() => setManualCamera((value) => value + 1)}
+            hazardPaused={hazardPaused}
             theme={theme}
             snapshot={snapshot}
             scenarioId={state.scenarioId}
-            layers={sourceMode === "backend" ? backendLayers : state.layers}
+            layers={
+              sourceMode === "backend"
+                ? {
+                    ...backendLayers,
+                    buildings: !infrastructureOpen && backendLayers.buildings,
+                    floodZones:
+                      waterView === "flood_simulation" &&
+                      backendLayers.floodZones,
+                  }
+                : {
+                    ...state.layers,
+                    floodZones:
+                      waterView === "flood_simulation" &&
+                      state.layers.floodZones,
+                  }
+            }
             selectedBasinId={
               sourceMode === "fixture" ? state.selectedBasinId : null
             }
@@ -969,6 +1368,25 @@ function Workspace({
           />
         </Suspense>
       </MapErrorBoundary>
+      <ViewingModes
+        exploring={infrastructureOpen}
+        waterView={waterView}
+        onWaterView={changeWaterView}
+        stationName={modelStation?.name}
+        routes={modelStation?.routes}
+        hasDetail={!!entranceDetail}
+        hasPlatform={entranceDetail?.components.some(
+          (component) => component.kind === "platform",
+        )}
+        playback={floodPlayback}
+        onExplore={
+          transitActive && selectedStation
+            ? () => enterInfrastructure(selectedStation.properties.gtfs_stop_id)
+            : undefined
+        }
+        onReturn={exitInfrastructure}
+        onViewpoint={focusEntranceDetail}
+      />
       <button
         className="mobile-controls-toggle"
         ref={controlsTrigger}
@@ -993,6 +1411,12 @@ function Workspace({
           <span>Stormwater planning</span>
         </div>
         <div className="workspace-actions">
+          {sourceMode === "backend" && !transitActive && (
+            <HazardMotionControl
+              paused={hazardPaused}
+              onChange={setHazardPaused}
+            />
+          )}
           <span className="workspace-readiness" role="status">
             <i className={mapReady ? "ready" : ""} />
             {mapFailed
@@ -1031,7 +1455,9 @@ function Workspace({
             onFitEntrances={
               infrastructureSelected ? fitInfrastructureEntrances : fitEntrances
             }
-            onOverview={transitOverview}
+            onOverview={
+              infrastructureOpen ? exitInfrastructure : transitOverview
+            }
             onLayer={(key) =>
               setTransitLayers((current) => ({
                 ...current,
@@ -1139,10 +1565,12 @@ function Workspace({
                 clearEvidence={transit.clearEvidence}
                 onExploreInfrastructure={
                   inspectedStation
-                    ? () =>
+                    ? (view) => {
+                        if (view) changeWaterView(view);
                         enterInfrastructure(
                           inspectedStation.properties.gtfs_stop_id,
-                        )
+                        );
+                      }
                     : undefined
                 }
                 infrastructureInspection={infrastructureInspection}
@@ -1258,6 +1686,33 @@ function Workspace({
           />
         ))}
       <AssistantPanel
+        contextual={
+          sourceMode === "backend"
+            ? {
+                context: contextualRequest,
+                onAction: contextualAction,
+                onActions: contextualActions,
+                movementEnabled: mascotMovement,
+                onMovementChange: (value) => {
+                  setMascotMovement(value);
+                  try {
+                    localStorage.setItem("swale.mascotMovement", String(value));
+                  } catch {
+                    /* Session preference only. */
+                  }
+                },
+                autoCamera,
+                onAutoCameraChange: (value) => {
+                  setAutoCamera(value);
+                  try {
+                    localStorage.setItem("swale.autoCamera", String(value));
+                  } catch {
+                    /* Session preference only. */
+                  }
+                },
+              }
+            : undefined
+        }
         open={assistantOpen}
         dataMode={sourceMode}
         snapshot={snapshot}
@@ -1272,6 +1727,16 @@ function Workspace({
           onQueueSelect(id);
         }}
       />
+      {sourceMode === "backend" && (
+        <MascotCarry
+          expression={mascotExpression}
+          selectionKey={mascotTarget?.key ?? null}
+          target={mascotProjection}
+          dock={mascotDock}
+          interrupted={manualCamera}
+          movementEnabled={mascotMovement}
+        />
+      )}
       <button
         className={`assistant-launcher ${assistantOpen ? "is-open" : ""}`}
         ref={assistantTrigger}
@@ -1290,14 +1755,18 @@ function Workspace({
         }
       >
         <span className="launcher-symbol">
-          <SwaleMascot expression={mascotExpression} />
+          {sourceMode === "fixture" && !assistantOpen ? (
+            <SwaleMascot expression={mascotExpression} />
+          ) : (
+            <Icon name="chat" size={24} />
+          )}
         </span>
         <span>
           <strong>Swale Assistant</strong>
           <small>
             {sourceMode === "fixture"
               ? "Scripted demonstration"
-              : "Fixture actions unavailable"}
+              : "Evidence and model agent"}
           </small>
         </span>
         <span className="demo-label">DEMO</span>

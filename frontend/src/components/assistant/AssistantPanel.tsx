@@ -7,10 +7,15 @@ import type {
 } from "../../types";
 import { Icon } from "../controls/Icon";
 import { fixtureTime } from "../../app/format";
-import { SwaleMascot, type MascotExpression } from "./SwaleMascot";
+import type { MascotExpression } from "./SwaleMascot";
 import "./assistant.css";
+import {
+  ContextualAssistantPanel,
+  type ContextualAssistantProps,
+} from "../../contextual/ContextualAssistantPanel";
 
 interface Props {
+  contextual?: ContextualAssistantProps;
   dataMode?: "fixture" | "backend";
   open: boolean;
   snapshot: DemoSnapshot;
@@ -29,7 +34,9 @@ const initialMessage: AssistantMessage = {
   text: "Explore the local demonstration. I can switch scenarios, highlight example basins, and show complaint examples. Responses use local fixtures; no AI query is sent.",
 };
 export function AssistantPanel(p: Props) {
-  const { open, onSubmit, onExpressionChange } = p;
+  const { onSubmit } = p;
+  const open = p.open && !p.contextual;
+  const onExpressionChange = p.contextual ? undefined : p.onExpressionChange;
   const dataMode = p.dataMode ?? "fixture";
   const dataModeRef = useRef(dataMode);
   const [messages, setMessages] = useState<AssistantMessage[]>([
@@ -179,6 +186,15 @@ export function AssistantPanel(p: Props) {
     ["Gowanus complaints", "Show recent flooding complaints near Gowanus"],
     ["Is this drain blocked?", "Is this drain blocked?"],
   ];
+  if (p.contextual)
+    return (
+      <ContextualAssistantPanel
+        {...p.contextual}
+        open={p.open}
+        onClose={p.onClose}
+        onExpressionChange={p.onExpressionChange}
+      />
+    );
   return (
     // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape closes the region from its descendant controls; the region itself is not interactive.
     <section
@@ -195,7 +211,7 @@ export function AssistantPanel(p: Props) {
     >
       <header className="assistant-header">
         <span className="assistant-symbol">
-          <SwaleMascot expression={expression} />
+          <Icon name="sparkle" size={24} />
         </span>
         <div>
           <h2 id="assistant-title">Swale assistant</h2>

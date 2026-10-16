@@ -40,7 +40,11 @@ export function useFloodPlayback(
     setCompareBaseline(false);
     setError("");
     setResultIdentity(identity);
-  }, [identity, active]);
+  }, [identity]);
+
+  useEffect(() => {
+    if (!active) setPlaying(false);
+  }, [active]);
 
   useEffect(() => {
     const hide = () => {
@@ -96,6 +100,25 @@ export function useFloodPlayback(
     open: () => {
       setShowScenario(true);
       setCompareBaseline(false);
+    },
+    snapshot: (requestedTime?: number) => {
+      if (!geometry || !active) return;
+      try {
+        const next = current ?? simulateFloodScenario(geometry, inputs);
+        setTrajectory(next);
+        setResultIdentity(identity);
+        setTimeS(
+          Math.max(0, Math.min(next.inputs.durationS, requestedTime ?? timeS)),
+        );
+        setPlaying(false);
+        setShowScenario(true);
+        setCompareBaseline(false);
+        setError("");
+      } catch (cause) {
+        setError(
+          cause instanceof Error ? cause.message : "Local calculation failed.",
+        );
+      }
     },
     evidence: () => {
       setPlaying(false);

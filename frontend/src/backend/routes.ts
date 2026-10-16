@@ -3,8 +3,7 @@ export function isApprovedBackendRequest(
   method: string,
   path: string,
 ): boolean {
-  if (method !== "GET" || !path.startsWith("/api/v1/") || path.includes("#"))
-    return false;
+  if (!path.startsWith("/api/v1/") || path.includes("#")) return false;
   try {
     const url = new URL(path, "http://swale.local");
     if (url.origin !== "http://swale.local") return false;
@@ -17,6 +16,16 @@ export function isApprovedBackendRequest(
     )
       return false;
     const route = decoded.slice("/api/v1/".length);
+    // Contextual writes are explicit user requests with server-side provider and
+    // budget gates. No other legacy/admin mutation is exposed by this proxy.
+    const contextual =
+      method === "POST"
+        ? /^(?:context\/(?:agent|briefings)|context\/briefings\/[a-f0-9]{32}\/(?:translations|audio))$/
+        : method === "GET"
+          ? /^context\/(?:capabilities|briefings\/[a-f0-9]{32}(?:\/audio)?)$/
+          : null;
+    if (contextual?.test(route)) return url.search === "";
+    if (method !== "GET") return false;
     const keys: Record<string, readonly string[]> = {
       health: [],
       layers: [],

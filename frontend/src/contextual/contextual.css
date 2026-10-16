@@ -1,0 +1,156 @@
+.mascot-travel {
+  position: absolute;
+  inset: 0 auto auto 0;
+  inline-size: 88px;
+  block-size: 104px;
+  z-index: 7;
+  pointer-events: none;
+  will-change: transform;
+}
+.mascot-carried-character {
+  position: absolute;
+  inset: 0;
+}
+.mascot-carry-hand {
+  position: absolute;
+  inline-size: 56px;
+  block-size: 72px;
+  inset-inline-start: -25px;
+  inset-block-start: 9px;
+  /* Finger/thumb pinch (65,70) maps to (16,54), the blue hood-side loop.
+     Rotate around this shared grip point so attached transport cannot drift. */
+  transform-origin: 41px 45px;
+}
+.mascot-docked-caption {
+  position: absolute;
+  inset-block-end: 105px;
+  inset-inline-end: 0;
+  inline-size: 150px;
+  padding: 5px 8px;
+  font-size: 10px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+.context-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  border-block-end: 1px solid var(--border);
+  font-size: 11px;
+}
+.context-toolbar label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+}
+.context-toolbar select {
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-inline-size: 135px;
+  padding: 5px;
+}
+.context-identity {
+  padding: 9px 15px;
+  background: var(--surface-elevated);
+  border-block-end: 1px solid var(--border);
+  font-size: 10px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.context-identity strong {
+  display: block;
+}
+.assistant-panel.contextual-panel {
+  /* Voice controls and evidence can exceed a compact desktop's available
+     height. Keep one scrollable flow through the composer instead of clipping
+     fixed controls or squeezing them below their readable content size. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.contextual-panel > * {
+  flex-shrink: 0;
+}
+.contextual-panel .assistant-header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+}
+.contextual-panel .chat-log {
+  flex: 1 0 auto;
+  padding-block-start: 12px;
+  overflow: visible;
+}
+.contextual-panel details {
+  margin-block: 10px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.contextual-panel details p {
+  margin-block: 5px;
+  overflow-wrap: anywhere;
+}
+.contextual-panel .context-warning {
+  font-size: 10px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-block: 8px;
+}
+.context-audio {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-block: 10px;
+}
+.context-audio button,
+.context-action {
+  color: var(--accent);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 7px 9px;
+  font-size: 10px;
+}
+.context-audio button:disabled,
+.context-action:disabled {
+  opacity: 0.55;
+}
+.context-audio span {
+  inline-size: 100%;
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+.context-source {
+  font-size: 9px;
+  letter-spacing: 0.4px;
+  color: var(--text-secondary);
+}
+.contextual-panel .assistant-symbol {
+  display: grid;
+  place-items: center;
+  inline-size: 34px;
+  block-size: 34px;
+  color: var(--accent);
+}
+.contextual-panel .chat-suggestions {
+  max-block-size: none;
+  overflow: visible;
+}
+.contextual-panel :is(select, input):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mascot-travel {
+    will-change: auto;
+  }
+}

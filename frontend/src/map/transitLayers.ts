@@ -16,6 +16,11 @@ import type {
   TransitStation,
 } from "../backend/transitContracts";
 import { MAP_THEMES } from "./presentation";
+import {
+  serviceColor,
+  serviceTextColor,
+  uniqueServices,
+} from "./servicePalette";
 
 export type TransitPickKind = "station" | "entrance" | "zone";
 export interface TransitMapTooltip {
@@ -32,6 +37,37 @@ export interface TransitMapSelection {
 }
 type Ordered = { beforeId?: string };
 type ZonePolygon = { zone: TransitDangerZone; polygon: Coordinate[][] };
+
+export function stationServiceIcon(station: TransitStation, theme: Theme) {
+  const routes = uniqueServices(station.properties.routes);
+  const columns = Math.max(1, Math.min(5, routes.length));
+  const rows = Math.max(1, Math.ceil(routes.length / columns));
+  const escape = (value: string) =>
+    value
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll('"', "&quot;");
+  const symbols = routes
+    .map((route, index) => {
+      const x = (index % columns) * 24 + 12;
+      const y = Math.floor(index / columns) * 24 + 12;
+      const fill =
+        serviceColor(route) ?? (theme === "dark" ? "#102039" : "#FFFFFF");
+      const text = serviceColor(route)
+        ? serviceTextColor(route)
+        : theme === "dark"
+          ? "#FFFFFF"
+          : "#10254B";
+      return `<circle cx="${x}" cy="${y}" r="10" fill="${fill}" stroke="${theme === "dark" ? "#D9E7F7" : "#10254B"}" stroke-width="1"/><text x="${x}" y="${y + 4}" text-anchor="middle" fill="${text}" font-family="system-ui,sans-serif" font-size="10" font-weight="700">${escape(route)}</text>`;
+    })
+    .join("");
+  return {
+    url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${columns * 24}" height="${rows * 24}" viewBox="0 0 ${columns * 24} ${rows * 24}">${symbols}</svg>`)}`,
+    width: columns * 24,
+    height: rows * 24,
+    mask: false as const,
+  };
+}
 
 function hasFinitePoint(
   feature: TransitStation | TransitEntrance | TransitExposure,
@@ -270,6 +306,26 @@ export function transitMapLayers(
         onPick("station", info.object.id);
         return true;
       },
+    }),
+  );
+  layers.push(
+    new IconLayer<TransitStation, Ordered>({
+      id: "swale-transit-service-badges",
+      beforeId,
+      data: data.stations.features.filter(hasFinitePoint),
+      visible: visibility.stations,
+      pickable: false,
+      getPosition: (station) => station.geometry!.coordinates as Coordinate,
+      getIcon: (station) => stationServiceIcon(station, theme),
+      getSize: (station) =>
+        Math.max(
+          1,
+          Math.ceil(uniqueServices(station.properties.routes).length / 5),
+        ) * 22,
+      getPixelOffset: [0, 24],
+      sizeUnits: "pixels",
+      updateTriggers: { getIcon: [theme] },
+      parameters: { depthCompare: "always", depthWriteEnabled: false },
     }),
   );
   return layers;

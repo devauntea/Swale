@@ -11,6 +11,7 @@ import type {
 import type { LayerVisibility } from "../../types";
 import { displayNumber, formatTime } from "../../app/format";
 import { Icon, type IconName } from "../controls/Icon";
+import { HazardLegend } from "../controls/HazardMotionControl";
 import "./backend.css";
 
 export type BackendLayerKey = "basins" | "complaints" | "buildings";
@@ -156,11 +157,12 @@ export function BackendSidebar(p: {
         <section className="backend-section backend-unavailable">
           <h2>OUTSIDE THIS CONNECTED VIEW</h2>
           <p>
-            Fixture scenarios, synthetic flood polygons, inspection priorities
-            and assistant data commands are unavailable in this snapshot view.
-            Subway monitoring provides separately labelled transit, weather and
-            flood context. The fixture demonstration keeps its authored
-            examples.
+            Fixture scenarios, synthetic flood polygons and fixture inspection
+            priorities are unavailable in this snapshot view. The contextual
+            assistant uses selected source evidence and explicit provider
+            controls. Subway monitoring provides separately labelled transit,
+            weather and flood context. The fixture demonstration keeps its
+            authored examples.
           </p>
           <p>
             Advertised backend capabilities do not enable additional actions.
@@ -924,6 +926,7 @@ export function BackendLegend({
             <br />
             Source fetch times and limitations: Sources & freshness
           </p>
+          {layers.complaints && <HazardLegend />}
         </div>
       )}
     </section>
