@@ -17,7 +17,7 @@ from swale.ingest.taxonomy_311 import CATEGORY_LABELS
 router = APIRouter()
 
 
-AVAILABLE = {"catch_basins", "incidents", "sensors", "flood_observations"}
+AVAILABLE = {"catch_basins", "incidents", "sensors", "flood_observations", "simulation_results", "risk_rankings"}
 
 
 def _layer(id: str, title: str, kt: str, geom: str, endpoint: str, milestone: str, filters: list[str], attribution: str, **extra: Any) -> dict[str, Any]:

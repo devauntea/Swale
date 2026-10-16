@@ -55,7 +55,8 @@ def test_layers_list_available_and_planned_layers(client):
     layers = {layer["id"]: layer for layer in client.get("/api/v1/layers").json()["layers"]}
     assert layers["catch_basins"]["available"] and layers["catch_basins"]["knowledge_type"] == "observed"
     assert layers["incidents"]["available"] and layers["incidents"]["knowledge_type"] == "reported"
-    assert not layers["risk_rankings"]["available"] and layers["risk_rankings"]["knowledge_type"] == "inferred"
+    assert layers["risk_rankings"]["available"] and layers["risk_rankings"]["knowledge_type"] == "inferred"
+    assert not layers["dep_flood_maps"]["available"]
     assert any(c["id"] == "catch_basin_clogged" for c in layers["incidents"]["categories"])
 
 
