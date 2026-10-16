@@ -208,3 +208,22 @@ DEFINE FIELD OVERWRITE knowledge_type      ON flood_result TYPE string ASSERT $v
 DEFINE FIELD OVERWRITE generated_at        ON flood_result TYPE datetime;
 DEFINE INDEX OVERWRITE flood_result_run    ON flood_result FIELDS run;
 DEFINE INDEX OVERWRITE flood_result_basin  ON flood_result FIELDS basin;
+
+-- AI briefings (inferred; always stored with the evidence pack they were written from) ----------
+DEFINE TABLE OVERWRITE ai_briefing SCHEMAFULL;
+DEFINE FIELD OVERWRITE bbox           ON ai_briefing TYPE array<float>;
+DEFINE FIELD OVERWRITE run_id         ON ai_briefing TYPE option<string>;
+DEFINE FIELD OVERWRITE pack           ON ai_briefing FLEXIBLE TYPE object;
+DEFINE FIELD OVERWRITE pack_hash      ON ai_briefing TYPE string;
+DEFINE FIELD OVERWRITE briefing       ON ai_briefing FLEXIBLE TYPE object;
+DEFINE FIELD OVERWRITE source         ON ai_briefing TYPE string ASSERT $value IN ['llm', 'template'];
+DEFINE FIELD OVERWRITE model          ON ai_briefing TYPE option<string>;
+DEFINE FIELD OVERWRITE prompt_version ON ai_briefing TYPE string;
+DEFINE FIELD OVERWRITE checks         ON ai_briefing TYPE array<string>;
+DEFINE FIELD OVERWRITE error          ON ai_briefing TYPE option<string>;
+DEFINE FIELD OVERWRITE trace_id       ON ai_briefing TYPE option<string>;
+DEFINE FIELD OVERWRITE spoken_text    ON ai_briefing TYPE string;
+DEFINE FIELD OVERWRITE audio_file     ON ai_briefing TYPE option<string>;
+DEFINE FIELD OVERWRITE audio_error    ON ai_briefing TYPE option<string>;
+DEFINE FIELD OVERWRITE knowledge_type ON ai_briefing TYPE string ASSERT $value = 'inferred';
+DEFINE FIELD OVERWRITE created_at     ON ai_briefing TYPE datetime;

@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Swale backend: Brooklyn flood-intelligence data pipelines, simulation and API"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "anthropic[bedrock]>=1.15.0",
+    "arize-otel>=0.14.1",
     "daytona>=0.224.1",
     "fastapi>=0.143.2",
     "httpx>=0.28.1",
