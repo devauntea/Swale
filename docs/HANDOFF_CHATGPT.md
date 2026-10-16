@@ -76,9 +76,14 @@ Base: `/api/v1`. All `GET`s take `bbox` and `limit` (max 5000) unless noted.
 | Run a storm | `POST /simulation-runs` with `{"scenario_id":"…","runner":"local"\|"daytona","params":{"blockage_factor":0.5}}` | Returns `202 {id, status:"queued"}` |
 | Run status | `GET /simulation-runs/{id}` | Poll every ~1.5 s until `status` is `succeeded`, `failed` or `timed_out`. Then show `summary`: `basins_flooded`, `deep`, `total_flood_volume_ft3`, `engine`. |
 | Flood result layer | `GET /simulation-runs/{id}/results?bbox=…` | `predicted`. Size by `flood_volume_ft3`; color by `risk_class` (`minor`, `nuisance`, `deep`). |
-| Inspection priorities | `GET /risk-rankings?bbox=-74.01995,40.66457,-73.97962,40.69255&limit=10&run_id={id}` | `inferred`. `rank`, `score`, `tier`, and `factors[]` with `explanation` and `evidence_ids` |
+| Inspection priorities | `GET /risk-rankings?bbox=-74.01995,40.66457,-73.97962,40.69255&limit=10&run_id={id}` | `inferred`, method `risk-v2`. `rank`, `score`, `tier`, `factors[]` with `explanation` and `evidence_ids`, and `adjustments[]` |
 | Crew briefing | `POST /briefings` with `{"bbox":"…","run_id":"…","top_n":5,"audio":true}` | `briefing.headline`, `briefing.stops[]`, `briefing.caveat`, `links.audio` (mp3 URL or null), `source` (`llm` or `template`) |
 | Evidence drill-down | `GET /incidents/{id}`, `GET /flood-observations/{id}` | For any `evidence_id` |
+| Live weather | `GET /weather/now?area_id=BK0601&hours=24` | `observation` (observed), `forecast.hours[]` (predicted), `alerts[]`. Cached 10 min. |
+| DEP flood map | `GET /flood-maps?bbox=…&scenario=dep_moderate_current` | `predicted` Polygons from NYC DEP. Color by `depth_class` (`nuisance`, `deep`); label "NYC DEP model". |
+| Swale vs DEP | `GET /simulation-runs/{id}/compare-dep` | Only for the 2.13 in/hr run. `agreement_pct` and `counts` |
+| Log an inspection | `POST /inspections` with `{"basin_id":"catch_basin:…","result":"debris_found"\|"cleaned"\|"clear"\|"damaged"\|"not_found","notes":"…"}` | `observed`. Re-fetch `/risk-rankings` afterwards: debris raises the basin, a recent clean halves its score. |
+| Ranking validation | `GET /risk-rankings/validation?cutoff=2025-10-01` | Precision and lift of the ranking on the following year's real outcomes |
 | Status bar | `GET /health` | `sources[].stale`, `sources[].fetched_at`, and `integrations` (which keys are configured) |
 
 **The demo moment, "What if DEP clears the basins it found clogged?"** Run the same storm twice, with `params.blockage_factor` set to `0.5` and then `0`. Compare `summary.deep` and `summary.total_flood_volume_ft3`. On the 2.13 in/hr storm, clearing the 38 flagged basins gives **11 fewer deep-flooding basins and 57,216 ft³ less street flooding** (model prediction). Both runs take about 9 s together.

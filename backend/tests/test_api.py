@@ -56,7 +56,7 @@ def test_layers_list_available_and_planned_layers(client):
     assert layers["catch_basins"]["available"] and layers["catch_basins"]["knowledge_type"] == "observed"
     assert layers["incidents"]["available"] and layers["incidents"]["knowledge_type"] == "reported"
     assert layers["risk_rankings"]["available"] and layers["risk_rankings"]["knowledge_type"] == "inferred"
-    assert not layers["dep_flood_maps"]["available"]
+    assert layers["dep_flood_maps"]["available"] and layers["dep_flood_maps"]["knowledge_type"] == "predicted"
     assert any(c["id"] == "catch_basin_clogged" for c in layers["incidents"]["categories"])
 
 

@@ -31,7 +31,7 @@ def app():
 
 def test_weights_sum_to_one():
     assert round(sum(f.weight for f in FACTORS), 6) == 1.0
-    assert methodology()["method_version"] == "risk-v1"
+    assert methodology()["method_version"] == "risk-v2"
 
 
 def test_rank_is_sorted_explained_and_backed_by_real_evidence(app):
@@ -40,7 +40,10 @@ def test_rank_is_sorted_explained_and_backed_by_real_evidence(app):
     items = out["items"]
     assert items and [it["score"] for it in items] == sorted((it["score"] for it in items), reverse=True)
     for it in items:
-        assert abs(sum(f["contribution"] for f in it["factors"]) - it["score"]) < 0.2
+        mult = 1.0
+        for adj in it["adjustments"]:
+            mult *= adj["multiplier"]
+        assert abs(sum(f["contribution"] for f in it["factors"]) * mult - it["score"]) < 0.2
         assert {m["id"] for m in it["missing_factors"]} >= {"predicted_flooding"}
         for f in it["factors"]:
             for evidence_id in f["evidence_ids"]:
@@ -64,7 +67,7 @@ def test_api_returns_inferred_features_and_methodology(app):
     body = client.get("/api/v1/risk-rankings", params={"bbox": ",".join(map(str, bundle.bbox.as_list())), "limit": 10}).json()
     assert body["meta"]["layer"] == "risk_rankings" and body["meta"]["ranked"] >= len(body["features"])
     props = body["features"][0]["properties"]
-    assert props["knowledge_type"] == "inferred" and props["rank"] == 1 and props["method_version"] == "risk-v1"
+    assert props["knowledge_type"] == "inferred" and props["rank"] == 1 and props["method_version"] == "risk-v2"
     assert client.get("/api/v1/risk-rankings/methodology").json()["factors"][0]["id"] == "confirmed_obstruction_history"
     missing = client.get("/api/v1/risk-rankings", params={"bbox": ",".join(map(str, bundle.bbox.as_list())), "run_id": "simulation_run:nope"})
     assert missing.status_code == 404

@@ -9,6 +9,7 @@ dependencies = [
     "daytona>=0.224.1",
     "fastapi>=0.143.2",
     "httpx>=0.28.1",
+    "pyogrio>=0.13.0",
     "pyproj>=3.8.0",
     "shapely>=2.2.0",
     "surrealdb==2.0.0",

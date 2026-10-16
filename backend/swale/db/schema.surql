@@ -227,3 +227,38 @@ DEFINE FIELD OVERWRITE audio_file     ON ai_briefing TYPE option<string>;
 DEFINE FIELD OVERWRITE audio_error    ON ai_briefing TYPE option<string>;
 DEFINE FIELD OVERWRITE knowledge_type ON ai_briefing TYPE string ASSERT $value = 'inferred';
 DEFINE FIELD OVERWRITE created_at     ON ai_briefing TYPE datetime;
+
+-- DEP stormwater flood maps (predicted, external model), clipped to each area -------------------
+DEFINE TABLE OVERWRITE flood_map_feature SCHEMAFULL;
+DEFINE FIELD OVERWRITE area_id         ON flood_map_feature TYPE string;
+DEFINE FIELD OVERWRITE scenario_code   ON flood_map_feature TYPE string;
+DEFINE FIELD OVERWRITE scenario_label  ON flood_map_feature TYPE string;
+DEFINE FIELD OVERWRITE intensity_in_hr ON flood_map_feature TYPE float;
+DEFINE FIELD OVERWRITE sea_level       ON flood_map_feature TYPE string;
+DEFINE FIELD OVERWRITE category        ON flood_map_feature TYPE int;
+DEFINE FIELD OVERWRITE depth_class     ON flood_map_feature TYPE string;
+DEFINE FIELD OVERWRITE area_ft2        ON flood_map_feature TYPE float;
+DEFINE FIELD OVERWRITE geom            ON flood_map_feature TYPE geometry<polygon>;
+DEFINE FIELD OVERWRITE bbox_w          ON flood_map_feature TYPE float;
+DEFINE FIELD OVERWRITE bbox_s          ON flood_map_feature TYPE float;
+DEFINE FIELD OVERWRITE bbox_e          ON flood_map_feature TYPE float;
+DEFINE FIELD OVERWRITE bbox_n          ON flood_map_feature TYPE float;
+DEFINE FIELD OVERWRITE knowledge_type  ON flood_map_feature TYPE string ASSERT $value = 'predicted';
+DEFINE FIELD OVERWRITE source          ON flood_map_feature TYPE record<data_source>;
+DEFINE FIELD OVERWRITE source_url      ON flood_map_feature TYPE string;
+DEFINE FIELD OVERWRITE ingested_at     ON flood_map_feature TYPE datetime;
+DEFINE INDEX OVERWRITE flood_map_feature_scenario ON flood_map_feature FIELDS scenario_code;
+
+-- Field inspections entered by crews (observed: a person looked at the basin) -------------------
+DEFINE TABLE OVERWRITE inspection SCHEMAFULL;
+DEFINE FIELD OVERWRITE basin          ON inspection TYPE record<catch_basin>;
+DEFINE FIELD OVERWRITE basin_key      ON inspection TYPE string;
+DEFINE FIELD OVERWRITE inspected_at   ON inspection TYPE datetime;
+DEFINE FIELD OVERWRITE result         ON inspection TYPE string ASSERT $value IN ['clear', 'debris_found', 'cleaned', 'damaged', 'not_found'];
+DEFINE FIELD OVERWRITE notes          ON inspection TYPE option<string>;
+DEFINE FIELD OVERWRITE inspector      ON inspection TYPE option<string>;
+DEFINE FIELD OVERWRITE entered_at     ON inspection TYPE datetime;
+DEFINE FIELD OVERWRITE knowledge_type ON inspection TYPE string ASSERT $value = 'observed';
+DEFINE FIELD OVERWRITE source         ON inspection TYPE string ASSERT $value = 'swale_field_entry';
+DEFINE INDEX OVERWRITE inspection_basin_key ON inspection FIELDS basin_key;
+DEFINE INDEX OVERWRITE inspection_at        ON inspection FIELDS inspected_at;

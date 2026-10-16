@@ -54,7 +54,7 @@ def risk_rankings(
                 "layer": "risk_rankings", "knowledge_type": "inferred", "basin_id": str(b["id"]), "unitid": b["unitid"],
                 "area_ids": b["area_ids"], "rank": item["rank"], "score": item["score"], "tier": item["tier"],
                 "method_version": METHOD_VERSION, "assessed_at": iso_z(now), "run_id": run_id,
-                "factors": item["factors"], "missing_factors": item["missing_factors"], "caveats": CAVEATS,
+                "factors": item["factors"], "missing_factors": item["missing_factors"], "adjustments": item["adjustments"], "caveats": CAVEATS,
             },
         })
     body = collection(features, layer="risk_rankings", bbox=box, filters={"run_id": run_id} if run_id else {}, limit=limit,

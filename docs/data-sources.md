@@ -18,7 +18,7 @@
 | `nyc_nta_2020` | 2020 Neighborhood Tabulation Areas | `9nt8-h7nd` | Demo-area boundary | reference | M1 | Verified |
 | `floodnet_sensors` | FloodNet: Sensor Deployment Metadata | `kb2e-tjy3` | Sensor locations | observed | M2 | Verified |
 | `floodnet_events` | FloodNet: Street Flooding Events | `aq7i-eu5q` | Ground truth for flooding | observed | M2 | Verified |
-| `dep_stormwater_flood_maps` | NYC Stormwater Flood Maps | `9i7c-xyvv` | DEP-modeled flood extents | predicted (external) | M2 | Metadata only |
+| `dep_stormwater_flood_maps` | NYC Stormwater Flood Maps | `9i7c-xyvv` | DEP-modeled flood extents | predicted (external) | M2 | Ingested (BK0601 clip) |
 | `nws_gridpoints` | NWS API gridpoint forecast | api.weather.gov | Rainfall scenarios from the forecast | predicted (external) | M2 | Verified |
 | `nyc_elevation_points` | NYC Planimetric Database: Elevation Points | `9uxf-ng6q` | Ground spot heights (if `feat_code` 3000 is ground) | observed | M2 | Partly verified |
 | `nyc_dem_1ft` | 1 foot Digital Elevation Model (2010 LiDAR) | `7kuu-zah7` | Fallback terrain | observed (2010) | M2/M3 if needed | Metadata only |
@@ -161,7 +161,10 @@
   - Moderate Flood (2.13 in/hr) with 2050 sea level rise.
   - Moderate Flood (2.13 in/hr) with current sea levels.
   - Limited Flood (1.77 in/hr) with current sea levels.
-- **Not yet opened.** Layer names, fields, CRS and depth classes must be inspected before ingest.
+- **Format:** one ESRI file geodatabase per scenario, read with pyogrio (GDAL's OpenFileGDB driver). CRS EPSG:2263. Field `Flooding_Category`: 1 = nuisance flooding (4 in to 1 ft), 2 = deep and contiguous flooding (1 ft or more), 3 = future high tides (sea-level-rise scenarios only). Mapped areas are at least 0.25 acres.
+- **Limited (1.77 in/hr) map is unreadable** with open-source GDAL (compressed storage), so it is skipped and reported.
+- **Ingest:** `swale flood-maps` downloads the zip, clips each scenario to the area, simplifies to 3 ft, converts to WGS84 and writes `sample_data/bk0601/dep_flood_maps.json.gz`; `swale ingest --from-snapshot` loads it. BK0601 polygons: 196 (Moderate, current), 437 (Moderate, 2050), 1,169 (Extreme, 2080).
+- **Used by:** the `/flood-maps` layer, `/simulation-runs/{id}/compare-dep` (Swale's 2.13 in/hr run agreed with DEP at 55% of basins), and the ranking's `dep_flood_map_exposure` factor (risk-v2).
 - **Knowledge type:** predicted (an external, authoritative model). Never shown as current flooding.
 - **Design opportunity:** our own rainfall scenarios reuse DEP's three intensities, so Swale's demonstrator can be compared directly with DEP's maps.
 

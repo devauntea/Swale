@@ -28,6 +28,9 @@ def main(argv: list[str] | None = None) -> int:
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
     serve.add_argument("--reload", action="store_true", help="restart on code changes (development)")
+    fm = sub.add_parser("flood-maps", help="download DEP stormwater flood maps, clip to the area, snapshot and load")
+    fm.add_argument("--area", default="BK0601")
+    fm.add_argument("--zip", type=Path, help="use an already-downloaded NYCFloodStormwaterFloodMaps.zip")
     sub.add_parser("bench-bbox", help="SurrealDB bbox benchmark; arguments pass through", add_help=False)
     args, rest = parser.parse_known_args(argv)
     settings = Settings.from_env()
@@ -38,6 +41,8 @@ def main(argv: list[str] | None = None) -> int:
         return bench_main(rest)
     if rest:
         parser.error(f"unrecognized arguments: {' '.join(rest)}")
+    if args.command == "flood-maps":
+        return flood_maps_command(args, settings)
     if args.command == "serve":
         import uvicorn
 
@@ -69,5 +74,41 @@ def main(argv: list[str] | None = None) -> int:
     bundle, mode = (read_bundle(args.from_snapshot), "snapshot") if args.from_snapshot else (fetch(), "live")
     with connect(settings.db_url) as db:
         summary = ingest_bundle(db, bundle, mode=mode, now=utcnow())
-    print(json.dumps(asdict(summary), indent=2, default=str))
+        maps = None
+        if args.from_snapshot and (args.from_snapshot / "dep_flood_maps.json.gz").exists():
+            from swale.ingest import dep_flood_maps as dep
+
+            maps = dep.load(db, dep.read_snapshot(args.from_snapshot / "dep_flood_maps.json.gz"), bundle.area_code, utcnow())
+    print(json.dumps({**asdict(summary), "dep_flood_maps": maps}, indent=2, default=str))
+    return 0
+
+
+def flood_maps_command(args: argparse.Namespace, settings: Settings) -> int:
+    import urllib.request
+
+    from swale.core.geo import geojson_bbox
+    from swale.core.timeutil import utcnow
+    from swale.db import queries as q
+    from swale.db.connection import connect
+    from swale.ingest import dep_flood_maps as dep
+
+    work = BACKEND_DIR / "var" / "dep_flood_maps"
+    work.mkdir(parents=True, exist_ok=True)
+    zip_path = args.zip or work / "NYCFloodStormwaterFloodMaps.zip"
+    if not zip_path.exists():
+        meta = json.loads(urllib.request.urlopen("https://data.cityofnewyork.us/api/views/9i7c-xyvv.json", timeout=60).read())
+        url = f"https://data.cityofnewyork.us/api/views/9i7c-xyvv/files/{meta['blobId']}?download=true&filename=NYCFloodStormwaterFloodMaps.zip"
+        print(f"downloading {meta.get('blobFileSize', '?')} bytes from NYC Open Data…")
+        urllib.request.urlretrieve(url, zip_path)
+    with connect(settings.db_url) as db:
+        area = q.get_record(db, "area", args.area)
+        if area is None:
+            print(f"area {args.area} is not loaded; run swale ingest first")
+            return 2
+        bbox = geojson_bbox({"type": "Polygon", "coordinates": [[[area["bbox"][0], area["bbox"][1]], [area["bbox"][2], area["bbox"][3]]]]})
+        data = dep.clip_from_zip(zip_path, work / "extracted", bbox)
+        out = SAMPLE_DIR / args.area.lower() / "dep_flood_maps.json.gz"
+        dep.write_snapshot(data, out)
+        counts = dep.load(db, data, args.area, utcnow())
+    print(json.dumps({"wrote": str(out), "polygons": counts, "skipped": data["skipped"]}, indent=2))
     return 0

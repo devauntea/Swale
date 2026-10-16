@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 
 from swale import __version__
 from swale.api import problems
-from swale.api.routes import briefings, catch_basins, flooding, incidents, meta, risk, simulation, weather
+from swale.api.routes import briefings, catch_basins, flood_maps, flooding, incidents, inspections, meta, risk, simulation, weather
 from swale.config import BACKEND_DIR, Settings
 from swale.db.connection import connect
 from swale.db.connection import run_one
@@ -44,7 +44,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_methods=["GET", "POST"], allow_headers=["*"])
     problems.install(app)
-    for module in (meta, catch_basins, incidents, flooding, simulation, risk, briefings, weather):
+    for module in (meta, catch_basins, incidents, flooding, simulation, risk, briefings, weather, flood_maps, inspections):
         app.include_router(module.router, prefix="/api/v1")
     if settings.dev_map:
 

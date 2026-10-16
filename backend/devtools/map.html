@@ -115,6 +115,7 @@
     <div class="row"><span class="sw" style="border:3px solid var(--finding)"></span><label class="note">Red ring = DEP's own resolution recorded a field finding <span class="kt observed">observed</span></label></div>
     <div class="row"><span class="sw" style="background:var(--sensor)"></span><label><input type="checkbox" id="lyr-sensors" checked> FloodNet sensors (measured floods) <span class="kt observed">observed</span></label></div>
     <div class="row"><span class="sw" style="background:var(--nuisance);opacity:.6"></span><label><input type="checkbox" id="lyr-results" checked> Simulated ponding <span class="kt predicted">predicted</span></label></div>
+    <div class="row"><span class="sw" style="background:#1d5fb8;opacity:.45"></span><label><input type="checkbox" id="lyr-depmap" checked> DEP flood map, 2.13 in/hr storm <span class="kt predicted">predicted</span></label></div>
     <div class="row"><span class="sw" style="border:2px dashed var(--inferred)"></span><label><input type="checkbox" id="lyr-ranks" checked> Inspection priorities <span class="kt inferred">inferred</span></label></div>
   </section>
 
@@ -133,7 +134,7 @@
 
   <section>
     <h2>Where to inspect first</h2>
-    <div class="note" id="rank-note">Rule-based score (risk-v1) from DEP findings, FloodNet floods, 311 reports and the selected storm.</div>
+    <div class="note" id="rank-note">Rule-based score (risk-v2) from DEP findings, crew inspections, DEP's flood map, FloodNet floods, 311 reports and the selected storm.</div>
     <div id="ranks" aria-live="polite"></div>
   </section>
 
@@ -186,7 +187,9 @@ const map = new maplibregl.Map({
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
 
 map.on("load", async () => {
-  for (const id of ["basins", "incidents", "sensors", "results"]) map.addSource(id, { type: "geojson", data: EMPTY });
+  for (const id of ["depmap", "basins", "incidents", "sensors", "results"]) map.addSource(id, { type: "geojson", data: EMPTY });
+  map.addLayer({ id: "depmap", type: "fill", source: "depmap", paint: {
+    "fill-color": ["match", ["get", "depth_class"], "deep", "#0b3d91", "#4c8fe0"], "fill-opacity": 0.32, "fill-outline-color": "#0b3d91" } });
   map.addLayer({ id: "results", type: "circle", source: "results", paint: {
     "circle-radius": ["interpolate", ["linear"], ["get", "flood_volume_ft3"], 0, 4, 2000, 9, 12000, 18],
     "circle-color": ["match", ["get", "risk_class"], "deep", "#a40e26", "nuisance", "#e16f24", "#d4a72c"],
@@ -200,7 +203,7 @@ map.on("load", async () => {
     "circle-radius": ["interpolate", ["linear"], ["coalesce", ["get", "max_depth_in"], 0], 0, 6, 12, 10, 36, 15],
     "circle-color": ["case", ["==", ["get", "tidal"], true], "#8b949e", "#8250df"], "circle-opacity": 0.85,
     "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } });
-  for (const layer of ["results", "basins", "incidents", "sensors"]) {
+  for (const layer of ["depmap", "results", "basins", "incidents", "sensors"]) {
     map.on("click", layer, (e) => showFeature(layer, JSON.parse(e.features[0].properties.raw)));
     map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
     map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
@@ -235,12 +238,14 @@ async function refreshViewport() {
   }
   jobs.push($("lyr-sensors").checked ? api(`/sensors?bbox=${bb}&limit=500`).then((fc) =>
     map.getSource("sensors").setData(flatten(fc, (p) => ({ max_depth_in: p.max_depth_in ?? 0, tidal: !!p.tidally_influenced })))) : null);
+  jobs.push($("lyr-depmap").checked ? api(`/flood-maps?bbox=${bb}&scenario=dep_moderate_current`).then((fc) =>
+    map.getSource("depmap").setData(flatten(fc, (p) => ({ depth_class: p.depth_class })))) : null);
   jobs.push(state.runId && $("lyr-results").checked ? api(`/simulation-runs/${encodeURIComponent(state.runId)}/results?bbox=${bb}&limit=5000`)
     .then((fc) => map.getSource("results").setData(flatten(fc, (p) => ({ flood_volume_ft3: p.flood_volume_ft3, risk_class: p.risk_class })))) : null);
   try { await Promise.all(jobs.filter(Boolean)); } catch (err) { toast(String(err.message || err)); }
 }
 
-for (const [box, layer] of [["lyr-basins", "basins"], ["lyr-incidents", "incidents"], ["lyr-sensors", "sensors"], ["lyr-results", "results"]]) {
+for (const [box, layer] of [["lyr-depmap", "depmap"], ["lyr-basins", "basins"], ["lyr-incidents", "incidents"], ["lyr-sensors", "sensors"], ["lyr-results", "results"]]) {
   $(box).addEventListener("change", () => { setVisible(layer, $(box).checked); if ($(box).checked) refreshViewport(); });
 }
 $("lyr-ranks").addEventListener("change", () => state.rankMarkers.forEach((m) => (m.getElement().style.display = $("lyr-ranks").checked ? "" : "none")));
@@ -313,7 +318,19 @@ function runCard(r, title) {
 async function useRun(r) {
   state.runId = r.id; state.runLabel = $("scenario").selectedOptions[0]?.textContent || r.scenario_id;
   $("lyr-results").checked = true; setVisible("results", true);
-  await Promise.all([refreshViewport(), refreshRankings()]);
+  await Promise.all([refreshViewport(), refreshRankings(), compareDep(r)]);
+}
+
+async function compareDep(r) {
+  try {
+    const c = await api(`/simulation-runs/${encodeURIComponent(r.id)}/compare-dep`);
+    if (!c.available) return;
+    const k = c.counts;
+    $("run-card").insertAdjacentHTML("beforeend", `<div class="card"><div class="row"><span class="kt predicted">predicted</span><b>Swale vs NYC DEP's flood map, same storm</b></div>
+      <div class="big">${fmt(c.agreement_pct, 0)}% of basins agree</div>
+      <div>Both flood ${fmt(k.both)} · only Swale ${fmt(k.swale_only)} · only DEP ${fmt(k.dep_only)} · neither ${fmt(k.neither)}</div>
+      <div class="note">${esc(c.method)} ${esc(c.caveat)}</div></div>`);
+  } catch (err) { /* comparison is optional */ }
 }
 
 async function guard(button, fn) {
@@ -350,7 +367,7 @@ async function refreshRankings() {
   try {
     const fc = await api(`/risk-rankings?bbox=${AREA_BBOX}&limit=10${state.runId ? "&run_id=" + encodeURIComponent(state.runId) : ""}`);
     state.rankMarkers.forEach((m) => m.remove()); state.rankMarkers = [];
-    $("rank-note").textContent = `Top 10 of ${fmt(fc.meta.ranked)} basins · risk-v1, rule-based${state.runId ? " · includes the selected storm" : " · run a storm to add predicted flooding"}`;
+    $("rank-note").textContent = `Top 10 of ${fmt(fc.meta.ranked)} basins · risk-v2, rule-based${state.runId ? " · includes the selected storm" : " · run a storm to add predicted flooding"}`;
     $("ranks").innerHTML = fc.features.map((f, i) => {
       const p = f.properties;
       const kinds = [...new Set(p.factors.filter((x) => x.value > 0).map((x) => x.knowledge_type))];
@@ -383,9 +400,28 @@ function selectRank(features, i) {
     + p.factors.map((x) => `<div class="factor"><b>${esc(x.label)}</b> <span class="kt ${x.knowledge_type}">${x.knowledge_type}</span>
         <div>${esc(x.explanation)}</div><div class="note">value ${fmt(x.value, 2)} × weight ${x.weight} → +${fmt(x.contribution, 1)}</div>
         <div>${x.evidence_ids.map((id) => `<a class="ev" data-id="${esc(id)}">${esc(id)}</a>`).join("")}</div></div>`).join("")
+    + (p.adjustments || []).map((a) => `<div class="factor"><b>Score × ${a.multiplier}</b> <span class="kt observed">observed</span><div>${esc(a.explanation)}</div></div>`).join("")
     + (p.missing_factors.length ? `<div class="note">Not counted: ${p.missing_factors.map((m) => esc(m.reason)).join("; ")}</div>` : "")
+    + inspectionForm(p.basin_id)
     + `<div class="note">${p.caveats.map(esc).join(" ")}</div>`;
-  bindEvidence($("details"));
+  bindEvidence($("details")); bindInspection($("details"));
+}
+
+// ---------- field inspections ----------
+function inspectionForm(basinId) {
+  return `<div class="card" data-inspect="${esc(basinId)}"><div class="row"><span class="kt observed">observed</span><b>Log a crew inspection</b></div>
+    <div class="row">${[["debris_found", "Debris found"], ["cleaned", "Cleaned"], ["clear", "Clear"], ["damaged", "Damaged"]]
+      .map(([v, t]) => `<button class="secondary" data-result="${v}">${t}</button>`).join(" ")}</div>
+    <div class="note insp-out">Feeds the ranking: debris or damage raises the basin; cleaned or clear in the last 30 days halves its score.</div></div>`;
+}
+function bindInspection(root) {
+  root.querySelectorAll("[data-inspect]").forEach((card) => card.querySelectorAll("button[data-result]").forEach((b) => b.addEventListener("click", async () => {
+    try {
+      const r = await api("/inspections", { method: "POST", body: JSON.stringify({ basin_id: card.dataset.inspect, result: b.dataset.result, inspector: "demo console" }) });
+      card.querySelector(".insp-out").textContent = `Saved ${r.id} (${r.result.replace("_", " ")}, ${day(r.inspected_at)}). Rankings updated.`;
+      await refreshRankings();
+    } catch (err) { toast(err.message); }
+  })));
 }
 
 // ---------- details and evidence ----------
@@ -394,6 +430,8 @@ function bindEvidence(root) { root.querySelectorAll("a.ev[data-id]").forEach((a)
 async function openEvidence(id) {
   const [table] = id.split(":");
   const path = { incident: "incidents", flood_event: "flood-observations", sensor: null, flood_result: null }[table];
+  if (table === "inspection") { toast("Crew inspection logged in Swale: see GET /api/v1/inspections."); return; }
+  if (table === "flood_map_feature") { toast("DEP flood-map polygon: shown in blue on the map."); return; }
   try {
     if (path) { const f = await api(`/${path}/${encodeURIComponent(id)}`); showFeature(path === "incidents" ? "incidents" : "observation", { id: f.id, ...f.properties }, true); }
     else if (table === "sensor") { toast("This sensor is on the map as a purple circle."); }
@@ -414,7 +452,11 @@ function showFeature(kind, p, appended = false) {
   } else if (kind === "basins") {
     html = `<div class="row"><span class="kt observed">observed</span><b>Catch basin ${esc(p.unitid)}</b></div>
       <div class="note">DEP inventory record · dataset updated ${esc(day(p.source.updated_at))} · no condition data in the source</div>
-      <a class="ev" href="${esc(p.source.url)}" target="_blank" rel="noopener">source record</a>`;
+      <a class="ev" href="${esc(p.source.url)}" target="_blank" rel="noopener">source record</a>` + inspectionForm(p.id);
+  } else if (kind === "depmap") {
+    html = `<div class="row"><span class="kt predicted">predicted</span><b>DEP flood map: ${esc(p.depth_class === "deep" ? "deep and contiguous (1 ft or more)" : "nuisance (4 in to 1 ft)")}</b></div>
+      <div>${esc(p.scenario_label)} · ${fmt(p.area_ft2)} ft² in view</div>
+      <div class="note">${esc(p.note)}</div><a class="ev" href="${esc(p.source.url)}" target="_blank" rel="noopener">NYC Open Data</a>`;
   } else if (kind === "sensors") {
     html = `<div class="row"><span class="kt observed">observed</span><b>FloodNet sensor: ${esc(p.name)}</b></div>
       <div>${fmt(p.event_count)} measured flood events · deepest ${fmt(p.max_depth_in, 1)} in · latest ${esc(day(p.last_event_at))}</div>
@@ -428,7 +470,7 @@ function showFeature(kind, p, appended = false) {
       <div class="note">${esc(p.scenario_label)} · ${p.blockage_applied ? "inlet half-blocked (DEP finding)" : "inlet clear"} · ${esc(p.note)}</div>`;
   }
   $("details").innerHTML = appended ? $("details").innerHTML + `<div class="card">${html}</div>` : html;
-  bindEvidence($("details"));
+  bindEvidence($("details")); bindInspection($("details"));
 }
 
 // ---------- briefing ----------
