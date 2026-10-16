@@ -3,17 +3,25 @@ import type { DemoSnapshot } from "../../types";
 import type { LocalFixtureOptions } from "../../data/providers/LocalFixtureProvider";
 import { fixtureTime, formatTime } from "../../app/format";
 import { Icon } from "../controls/Icon";
+import {
+  WorkspaceNotice,
+  type WorkspaceNoticeContent,
+} from "../controls/WorkspaceNotice";
 
 export function SourcesPanel({
   snapshot,
   settings,
   onSettings,
   onClose,
+  notice,
+  onRestore,
 }: {
   snapshot: DemoSnapshot;
   settings: Required<LocalFixtureOptions>;
   onSettings: (settings: Required<LocalFixtureOptions>) => void;
   onClose: () => void;
+  notice: WorkspaceNoticeContent | null;
+  onRestore: () => void;
 }) {
   const panel = useRef<HTMLElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
@@ -58,6 +66,9 @@ export function SourcesPanel({
           <Icon name="close" />
         </button>
       </header>
+      {notice && (
+        <WorkspaceNotice notice={notice} onRestore={onRestore} inline />
+      )}
       <div className="sources-scroll">
         <div className="sources-intro">
           <span className="demo-label">STANDALONE DEMONSTRATION</span>

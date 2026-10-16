@@ -6,7 +6,232 @@ production-data coverage. Infrastructure records, overlays, scores, forecast and
 assistant responses are local synthetic examples. The basemap/building tiles are
 the permitted OpenFreeMap resources.
 
-## October 16 remediation after pushed aa08a17 — latest evidence
+## October 16 final browser remediation — latest acceptance
+
+Session began approximately **04:45 EDT / 08:45 UTC**; browser evidence and final
+checks below were captured through **05:08 EDT / 09:08 UTC**. This is this session's
+elapsed window, not an invented historical active-work total. The original roughly
+eight-hour budget and 6:45 feature freeze remain unchanged. Work stayed within
+bounded remediation and verification of the standalone DEMO frontend.
+
+### Repository and Desktop evidence reconciliation
+
+- Starting branch `main`, HEAD `9ad3aa1dcc8027b3b5a54306e18459e6197b0876` exists.
+  Origin is `https://github.com/devauntea/Swale.git`. The authorized final fetch
+  (`git fetch --no-tags origin main`, exit 0) confirmed remote main at
+  `aa08a17d166cbf0f23281627a74289fe8f7efe43`, an ancestor; before this commit,
+  ahead/behind was **1/0**. Existing changes since aa08a17 were 16 frontend paths.
+- The initial tree contained only unrelated untracked `.vscode/`; it is preserved
+  and excluded from staging. This session changes five frontend source/test files
+  plus this verification document. Fixtures, provider, map renderer, dependencies,
+  backend, root plan and proposed contract remain unchanged.
+- Read all required project documents and all three Desktop artifacts under
+  `/Users/kerwynjean/Documents/Codex/2026-10-16/files-pasted-by-the-user-swale/outputs/`:
+  `swale-runtime-verification-report.txt`, `codex-handoff.txt`, and
+  `swale-verification-evidence.zip`. They remain unmodified read-only inputs.
+  Separate extraction to `/tmp/swale-evidence-review-20261016` verified **47/47
+  checksum entries**, including 32 screenshots and the recorded diagnostics.
+- Screenshots 16, 24 and 25 confirm the exact P2 overlaps below. Desktop functional
+  passes are retained with their original limits. Its direct map FPS, complete
+  transfer and unknown-sprite gaps are filled by the new evidence below.
+- Current access succeeded on the original Chrome extension connection: browser
+  `1`, profile K., instance `f2400a8e-e269-4ccf-827f-a6d13d17db3c`, original tab
+  `895912960`, exact preview `http://127.0.0.1:4173/`. No saved denial, permission
+  change, alternate browser/profile/origin or permission workaround occurred.
+
+### Demonstrated defects and verified corrections
+
+| Defect | Correction | Current browser result |
+| --- | --- | --- |
+| P2-01: at 768×1024 CSS px, inspector covers the legend's right side. | Reserve a tablet legend area and compact mascot launcher/control rail. Inspector and assistant scroll above it. Compact assistant sections preserve its composer at short heights; continuous media-query ranges cover fractional browser zoom widths. | PASS at 621×720, 768×1024, 800×800 and 900×720. Both themes checked; inspector, assistant, expanded legend and controls remain usable. At the narrowest tested tablet, panel bottom 404.006 px precedes legend top 416.491 px; composer bottom 376.108 px and note bottom 394.098 px remain inside the panel. |
+| P2-02: Sources covers the beginning of the provider-error banner. | One reusable alert/status with Restore examples is pinned inside Sources while open; the global notice returns on closing. Explicit row layout prevents the mobile recovery button wrapping outside the panel. | PASS in desktop light/dark and mobile 390×843. Full message and recovery are visible with Sources open and scrolled. One alert only; close/reopen and keyboard recovery work. Two new DOM tests cover error/empty notices, recovery, focus and retained scenario/layer/camera state. |
+
+The original defects were P2 because content remained recoverable by closing a
+panel. Browser testing caught and corrected intermediate launcher overlap,
+short-height composer clipping and mobile recovery-button placement before final
+acceptance. **No confirmed P0/P1/P2 remains in the tested scope.** This does not
+certify untested devices or combinations.
+
+Current visual evidence: [tablet dark](verification-artifacts/final/tablet-dark.jpg),
+[tablet light](verification-artifacts/final/tablet-light.jpg),
+[tablet assistant](verification-artifacts/final/tablet-assistant-dark.jpg),
+[621×720 assistant](verification-artifacts/final/narrow-tablet-assistant-dark.jpg),
+[desktop error light](verification-artifacts/final/provider-error-light.jpg),
+[desktop error dark](verification-artifacts/final/provider-error-dark.jpg),
+[mobile error](verification-artifacts/final/mobile-provider-error-light.jpg),
+[mobile assistant](verification-artifacts/final/mobile-assistant-light.jpg), and
+[layout measurements](verification-artifacts/final/layout-matrix.json).
+The later mobile recheck uses the final CSS; the Desktop reference was 390×844.
+
+### Sprites, console and resource diagnostics
+
+**PASS:** a temporary GeoJSON symbol layer at existing fixture GW-01 exercised all
+seven known IDs (`sailing`, `running`, `gate`, `ferry_terminal`, `bicycle_parking`,
+`brownfield`, `office`). All seven returned `hasImage = true`, with no warning naming
+those IDs. A unique unsupported ID `swale-qa-unknown-sprite-20261016` stayed absent
+and generated both the visible unavailable-symbol status and MapLibre's genuine
+console warning. This traversed real symbol/image loading rather than firing a
+synthetic event. [Runtime record](verification-artifacts/final/sprite-runtime.json),
+[warning screenshot](verification-artifacts/final/unknown-sprite.jpg).
+
+The temporary source/layer, conditional debugger breakpoint, observer and QA globals
+were removed; reload cleared the intentional warning. Final inspection confirmed
+no QA globals, normal reduced-motion setting, normal 1636×896 viewport and BASEMAP
+READY. DevTools was closed and its temporary Disable cache setting restored.
+No source hook, blanket sprite fallback, warning filtering or suppression was added.
+
+Final same-profile DevTools console retains **three upstream Liberty filter
+warnings**: `highway-shield-non-us`, `highway-shield-us-interstate`, `road_shield_us`.
+The HAR's actual style body shows all three compare `ref_length` numerically without
+a null guard; the warning reports null and falls back to false for those features.
+Frontend styling does not alter these filters (its only filter edit concerns
+building heights). These are recorded third-party style/data diagnostics, with no
+confirmed required-function failure; no road-shield or basemap patch was invented.
+No fresh console error or failed app/basemap request appeared in the final capture.
+See [console evidence](verification-artifacts/final/console-ui.txt). Historical
+Grammarly errors, old favicon failure and induced-WebGL-recovery style warning are
+not erased or relabeled as current failures. Console cleanliness is not claimed.
+
+### Rendered frame rate and interaction latency
+
+Chrome 155 / original profile K.; macOS 26.5.2 ARM, **Apple M4 / ANGLE Metal**, 10
+reported logical cores, 16 GB reported device memory. Performance viewport:
+**1636×896 CSS px, DPR ~2.2**, dark theme, pitched architectural buildings and all
+analysis layers enabled; no artificial throttle. Existing extensions stayed enabled.
+The map camera ended at zoom 15.95, pitch ~59°, bearing 10°.
+
+The [full trace](verification-artifacts/final/camera-trace.json) measures actual
+compositor `DrawFrame` events in marked camera-motion intervals, with no decorative
+animation running; [derived summary](verification-artifacts/final/frame-summary.json):
+
+| Operation | Duration | DrawFrame count / FPS | Median / p95 / maximum interval |
+| --- | --- | --- | --- |
+| Pan | 2.516848 s | 138 / **54.83** | 17.729 / 24.213 / 93.048 ms |
+| Zoom | 2.517066 s | 152 / **60.39** | 16.837 / 20.160 / 24.273 ms |
+| Rotation | 2.511644 s | 158 / **62.91** | 16.531 / 18.968 / 22.517 ms |
+
+Public camera APIs animated panBy 180/90 screen px, zoom +0.45 and rotation +35°,
+each requesting 2500 ms, through a temporary debugger reference. The marked sample
+totals **7.545558 s**; every operation exceeds the **>=30 FPS target**. This is
+rendered compositor cadence, not rAF scheduling or per-frame GPU execution time.
+One 93.048 ms pan gap remains visible; average FPS does not prove uniform smoothness.
+A three-second tool timeout lost a separate render-callback return, but the full
+trace completed and was retrieved; no metric is claimed from the lost callback.
+
+Browser Event Timing measured click-to-next-paint (rounded to 8 ms), supported by
+[interaction trace](verification-artifacts/final/interaction-trace.json) and
+[latency record](verification-artifacts/final/latency-summary.json):
+
+- Scenario: **64, 40, 48, 40, 48, 56 ms**; min/median/max **40/48/64 ms**. GW-01
+  alternated correctly between the stored 91 and 80; both assumptions/labels changed.
+- Theme: **144 and 96 ms**; map and UI changed in place, retaining selection/camera.
+- Assistant opening: **40 and 32 ms**; input available during decorative opening.
+
+Scenario click-to-first-map-render markers were 11.885–17.494 ms; theme markers
+98.256/73.712 ms. Supplementary `nextCompositorDrawMs` measures compositor drawing,
+not physical-display presentation. Event Timing supplies the next-paint endpoint;
+these values do not time tile completion or the whole 650 ms mascot animation.
+No numeric scenario/theme/opening budget exists, so none is invented. Desktop
+650 ms motion, idle settling and repeat-opening evidence is retained. New keyboard
+opening/Escape returns focus, retained history and reduced-motion emulation pass;
+reduced motion produced zero active decorative animations with textarea focused.
+[Reduced-motion record](verification-artifacts/final/reduced-motion.json).
+
+These desktop motion/latency captures preceded the final tablet-only CSS spacing
+refinements; desktop behavior, renderer and animation code were unchanged. The
+final-build transfer capture below was rerun after all corrections.
+
+### Complete initial transfer accounting
+
+Final production build, same-profile Network recording, cache disabled, no throttle,
+actual **974×896 CSS px / DPR ~2.2** while DevTools was docked. Fresh navigation
+started **05:05:17.545 EDT / 09:05:17.545 UTC**; Network finished in ~2.18 s. The
+[final sanitized HAR](verification-artifacts/final/initial-load.har) contains **35
+completed web requests**, including **16 worker-initiated vector requests**; all
+HTTP 200, no failed or incomplete web entry. Native Network recorded 37 requests;
+the two extension resources excluded by sanitized export account for the difference.
+
+| Category | Requests | Browser-reported transferred bytes | Method |
+| --- | --- | --- | --- |
+| Application document/assets, including worker | 12 | **775,142** | Same-load Resource Timing: document plus 11 resources |
+| Map style / TileJSON | 2 | **8,367** | HAR response `_transferSize` |
+| Vector tiles | 16 | **3,909,897** | HAR, completed worker requests |
+| Fonts / sprites | 5 | **240,006** | HAR |
+| Other: existing browser extensions | 2 | **3,169** | Native Network total minus sanitized HAR total |
+
+**Application <=20 MB target: PASS.** Basemap transfer is separately **4,158,270 B**.
+These are observed browser transfer metrics, not disk or decoded resource sizes.
+
+Accounting caveat preserved: HAR reports application total **631,402 B**, including
+only **303 B / zero body** for the worker script despite decoded size 507,714 B.
+Same-load Resource Timing reports that worker's **144,914 B** transfer (144,614 B
+encoded body), so the complete application figure uses Resource Timing consistently
+for all 12 app requests. Its decoded app total is 2,813,494 B. HAR and Resource Timing
+use different overhead accounting; **their app totals are not added together**.
+Worker tile bodies/completions are present in HAR. No fabricated replacement body,
+asset-size estimate or combined wire-total claim is used.
+[Summary](verification-artifacts/final/network-summary.json),
+[Resource Timing](verification-artifacts/final/final-network-resource-timing.json),
+[Network UI](verification-artifacts/final/network-ui.txt). Captured web origins were
+only the local app and approved OpenFreeMap; no backend/AI/service request appeared.
+
+### Final automated, security and acceptance checks
+
+Node 22.20.0. Final run began **05:05:58 EDT**, recorded through 05:06:36; all commands
+below exited **0**. npm commands ran in `frontend/`, Git commands at repo root.
+[Exact command outputs/exits](verification-artifacts/final/swale-final-checks-20261016.json).
+
+| Exact command / check | Result |
+| --- | --- |
+| `npm run typecheck` | PASS — strict TypeScript, no emit |
+| `npm test` | PASS — **95 tests / 7 files**, 1.49 s; original 93 retained |
+| `npm run build` | PASS — 971 modules, 277 ms |
+| `npm run lint` | PASS — warnings denied |
+| `npm run format:check` | PASS |
+| Theme/palette/contrast tests within `npm test` | PASS — 11 text pairs/theme; minima light **4.896:1**, dark **5.169:1**; static token tests, not formal rendered WCAG audit |
+| `npm audit --json`; `npm ls --depth=0` | PASS — zero reported vulnerabilities, valid dependency tree |
+| `git diff --check`; `git diff --cached --check` | PASS — also repeated for final staged report |
+| Credential/scope and ignore review | PASS — 52 UTF-8 application/project files scanned, zero credential-pattern matches; no env read. Final staged scope is separately checked before commit |
+
+| Required acceptance | Status and evidence |
+| --- | --- |
+| 3D map, camera, basins/inspector, both exact scenarios, all layers, complaints, rainfall | PASS — Desktop direct evidence retained; fresh map motion, scenario values and affected layouts checked |
+| Floating sidebar; light/dark; explicit theme persistence | PASS — Desktop checks retained; current both-theme layouts and dark reload observed, final light preference stored |
+| Mascot identity/motion; assistant scripts/history/composer; keyboard/focus/reduced motion | PASS within tested scope — Desktop evidence plus new narrow/tablet/mobile checks; no animation code changed |
+| Inspector/legend and Sources/error responsive corrections | PASS — final regression sizes above, including visible mobile Restore and scrollable short assistant |
+| Known sprites / unknown diagnostics | PASS — actual controlled pipeline check |
+| Rendered FPS; application transfer; interaction timings | PASS / MEASURED as above; basemap separate |
+| Automated tests; themes/palette/contrast; frontend-only scope/security | PASS |
+| Remote fast-forward / known deployment effects | PASS before commit — fetched remote is an ancestor; no known deployment trigger found |
+
+No backend implementation/integration, new data clients, live AI, paid usage,
+credential access, deployment, destructive Git operation or unrelated file change.
+The contract stays **PROPOSED — NOT YET AGREED WITH BACKEND TEAM**. Full screen-reader,
+physical touch, every intermediate size and formal WCAG certification are outside
+this bounded acceptance claim. Desktop A/B/C/mascot observations are retained;
+original reference images were not reattached for a new pixel-by-pixel comparison.
+The local three-minute walkthrough in DEMO.md remains; no new video recording or
+timed three-minute rehearsal was collected.
+
+### Commit, authorized push and recommendation
+
+**Frontend acceptance recommendation: APPROVE within the verified standalone scope.**
+All required remediation, browser, sprite, performance and automated gates above
+pass; no unresolved confirmed defect requires an owner waiver. The final commit
+is the commit containing this report. Its exact SHA, normal push result and fetched
+remote confirmation are recorded after Git execution in
+[Git outcome](verification-artifacts/final/git-outcome.txt) and the final handoff.
+The file is local ignored evidence, not another source change.
+
+Read-only GitHub inspection found zero Actions workflows, deployments or rulesets,
+no Pages site and no tracked hosting/deployment configuration. Webhook enumeration
+returned 404 without administrative scope; absence of every external hook cannot
+be certified. No known prohibited deployment side effect was found; no privileges
+or settings were changed. Only the already authorized single normal non-force push
+is eligible after final staged review and refetch. Any divergence stops that push.
+Frontend approval does not establish backend integration or production readiness.
+
+## Historical October 16 remediation after pushed aa08a17
 
 Current work recorded from approximately **02:57–03:08 EDT**
 (06:57–07:08 UTC), October 16, 2026. This is the current session's elapsed

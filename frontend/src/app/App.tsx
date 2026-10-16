@@ -20,6 +20,10 @@ import { SourcesPanel } from "../components/sidebar/SourcesPanel";
 import { BasinInspector } from "../components/inspector/BasinInspector";
 import { AssistantPanel } from "../components/assistant/AssistantPanel";
 import { MapLegend } from "../components/controls/MapLegend";
+import {
+  WorkspaceNotice,
+  type WorkspaceNoticeContent,
+} from "../components/controls/WorkspaceNotice";
 import { Icon } from "../components/controls/Icon";
 import {
   SwaleMascot,
@@ -156,6 +160,16 @@ function Workspace({
   };
   const basin = snapshot.basins.find((b) => b.id === state.selectedBasinId);
   const complaint = snapshot.complaints.find((c) => c.id === complaintId);
+  const workspaceNotice: WorkspaceNoticeContent | null = error
+    ? { kind: "error", message: `${error} Last valid workspace retained.` }
+    : snapshot.basins.length === 0
+      ? {
+          kind: "empty",
+          message:
+            "No infrastructure examples loaded. The basemap remains available.",
+        }
+      : null;
+  const restoreExamples = () => onSettings({ ...settings, mode: "ready" });
   const refresh = async () => {
     if (refreshing || loading) return;
     const generation = ++refreshGeneration.current;
@@ -338,25 +352,8 @@ function Workspace({
         layers={state.layers}
         scenarioId={state.scenarioId}
       />
-      {snapshot.basins.length === 0 && (
-        <div className="workspace-banner" role="status">
-          <Icon name="info" />
-          <span>
-            No infrastructure examples loaded. The basemap remains available.
-          </span>
-          <button onClick={() => onSettings({ ...settings, mode: "ready" })}>
-            Restore examples
-          </button>
-        </div>
-      )}
-      {error && (
-        <div className="workspace-banner workspace-error" role="alert">
-          <Icon name="info" />
-          <span>{error} Last valid workspace retained.</span>
-          <button onClick={() => onSettings({ ...settings, mode: "ready" })}>
-            Restore examples
-          </button>
-        </div>
+      {workspaceNotice && !sourcesOpen && (
+        <WorkspaceNotice notice={workspaceNotice} onRestore={restoreExamples} />
       )}
       {complaint && (
         <div className="complaint-detail" role="status">
@@ -381,6 +378,8 @@ function Workspace({
           settings={settings}
           onSettings={onSettings}
           onClose={() => setSourcesOpen(false)}
+          notice={workspaceNotice}
+          onRestore={restoreExamples}
         />
       )}
       <AssistantPanel

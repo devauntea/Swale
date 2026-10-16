@@ -66,6 +66,76 @@ describe("workspace DOM behavior (map renderer replaced)", () => {
     expect(document.activeElement).toBe(trigger);
   });
 
+  it.each([
+    {
+      mode: "error",
+      message:
+        "Demonstration error state: the local example workspace could not be loaded. Choose Ready to restore it. Last valid workspace retained.",
+    },
+    {
+      mode: "empty",
+      message:
+        "No infrastructure examples loaded. The basemap remains available.",
+    },
+  ])(
+    "keeps the $mode notice and restore action in the active Sources panel",
+    async ({ mode, message }) => {
+      const renderer = await openWorkspace();
+      fireEvent.click(screen.getByRole("button", { name: /Extreme2080/ }));
+      const before = ["scenario", "layers", "camera"].map((key) =>
+        renderer.getAttribute(`data-${key}`),
+      );
+      const trigger = screen.getByRole("button", {
+        name: "Data sources and demonstration settings",
+      });
+      trigger.focus();
+      fireEvent.click(trigger);
+      fireEvent.change(screen.getByLabelText("Workspace example"), {
+        target: { value: mode },
+      });
+      await screen.findByText(message);
+      const panel = screen.getByRole("complementary", {
+        name: "Sources & freshness",
+      });
+      const notice = within(panel).getByText(message).parentElement!;
+      expect(notice.getAttribute("role")).toBe(
+        mode === "error" ? "alert" : "status",
+      );
+      expect(screen.getAllByText(message)).toHaveLength(1);
+      expect(
+        within(notice).getByRole("button", { name: "Restore examples" }),
+      ).toBeTruthy();
+      // The notice is pinned outside the scrolled settings/provenance content.
+      expect(notice.parentElement).toBe(panel);
+      const close = within(panel).getByRole("button", {
+        name: "Close data sources",
+      });
+      close.focus();
+      fireEvent.click(close);
+      expect(document.activeElement).toBe(trigger);
+      const globalNotice = screen.getByText(message).parentElement!;
+      expect(globalNotice.closest(".sources-panel")).toBeNull();
+      expect(screen.getAllByText(message)).toHaveLength(1);
+      fireEvent.click(trigger);
+      const reopenedPanel = screen.getByRole("complementary", {
+        name: "Sources & freshness",
+      });
+      fireEvent.click(
+        within(reopenedPanel).getByRole("button", { name: "Restore examples" }),
+      );
+      await act(async () => {});
+      expect(screen.queryByText(message)).toBeNull();
+      expect(
+        (screen.getByLabelText("Workspace example") as HTMLSelectElement).value,
+      ).toBe("ready");
+      expect(
+        ["scenario", "layers", "camera"].map((key) =>
+          renderer.getAttribute(`data-${key}`),
+        ),
+      ).toEqual(before);
+    },
+  );
+
   it("ignores an older refresh result after provider settings change", async () => {
     await openWorkspace();
     const oldResult = await new LocalFixtureProvider().refresh();
