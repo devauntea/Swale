@@ -139,8 +139,17 @@ def check(briefing: Briefing, pack: dict[str, Any]) -> list[str]:
     return problems
 
 
+def say_id(unitid: str) -> str:
+    """Read a basin ID character by character ("C B 3 5 0 2 8 9"), so a listener can write it down.
+
+    Voices read "CB350289" as one large number, which is hard to catch by ear; in a 2026-10-16 check, Scribe
+    heard 4 of 5 IDs wrong in the Spanish briefing and 0 of 5 in English.
+    """
+    return " ".join(unitid) if unitid else ""
+
+
 def spoken_text(briefing: Briefing, pack: dict[str, Any]) -> str:
-    unit = {b["basin_id"]: b["unitid"] for b in pack["basins"]}
+    unit = {b["basin_id"]: say_id(b["unitid"]) for b in pack["basins"]}
     lines = [briefing.headline + "."]
     for n, stop in enumerate(briefing.stops, start=1):
         lines.append(f"Stop {n}, basin {unit.get(stop.basin_id, '')}. {stop.why} {stop.action}")
@@ -234,7 +243,8 @@ def flush_traces(timeout_ms: int = 15000) -> bool:
     return bool(TRACER_PROVIDER and TRACER_PROVIDER.force_flush(timeout_ms))
 
 
-FALLBACK_VOICE = "XrExE9yKIg1WjnnlVkGX"  # Matilda (ElevenLabs premade; works on the free plan)
+DEFAULT_VOICE = "Yg7C1g7suzNt5TisIqkZ"  # Jude - Conversational British Podcaster (ElevenLabs professional voice)
+FALLBACK_VOICE = "XrExE9yKIg1WjnnlVkGX"  # Matilda (ElevenLabs premade; used only if Jude is refused, e.g. HTTP 402)
 
 
 def synthesize_speech(text: str) -> bytes | None:
@@ -258,7 +268,7 @@ def synthesize_speech_with_voice(text: str) -> tuple[bytes | None, str | None]:
             timeout=120,
         )
 
-    voice = os.environ.get("ELEVENLABS_VOICE_ID") or FALLBACK_VOICE
+    voice = os.environ.get("ELEVENLABS_VOICE_ID") or DEFAULT_VOICE
     response = speak(voice)
     note = None
     if response.status_code in (402, 403) and voice != FALLBACK_VOICE:

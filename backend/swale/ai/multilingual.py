@@ -66,7 +66,9 @@ def translate(briefing: Briefing, lang: str) -> tuple[dict[str, Any] | None, str
 
 
 def spoken(translated: dict[str, Any], pack: dict[str, Any]) -> str:
-    unit = {b["basin_id"]: b["unitid"] for b in pack["basins"]}
+    from swale.ai.briefing import say_id
+
+    unit = {b["basin_id"]: say_id(b["unitid"]) for b in pack["basins"]}
     parts = [translated["headline"] + "."]
     for n, s in enumerate(translated["stops"], start=1):
         parts.append(f"{translated['stop_word']} {n}, {unit.get(s['basin_id'], '')}. {s['why']} {s['action']}")

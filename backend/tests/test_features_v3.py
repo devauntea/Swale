@@ -50,7 +50,7 @@ def test_translation_keeps_ids_and_reports_failure(monkeypatch):
     spoken = multilingual.spoken({"headline": "Titular", "stop_word": "Parada", "caveat": "Aviso",
                                   "stops": [{"basin_id": "catch_basin:CB1", "why": "por qué", "action": "acción"}]},
                                  {"basins": [{"basin_id": "catch_basin:CB1", "unitid": "CB1"}]})
-    assert spoken == "Titular. Parada 1, CB1. por qué acción Aviso"
+    assert spoken == "Titular. Parada 1, C B 1. por qué acción Aviso"
 
 
 def test_escaped_id_delimiters_are_restored():
