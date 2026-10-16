@@ -823,3 +823,163 @@ There is no evidence that broader permissions or developer/CDP access are needed
 
 Only this report was updated. Frontend-only scope and existing approval gates
 remain in force; no backend change, push, deployment or scope expansion occurred.
+
+## Local integration candidate — October 16, 2026 (fresh, separate evidence)
+
+This section records the authorized local first slice in
+`/Users/kerwynjean/Swale-integration`, branch `integration/frontend-backend-v1`.
+All historical standalone evidence above is preserved. The current-session first
+clock sample was **10:48:46Z / 06:48:46 EDT**; prior cumulative active duration is
+unknown and the original budget was not reset. Browser evidence continued through
+approximately **11:38Z**. **CONDITIONAL — direct basin-marker picking requires
+manual confirmation.** Backend/API/automated/performance and the other browser
+checks below passed, as did repository audit before the reporting commit. Complete
+browser acceptance is not established. Repository reconciliation was repeated
+after documentation staging. This is not full-product or scientific acceptance.
+
+F is `5fad6b4ebf17c58a1ca427a3ba742d1e843f9e7b`; reviewed B is
+`c4a438bd7b4cb6cd1b199706414dda0790e75ae9`; local merge is
+`8e4734b47ab993b9025aca9bfe2186b7df60fbe4`; frozen code checkpoint is
+`63fd30e47d852b592dd620f1a991838217c0fac4`. Both inputs remain ancestors.
+The original main/files/index are unchanged; backend source remains B and
+standalone fixtures/provider are preserved. Final documentation commit SHA is
+reported externally; this text does not self-reference its own reporting commit.
+Full runbook/evidence:
+[docs/LOCAL_INTEGRATION.md](../docs/LOCAL_INTEGRATION.md).
+
+The candidate exposes **Data mode → Fixture / demo** (default) and **Backend /
+local snapshot**. Backend mode uses separate validated models, observed inventory,
+reported historical complaints, observed agency findings and inferred associations.
+It does not fabricate scores/flood polygons or substitute fixtures after failure.
+Only the seven approved GET route shapes pass the shared client/dev/preview guard.
+A 250 ms settled-viewport debounce, 4×500/2,000-feature per-layer cap, fixed incident
+window per page sequence, cancellation/generation checks, repeated-cursor detection,
+10-second timeout and 4 MiB body cap bound requests. Single-map/mode-selection
+isolation and safe text/link handling are explicit. Unsupported fixture scenarios,
+priorities/forecasts/polygons and assistant data commands are disabled in backend
+mode. Sensors, simulations, rankings, DEP-map presentation, field-entry workflows,
+briefings/audio/AI, NWS and ingestion remain deferred.
+
+| Check | Fresh result and limits |
+| --- | --- |
+| Separate backend gate | PASS: six source-reviewed offline modules, **113 tests / 8.02 s**, under tested clean native containment. |
+| Frontend baseline before adapters | PASS: original **95 tests / 7 files**, typecheck/build/lint/format. |
+| Candidate automated checks | PASS: **125 tests / 11 files**, all 95 retained plus 30 new; strict TypeScript, production build, lint and format. |
+| New automated evidence | Mock-labelled validation/problem/degraded-200/null/zero/source-time tests; request timeout/body/cursor/cancellation/race/cap tests; mode/selection/assistant isolation and Sources recovery/focus tests. Mocks do not replace actual API evidence. |
+| npm audit | PASS: zero reported vulnerabilities; separate authorized registry metadata operation. |
+| Actual localhost API | PASS: **22 approved GET requests**, collections/details, encoded IDs, paging/filter/window behavior, empty results, representative safe 422/404 problem responses. Repeated against final DB/frozen code with separate evidence. Actual health was **200 / ok**, embedded DB, six nonstale sources, four false optional-service flags; false flags do not prove authentication. |
+| Snapshot initialization | PASS: final new DB `backend/var/local-candidate-63fd30e.db`, unchanged backend; counts 2,093 basins, 7,472 incidents, 5,594 inferred links, 17 sensors, 83 events, 1,802 stored DEP polygons; zero original transform rejects. Stored deferred data is not exposed by this slice. |
+| Provenance | PASS: final source ingestion **11:14:46Z**, DEP **11:14:49Z**, all five runs directly audited offline with `code_version=63fd30e`; original fetch/update times retained. Earlier integration DB/code_version=5fad6b4 preserved separately rather than rewritten. |
+| Current browser access | PASS: original Chrome connection **1** displayed this localhost candidate; no permission workaround. |
+| Map/backend picking/themes | PASS for inventory list selection/detail/focus, direct incident map picking, one canvas, visually retained camera and persisted light/dark choices; fixture remains initial mode. Direct basin-marker picking is UNCONFIRMED. |
+| Remaining browser acceptance | CONDITIONAL: manually click a visible solid blue inventory marker and confirm its full ID and inspector. Native coordinate actions returned windowNotFoundAtPosition; browser pointer/canvas-center attempts did not establish a basin-marker hit. Evidence gap, not demonstrated application defect or permission/security denial. |
+| Responsive candidate layouts | PASS in both modes/themes at tablet **768×1023**, narrow **622×720**, mobile **390×842**; Sources/error placement, inspector/legend separation and read-only mobile assistant/focus passed without observed overflow. These sizes are not exhaustive device coverage. |
+| Frozen real disconnect/recovery | PASS: stop final backend, Refresh gives visible **HTTP 502** while retaining Backend mode/no fixture substitution; exact clean launcher restart and Retry restore **1,668 basins / 1,001 incidents** at actual **974×896** viewport with original fetch **05:30Z** and final ingest **11:14:46Z**. Earlier development HMR reset is separately retained, not mistaken for this frozen pass. |
+| Production-preview proxy | PASS: native Chrome production preview **127.0.0.1:4173** observed healthy in both modes; dev and preview API health proxy checks pass. |
+| Fixture assistant and mode isolation | PASS: all five scripted cases exercised; backend history unchanged, read-only composer, suggestions/results disabled and no scenario controls. Selected **CB305000** restored after a mode cycle. |
+| Mascot/focus/reduced motion | PASS: normal opening/settled view observed, wave/umbrella CSS **0.65 s** with cleanup/cancellation near **0.625–0.650 s**, no continuous motion. Native Rendering reduced-motion emulation matched true; active decoration/mascot animations were empty. Keyboard opening focused input; Escape closed/returned launcher focus. No-emulation restored. |
+| Candidate performance | PASS for the representative compositor-camera and application-transfer targets; exact methods/limits below. |
+| Palette/contrast | PASS: 36 owned files scanned, yellow only in mascot; 16 enabled text pairs/theme, minimum **4.8962 light / 5.3408 dark**, >=4.5. Static token calculations, not formal rendered WCAG certification. |
+| Final diff/security/main/backend/lockfile checks | PASS before documentation commit: F/B ancestors, backend tree exactly B, frontend manifest/lock exactly F, original main/index/files unchanged, no active hooks or real secret/runtime-artifact findings; diff whitespace passes. Root repeats after staging/commit. |
+
+Actual API reconciliation: the exact manifest bbox returns **2,092** basins because
+one committed point (CB306880) is just east of its max longitude. Expanded bounds
+return all **2,093**. The initial incorrect total-equals-bbox assertion is preserved
+in `api-actual.json`; source inspection explained it without backend edits. The
+fixed one-year API window returned **1,398 reported incidents**: 1,097 linked,
+301 null links, 414 null addresses and 115 null closed times. Returned coordinates
+were finite/in bbox. Actual null geometry, zero-distance links and degraded health
+were not observed; mocked tests cover these cases. Backend detail's generated
+incident link omits required bbox; the client supplies its own explicit parameters.
+
+Task-owned evidence root: `/Users/kerwynjean/.local/share/swale-local/`.
+Logs include `frontend-final-checks-pass.txt`, `npm-audit.json`, `api-actual.json`,
+`api-final.json`, `backend-final-ingest.txt`, `backend-final-audit.json`, and
+`containment.json`, `final-style-audit.json`. The earlier API pass's 3,933,502 decoded response-body bytes
+across 22 requests are probe volume, not browser transfer measurements. Specific
+TCP/UDP/marker/exec-child containment probes demonstrate EPERM enforcement; they
+are not exhaustive DNS/platform isolation proof. No real credential file was read
+or changed. No backend-source changes or prohibited route execution occurred.
+
+### Fresh candidate performance
+
+Native Chrome production preview, **974×896 CSS px / DPR about 2.2**.
+Canonical Resource Timing supplies app and separately sampled first-backend totals;
+the initial-load HAR supplies basemap accounting:
+
+| Traffic | Requests | Transfer bytes | Encoded / decoded body bytes |
+| --- | ---: | ---: | ---: |
+| Application assets including worker | 12 | **788,287** | 784,687 / 2,864,037 |
+| First backend-mode sequence | 10 GET | **1,906,938** | 1,903,938 / 1,903,938 |
+| Basemap (HAR) | 23 | **4,158,231** | Encoded unavailable / 7,044,636 decoded |
+
+**Application <=20 MB: PASS.** App plus separate API sample is 2,695,225 B,
+without claiming one combined initial-load interval. Initial fixture-load HAR has
+35 successful HTTP 200 requests, no unexpected origin or failed resource, and no
+API entries. Its worker transfer **303 B** differs from Resource Timing's
+**144,914 B**; HAR application **644,560 B** and noncanonical worker-adjusted
+**789,171 B** are preserved cross-checks. Canonical app total remains **788,287 B**;
+alternative totals are not added together or silently substituted.
+
+Actual compositor `DrawFrame` events in active camera windows establish
+representative rendered cadence:
+
+| Camera interval | Window / draws | DrawFrame events per second | Maximum gap |
+| --- | --- | ---: | ---: |
+| 2D switch interrupted by zoom | 0.304779 s / 25 | **82.03** | 50.623 ms |
+| Zoom | 0.65 s / 76 | **116.92** | 13.838 ms |
+| Brooklyn overview | 1.2 s / 120 | **100.00** | 19.183 ms |
+
+**Representative >=30 FPS: PASS** for these windows on this Mac. The first is
+brief/interrupted; the 50.623 ms gap is retained. These are compositor-event rates,
+not rAF counts, per-frame data freshness, full GPU completion or physical-display
+presentation. Idle gaps are excluded. Native Performance UI reported **INP 101 ms /
+CLS 0** for its recording; this is not exhaustive device/performance certification.
+
+Two-rAF UI timing approximations: assistant opening **16.5 ms**, theme **39.8 ms**,
+scenario **17.8 ms**. They time nearby UI scheduling/paint opportunities, not complete
+mascot animation, tile loading, full GPU completion or physical-display presentation.
+Evidence: [rendering summary](verification-artifacts/integration/candidate-rendering-summary.json)
+and [initial-load summary](verification-artifacts/integration/initial-load-candidate-summary.json),
+with their local native trace/HAR. Historical standalone numbers above remain
+comparison evidence rather than substitute candidate measurements.
+
+Browser screenshots remain ignored local evidence under
+`verification-artifacts/integration/`, including backend dark, tablet light/dark,
+narrow/mobile assistant, mobile Sources and disconnected views. The three upstream
+Liberty filter warnings remain documented. Native console also repeated
+`runtime.lastError: Receiving end does not exist`; extension attribution is
+plausible but unproven. No entirely clean-console claim or suppression is made.
+Initial HAR resource success is distinct from these retained console diagnostics.
+The three-minute candidate walkthrough exists; no complete rehearsal recording
+was produced.
+
+[Final browser qualification](verification-artifacts/integration/browser-final-qualification.json)
+records the direct basin-marker evidence gap. Working inventory list selection,
+details/focus and earlier direct incident picking remain separate verified passes.
+Native window-mapping errors/unconfirmed pointer hits do not establish a picking
+defect or extension cause. Browser experiments stopped without a saved permission
+denial or security block; no complete browser-acceptance claim is made.
+
+Final audit evidence `logs/final-repository-audit.json` scanned 166 tracked paths;
+the original index hash matches its initial value and only the original unrelated
+`.vscode/` and preparation report remain untracked in main. One intentionally
+invalid embedded-credential URL in an example.com validation test was reviewed as
+nonsecret; the initial false-positive audit remains preserved separately. Pattern
+checks are not universal secret detection. Final dev **PID 53870** and clean backend
+**PID 58453** remain loopback-only; temporary production preview **PID 55860** was
+stopped and port 4173 is no longer listening. The existing user tab **895912960** is
+left at **http://127.0.0.1:5173/**, healthy Backend mode with overview camera,
+incidents enabled and CB305000 selected through the inventory list.
+Agent tabs closed; QA instrumentation and temporary browser emulation/cache/viewport
+settings restored. [Final dev view](verification-artifacts/integration/final-development-backend-light.jpg).
+Corrected fixture-tablet `*actual` screenshots/dimension JSON supersede an earlier
+mislabeled 1285-pixel capture; filename alone is not dimension evidence.
+
+**Main: UNCHANGED; merge into main NOT AUTHORIZED. Publication: NOT AUTHORIZED.**
+Current bounded verification does not establish whole-product readiness or partner
+agreement to the broader proposed contract. Overall verdict remains CONDITIONAL;
+the remaining browser review is a visible solid blue basin-marker click and
+matching full-ID inspector. The local reporting commit SHA is recorded externally.
+Subsequent main merge still requires
+explicit owner instruction and fresh checks.
