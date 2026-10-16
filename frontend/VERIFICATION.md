@@ -189,7 +189,9 @@ Read-only browser discovery identifies **Chrome**, browser connection `1`, profi
 `K.`, transport `extension` (the ChatGPT browser extension). The denied operation
 was opening `http://127.0.0.1:4173/`; the tool explicitly reported that website
 permission had been declined. Discovery confirms the connection exists, not that
-this website is authorized. No denied URL was retried during this diagnosis.
+this website is authorized. No request was repeated before the user explicitly
+confirmed that the actual localhost setting had been restored; see the follow-up
+result below.
 
 The required permission is ChatGPT website access to host **127.0.0.1** so the
 existing Chrome connection can read and interact with the local preview. Official
@@ -249,3 +251,27 @@ The historical FAIL entries are retained as observed findings rather than hidden
 by passing builds. No backend changes, Git push, deployment or scope expansion
 occurred. Do not interpret the passing non-browser checks as complete frontend
 verification.
+
+### Single request after explicit restoration confirmation
+
+At 2026-10-16T05:14:26+00:00, after the user confirmed “Localhost block removed / access
+restored”, one normal request through the same Chrome connection for
+`http://127.0.0.1:4173/` was attempted. It was BLOCKED with the more specific reason:
+“A saved user permission setting blocks this action.” No further website request
+was made. No browser acceptance checks or measurements were completed.
+
+A read-only attempt to inspect the desktop app's own permission UI was also
+BLOCKED: Computer Use is prohibited from accessing com.openai.codex for safety.
+No setting was read or changed through that attempt. The exact remaining stored
+rule therefore cannot be inspected with the available controls.
+
+The [official desktop settings documentation](https://learn.chatgpt.com/docs/app/settings#browser)
+also identifies Settings > Browser > Agent permissions, with a Browse control
+and website-specific exceptions. The supported next user check is the Browse
+rule matching 127.0.0.1 / the preview URL: it must permit a site-specific approval
+request rather than remain Block. Keep this scoped to the local preview; no
+all-site permission or developer/CDP setting is requested. This is documented
+recovery guidance, not a claim that a particular hidden rule was observed.
+
+All PASS/FAIL/BLOCKED/NOT MEASURED statuses above remain unchanged. The preview
+and implementation are preserved; browser acceptance is still BLOCKED.
