@@ -106,6 +106,7 @@ export function BackendSidebar(p: {
         </section>
         <section
           className="layers-section"
+          data-tutorial="layers"
           aria-labelledby="backend-layers-title"
         >
           <div className="section-heading">

@@ -72,6 +72,44 @@ const props = (context: ContextRequest | null): ContextualAssistantProps => ({
   onMovementChange: vi.fn(),
 });
 describe("selected context request, narration and lifecycle ownership", () => {
+  it("suppresses automatic and explicit provider work while the tutorial owns the guide", async () => {
+    const client = new ContextualClient();
+    const explain = vi.spyOn(client, "briefing");
+    const agent = vi.spyOn(client, "agent");
+    const audio = vi.spyOn(client, "audio");
+    const view = render(
+      createElement(ContextualAssistantPanel, {
+        ...props(station("F21")),
+        client,
+        tutorialActive: true,
+        open: true,
+        onClose: vi.fn(),
+      }),
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    fireEvent.click(screen.getByText("Generate selected briefing"));
+    fireEvent.change(screen.getByLabelText("Briefing language"), {
+      target: { value: "es" },
+    });
+    view.rerender(
+      createElement(ContextualAssistantPanel, {
+        ...props(station("R32")),
+        client,
+        tutorialActive: true,
+        open: true,
+        onClose: vi.fn(),
+      }),
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(explain).not.toHaveBeenCalled();
+    expect(agent).not.toHaveBeenCalled();
+    expect(audio).not.toHaveBeenCalled();
+  });
+
   it("forwards a related navigation series in one transaction rather than executing an intermediate stale state", async () => {
     const client = new ContextualClient();
     const actions = [

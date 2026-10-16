@@ -230,7 +230,7 @@ export function TransitSidebar(p: {
             <button onClick={p.onOverview}>Return to overview</button>
           </div>
         </section>
-        <section className="layers-section">
+        <section className="layers-section" data-tutorial="layers">
           <div className="section-heading">
             <h2>TRANSIT & FLOOD CONTEXT</h2>
             <Icon name="layers" size={14} />

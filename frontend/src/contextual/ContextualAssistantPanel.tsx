@@ -18,6 +18,7 @@ import {
 } from "./voices";
 
 export interface ContextualAssistantProps {
+  tutorialActive?: boolean;
   context: ContextRequest | null;
   onAction: (action: ContextAction) => void;
   onActions?: (actions: ContextAction[]) => void;
@@ -174,6 +175,7 @@ export function ContextualAssistantPanel(p: Props) {
     }
   };
   const run = async (prompt: string | null, automatic = false) => {
+    if (p.tutorialActive) return;
     const context = current.current.context;
     if (!context) {
       setError("Select a station, entrance, basin or incident first.");
@@ -252,6 +254,7 @@ export function ContextualAssistantPanel(p: Props) {
     }
   };
   const translate = async () => {
+    if (p.tutorialActive) return;
     if (!reply || !p.context || !sameContext(reply.context, p.context)) return;
     cancel();
     stopAudio();
@@ -288,6 +291,7 @@ export function ContextualAssistantPanel(p: Props) {
     }
   };
   const play = async (result: ContextReply) => {
+    if (p.tutorialActive) return;
     if (
       !current.current.context ||
       !sameContext(result.context, current.current.context) ||
@@ -418,7 +422,7 @@ export function ContextualAssistantPanel(p: Props) {
     setError("");
     // A provider-disabled template gives selection context without spending or
     // model generation. Debounce changing playback cursors and rapid selections.
-    if (p.context)
+    if (p.context && !p.tutorialActive)
       autoTimer.current = setTimeout(() => {
         void run(null, true);
       }, 300);
@@ -428,7 +432,7 @@ export function ContextualAssistantPanel(p: Props) {
     };
     // Context identity intentionally controls cancellation, not object identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [identity, client]);
+  }, [identity, client, p.tutorialActive]);
   useLayoutEffect(() => {
     cancel();
     stopAudio();
@@ -466,7 +470,7 @@ export function ContextualAssistantPanel(p: Props) {
     reply !== null &&
     p.context !== null &&
     sameContext(reply.context, p.context);
-  const actionsDisabled = !fresh || pending;
+  const actionsDisabled = !fresh || pending || !!p.tutorialActive;
   const displayedMessages: Message[] =
     reply && !messages.some((message) => message.reply?.id === reply.id)
       ? [
@@ -478,6 +482,7 @@ export function ContextualAssistantPanel(p: Props) {
     voiceMatchesLanguage(voice, language),
   );
   const submit = () => {
+    if (p.tutorialActive) return;
     if (
       /^\s*(?:play|read aloud|speak)\s+(?:this\s+)?briefing[.!]?\s*$/i.test(
         input,
@@ -530,6 +535,12 @@ export function ContextualAssistantPanel(p: Props) {
           <Icon name="close" size={18} />
         </button>
       </header>
+      {p.tutorialActive && (
+        <p className="context-warning" role="status">
+          Tutorial active · generation, translation and audio are paused. Finish
+          or close the tour to request a briefing.
+        </p>
+      )}
       <div className="context-identity">
         <strong>
           {p.context
@@ -555,7 +566,7 @@ export function ContextualAssistantPanel(p: Props) {
           </>
         )}
       </div>
-      <div className="context-toolbar">
+      <div className="context-toolbar" data-tutorial="briefing">
         <label>
           Briefing language
           <select
@@ -706,17 +717,20 @@ export function ContextualAssistantPanel(p: Props) {
         className="chat-suggestions"
         aria-label="Contextual assistant actions"
       >
-        <button disabled={!p.context || pending} onClick={() => void run(null)}>
+        <button
+          disabled={!p.context || pending || p.tutorialActive}
+          onClick={() => void run(null)}
+        >
           Generate selected briefing
         </button>
         <button
-          disabled={!p.context || pending}
+          disabled={!p.context || pending || p.tutorialActive}
           onClick={() => void run("Explain this selection.")}
         >
           Explain selection
         </button>
         <button
-          disabled={!p.context || pending}
+          disabled={!p.context || pending || p.tutorialActive}
           onClick={() => void run("Return to the overview.")}
         >
           Return to overview
@@ -861,7 +875,7 @@ export function ContextualAssistantPanel(p: Props) {
         <button
           type="submit"
           aria-label="Send contextual message"
-          disabled={!p.context || !input.trim() || pending}
+          disabled={!p.context || !input.trim() || pending || p.tutorialActive}
         >
           <Icon name="send" size={17} />
         </button>

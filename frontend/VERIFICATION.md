@@ -1532,3 +1532,10 @@ retention is implemented; the six-hour query window is not storage retention.
 First new-task clock sample13:47:58Z; code commit time14:33:39Z. These are
 wall-clock evidence points, not a reconstructed cumulative active-work duration or
 a reset of the original budget. No complete video was recorded.
+
+## Guided tutorial candidate — October 16, 2026
+
+The isolated `feat/guided-tutorial` implementation is based on fetched main
+`4ddb2b385755748787f0f92b7f152941960aec19`. See
+[the T1–T14 evidence and remaining acceptance limits](docs/tutorial/VERIFICATION.md).
+Preview: http://127.0.0.1:5193/. No push/deploy or recording-runtime changes.

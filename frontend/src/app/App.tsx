@@ -1,3 +1,5 @@
+import { Tutorial } from "../tutorial/Tutorial";
+import type { StepId } from "../tutorial/model";
 import {
   lazy,
   Suspense,
@@ -174,6 +176,9 @@ function Workspace({
   onSettings: (settings: Required<LocalFixtureOptions>) => void;
 }) {
   const [theme, setTheme] = useTheme();
+  const [tutorialActive, setTutorialActive] = useState(false);
+  const [tutorialRestoreCamera, setTutorialRestoreCamera] = useState(false);
+  const restoreTutorial = useRef<(() => void) | null>(null);
   const [hazardPaused, setHazardPaused] = useHazardMotionPreference();
   const [mascotMovement, setMascotMovement] = useState(() => {
     try {
@@ -534,9 +539,16 @@ function Workspace({
       nonce: ++infrastructureCameraSequence.current,
     });
   };
+  const tutorialOwnsCamera = useEffectEvent(() => tutorialActive);
   useEffect(() => {
     setSelectedDetailComponentId(null);
-    if (!entranceDetail || !infrastructureOpen || !autoCamera) return;
+    if (
+      !entranceDetail ||
+      !infrastructureOpen ||
+      !autoCamera ||
+      tutorialOwnsCamera()
+    )
+      return;
     setVerticalExaggeration(1);
     setInfrastructureMode("xray");
     const camera = modelTourCamera(entranceDetail, "entrance", 1);
@@ -546,6 +558,7 @@ function Workspace({
       ...camera,
       nonce: ++infrastructureCameraSequence.current,
     });
+    // Tour ownership is read when the selection changes; finishing must not replay camera travel.
   }, [entranceDetail, infrastructureOpen, autoCamera]);
 
   useEffect(() => {
@@ -741,7 +754,7 @@ function Workspace({
     return reply;
   };
   const modeSelector = (
-    <label className="source-mode-select">
+    <label className="source-mode-select" data-tutorial="data-mode">
       <span>DATA MODE</span>
       <select
         aria-label="Data mode"
@@ -807,7 +820,7 @@ function Workspace({
     setSelectedEntrance(null);
     setSelectedZone(null);
     transit.clearEvidence();
-    if (move && autoCamera) focusTransit(station);
+    if (move && autoCamera && !tutorialActive) focusTransit(station);
     if (controlsOpen) {
       setControlsOpen(false);
       controlsTrigger.current?.focus({ preventScroll: true });
@@ -1285,6 +1298,80 @@ function Workspace({
       else contextualAction(action);
     }
   };
+  const startTutorial = () => {
+    restoreTutorial.current = () => {
+      setWaterView(waterView);
+      setControlsOpen(controlsOpen);
+      setSourcesOpen(sourcesOpen);
+      setAssistantOpen(assistantOpen);
+      setInfrastructureOpen(infrastructureOpen);
+      setInfrastructureStationId(infrastructureStationId);
+      setSelectedPrimitiveId(selectedPrimitiveId);
+      setSelectedStation(selectedStation);
+      setSelectedEntrance(selectedEntrance);
+      setSelectedZone(selectedZone);
+      setTransitLayers(transitLayers);
+      setBackendLayers(backendLayers);
+      setInfrastructureMode(infrastructureMode);
+      setInfrastructureVisible(infrastructureVisible);
+      setVerticalExaggeration(verticalExaggeration);
+      dispatch({ type: "set_layers", visibility: state.layers });
+      dispatch({ type: "set_scenario", scenarioId: state.scenarioId });
+      dispatch({ type: "select_basin", id: state.selectedBasinId });
+      dispatch({ type: "highlight", ids: state.highlightedIds });
+      if (!infrastructureOpen)
+        setInfrastructureCamera({
+          kind: "return",
+          nonce: ++infrastructureCameraSequence.current,
+        });
+    };
+    setTutorialRestoreCamera(false);
+    setTutorialActive(true);
+  };
+  const showTutorial = (step: StepId): string => {
+    switch (step) {
+      case "map":
+        setControlsOpen(false);
+        return "Try dragging the map or selecting a visible feature.";
+      case "layers":
+        setControlsOpen(true);
+        return "Use the layer switches. Open MAP LEGEND to match symbols to their meaning.";
+      case "water":
+        changeWaterView(waterView === "normal" ? "flood_simulation" : "normal");
+        return "The existing water-view control changed. This is hypothetical, not a current observation.";
+      case "station":
+        if (!transitActive) {
+          setControlsOpen(true);
+          return "Choose Backend / snapshot + transit, then Subway monitoring to access the existing station explorer. The tour does not switch data connections automatically.";
+        }
+        enterInfrastructure(
+          selectedStation?.properties.gtfs_stop_id ?? infrastructureStationId,
+        );
+        setControlsOpen(true);
+        return "Choose Carroll St or another available station in Select geometry. Use the real component and viewpoint controls.";
+      case "station-water":
+        if (!entranceDetail)
+          return "Select a station and entrance first. If unavailable, continue to the next step.";
+        changeWaterView("flood_simulation");
+        floodPlayback.snapshot(600);
+        return "Opened the existing local 600-second hypothetical snapshot. No server simulation or provider call.";
+      case "evidence":
+        setSourcesOpen(false);
+        if (sourceMode === "fixture" && snapshot.basins[0])
+          dispatch({ type: "select_basin", id: snapshot.basins[0].id });
+        return "Read the selected feature’s source and timestamps. In connected mode, select a basin or report to inspect its evidence.";
+      case "assistant":
+      case "briefing":
+        setAssistantOpen(true);
+        setControlsOpen(false);
+        setSourcesOpen(false);
+        return sourceMode === "fixture"
+          ? "The scripted DEMO assistant is open. Multilingual briefings belong to the connected assistant; no provider request was made."
+          : "The existing assistant is open. Provider generation and audio are paused for this tour; language selection remains available.";
+      default:
+        return "Use the highlighted control, or continue.";
+    }
+  };
   return (
     // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape is delegated from descendant controls; the landmark has no activation behavior.
     <main
@@ -1315,6 +1402,8 @@ function Workspace({
           }
         >
           <SwaleMap
+            tutorialActive={tutorialActive}
+            tutorialRestoreCamera={tutorialRestoreCamera}
             mascotTarget={mascotTarget}
             onMascotProjection={updateMascotProjection}
             onManualCamera={() => setManualCamera((value) => value + 1)}
@@ -1411,6 +1500,17 @@ function Workspace({
           <span>Stormwater planning</span>
         </div>
         <div className="workspace-actions">
+          <Tutorial
+            active={tutorialActive}
+            onStart={startTutorial}
+            onEnd={(restore) => {
+              setTutorialRestoreCamera(restore);
+              if (restore) restoreTutorial.current?.();
+              restoreTutorial.current = null;
+              setTutorialActive(false);
+            }}
+            onShow={showTutorial}
+          />
           {sourceMode === "backend" && !transitActive && (
             <HazardMotionControl
               paused={hazardPaused}
@@ -1427,6 +1527,7 @@ function Workspace({
           </span>
           <button
             className="theme-toggle"
+            data-tutorial="theme"
             aria-label="Dark mode"
             aria-pressed={theme === "dark"}
             title={
@@ -1510,6 +1611,7 @@ function Workspace({
         />
       )}
       <div
+        data-tutorial="evidence"
         className={`inspector-position ${(sourceMode === "backend" ? (transitActive ? infrastructureSelected || selectedStation || selectedZone || selectedEntrance : backend.detail.id) : basin) ? "has-selection" : ""}`}
       >
         {sourceMode === "backend" ? (
@@ -1690,6 +1792,7 @@ function Workspace({
           sourceMode === "backend"
             ? {
                 context: contextualRequest,
+                tutorialActive,
                 onAction: contextualAction,
                 onActions: contextualActions,
                 movementEnabled: mascotMovement,
@@ -1727,7 +1830,7 @@ function Workspace({
           onQueueSelect(id);
         }}
       />
-      {sourceMode === "backend" && (
+      {sourceMode === "backend" && !tutorialActive && (
         <MascotCarry
           expression={mascotExpression}
           selectionKey={mascotTarget?.key ?? null}
@@ -1738,6 +1841,7 @@ function Workspace({
         />
       )}
       <button
+        data-tutorial="assistant"
         className={`assistant-launcher ${assistantOpen ? "is-open" : ""}`}
         ref={assistantTrigger}
         onClick={() => {
@@ -1755,7 +1859,7 @@ function Workspace({
         }
       >
         <span className="launcher-symbol">
-          {sourceMode === "fixture" && !assistantOpen ? (
+          {sourceMode === "fixture" && !assistantOpen && !tutorialActive ? (
             <SwaleMascot expression={mascotExpression} />
           ) : (
             <Icon name="chat" size={24} />

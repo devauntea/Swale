@@ -1,0 +1,234 @@
+.tutorial-entry {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 9px;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.tutorial-invitation {
+  position: fixed;
+  z-index: 48;
+  right: 24px;
+  top: 76px;
+  width: min(330px, calc(100vw - 32px));
+  padding: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 16px;
+  box-shadow: var(--shadow-panel);
+  font-size: 13px;
+}
+.tutorial-invitation p {
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+.tutorial-invitation div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tutorial-invitation button,
+.tutorial-card button {
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 11px;
+  font: inherit;
+  cursor: pointer;
+  min-height: 36px;
+}
+.tutorial-shade {
+  position: fixed;
+  inset: 0;
+  background: #07182c30;
+  pointer-events: none;
+  z-index: 60;
+}
+.tutorial-spotlight {
+  position: fixed;
+  z-index: 61;
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  outline: 2px solid var(--surface);
+  pointer-events: none;
+  box-shadow: 0 0 0 9999px #07182c30;
+}
+.tutorial-card {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: 360px;
+  max-width: calc(100vw - 20px);
+  max-height: calc(100dvh - 20px);
+  overflow: auto;
+  z-index: 65;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 18px 70px #07182c40;
+  padding: 18px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.tutorial-card::backdrop {
+  background: transparent;
+  pointer-events: none;
+}
+.tutorial-kicker,
+.tutorial-navigation,
+.tutorial-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tutorial-kicker > span {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+}
+.tutorial-kicker button {
+  border: 0;
+  padding: 6px;
+  background: transparent;
+}
+.tutorial-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 6px 0 12px;
+}
+.tutorial-heading .swale-mascot {
+  width: 70px;
+  height: 80px;
+  flex-shrink: 0;
+}
+.tutorial-count {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.tutorial-heading h2 {
+  font-size: 21px;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+  margin: 5px 0 0;
+}
+.tutorial-progress {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 18px;
+}
+.tutorial-progress i {
+  flex: 1;
+  height: 3px;
+  background: var(--border);
+  border-radius: 3px;
+}
+.tutorial-progress .done {
+  background: var(--accent);
+}
+.tutorial-card p {
+  margin: 12px 0;
+}
+.tutorial-practice {
+  background: var(--surface-elevated);
+  padding: 11px 12px;
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.tutorial-fallback,
+.tutorial-feedback {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.tutorial-fallback button {
+  display: block;
+  margin-top: 8px;
+}
+.tutorial-practice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0;
+}
+.tutorial-navigation {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  margin-top: 14px;
+}
+.tutorial-card .tutorial-primary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+.tutorial-bottom {
+  margin-top: 10px;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+.tutorial-bottom button {
+  border: 0;
+  padding: 4px 0;
+  background: transparent;
+  font-size: 11px;
+}
+.tutorial-card button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.tutorial-card :focus-visible,
+.tutorial-entry:focus-visible,
+.tutorial-invitation :focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+@media (max-width: 639px) {
+  .tutorial-card {
+    width: calc(100vw - 20px);
+    max-height: 56dvh;
+    padding: 14px;
+  }
+  .tutorial-heading .swale-mascot {
+    width: 48px;
+    height: 55px;
+  }
+  .tutorial-heading h2 {
+    font-size: 18px;
+  }
+  .tutorial-entry {
+    font-size: 11px;
+    padding: 7px;
+  }
+  .tutorial-invitation {
+    top: 64px;
+    right: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-card *,
+  .tutorial-spotlight {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+@media (forced-colors: active) {
+  .tutorial-spotlight {
+    border: 3px solid Highlight;
+    outline-color: Canvas;
+  }
+}

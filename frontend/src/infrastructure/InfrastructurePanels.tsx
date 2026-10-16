@@ -33,7 +33,10 @@ export function InfrastructureControls(p: ControlsProps) {
   const [search, setSearch] = useState("");
   if (!p.open)
     return (
-      <section className="transit-section infrastructure-entry">
+      <section
+        className="transit-section infrastructure-entry"
+        data-tutorial="station"
+      >
         <h2>SCHEMATIC INFRASTRUCTURE</h2>
         <p className="transit-copy">
           Explore Brooklyn station structure, platforms and entrances. Static
@@ -60,6 +63,7 @@ export function InfrastructureControls(p: ControlsProps) {
   return (
     <section
       className="transit-section infrastructure-controls"
+      data-tutorial="station"
       aria-label="Infrastructure exploration controls"
     >
       <div className="section-heading">

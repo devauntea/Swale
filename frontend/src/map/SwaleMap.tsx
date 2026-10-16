@@ -110,6 +110,8 @@ export type TransitCameraRequest = { nonce: number } & (
 setWorkerUrl(workerUrl);
 
 export interface SwaleMapProps {
+  tutorialActive?: boolean;
+  tutorialRestoreCamera?: boolean;
   hazardPaused?: boolean;
   mascotTarget?: { key: string; position: Coordinate; label: string } | null;
   onMascotProjection?: (target: ProjectedMascotTarget | null) => void;
@@ -1124,6 +1126,25 @@ export function SwaleMap(props: SwaleMapProps) {
     infrastructureRenderer,
   ]);
 
+  const tutorialCamera = useRef<SavedInfrastructureCamera | null>(null);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    if (props.tutorialActive) {
+      if (!tutorialCamera.current)
+        tutorialCamera.current = captureMapCamera(map);
+    } else if (tutorialCamera.current) {
+      if (props.tutorialRestoreCamera) {
+        const { centerClampedToGround, ...camera } = tutorialCamera.current;
+        map.stop();
+        map.setCenterClampedToGround?.(centerClampedToGround);
+        map.setCenterElevation?.(camera.elevation);
+        map.jumpTo(camera);
+      }
+      tutorialCamera.current = null;
+    }
+  }, [ready, props.tutorialActive, props.tutorialRestoreCamera]);
+
   const animate = (operation: (map: Map, duration: number) => void) => {
     if (mapRef.current && ready)
       operation(mapRef.current, prefersReducedMotion() ? 0 : 650);
@@ -1132,6 +1153,7 @@ export function SwaleMap(props: SwaleMapProps) {
   return (
     <section
       className="map-stage"
+      data-tutorial="map"
       aria-label="Brooklyn planning map"
       data-map-ready={ready}
     >

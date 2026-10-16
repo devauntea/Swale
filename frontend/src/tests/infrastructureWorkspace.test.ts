@@ -321,6 +321,34 @@ async function openTransit() {
   fireEvent.click(screen.getByRole("button", { name: /Carroll test station/ }));
 }
 describe("infrastructure identity and failure isolation in App", () => {
+  it("finishes the tutorial without replaying camera travel or clearing station selection", async () => {
+    await openTransit();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Explore station — Normal view" }),
+    );
+    await screen.findByRole("combobox", { name: "Source-linked entrance" });
+    await waitFor(() =>
+      expect(
+        (mapProps.current.infrastructure as InfrastructureMapState)
+          .entranceDetail,
+      ).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "How to Use Swale" }));
+    fireEvent.click(screen.getByRole("button", { name: "2 Steps" }));
+    const camera = mapProps.current.infrastructureCamera;
+    const selected = (mapProps.current.infrastructure as InfrastructureMapState)
+      .selectedDetailComponentId;
+    for (let i = 0; i < 9; i++)
+      fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Finish Tour" }));
+    expect(mapProps.current.infrastructureCamera).toBe(camera);
+    expect(
+      (mapProps.current.infrastructure as InfrastructureMapState)
+        .selectedDetailComponentId,
+    ).toBe(selected);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("settles mascot projection with fresh live wrappers and retains the target through presentation rerenders", async () => {
     await openTransit();
     await waitFor(() =>

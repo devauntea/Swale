@@ -162,7 +162,11 @@ export function ControlSidebar(p: Props) {
             <Icon name="chevron" size={15} />
           </div>
         </section>
-        <section className="layers-section" aria-labelledby="layers-title">
+        <section
+          className="layers-section"
+          data-tutorial="layers"
+          aria-labelledby="layers-title"
+        >
           <div className="section-heading">
             <h2 id="layers-title">MAP LAYERS</h2>
             <Icon name="layers" size={14} />

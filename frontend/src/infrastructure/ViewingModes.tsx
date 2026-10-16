@@ -42,7 +42,12 @@ export function ViewingModes({
         {exploring && <button onClick={onReturn}>Return to overview</button>}
       </div>
       {exploring && <ServiceBadges routes={routes} />}
-      <div role="group" aria-label="Water view" className="water-view-options">
+      <div
+        role="group"
+        aria-label="Water view"
+        className="water-view-options"
+        data-tutorial="water"
+      >
         <button
           aria-pressed={waterView === "normal"}
           onClick={() => onWaterView("normal")}
@@ -89,7 +94,7 @@ export function ViewingModes({
                   L stored in modeled compartments · hypothetical, not measured.
                 </p>
               )}
-              <div className="simulation-transport">
+              <div className="simulation-transport" data-tutorial="timeline">
                 <button onClick={() => (p.playing ? p.pause() : p.play())}>
                   {p.playing ? "Pause simulation" : "Play simulation"}
                 </button>
