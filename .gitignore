@@ -6,3 +6,6 @@ __pycache__/
 backend/var/
 .env
 .DS_Store
+
+# local tooling
+.claude/
