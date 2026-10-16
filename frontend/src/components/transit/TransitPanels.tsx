@@ -72,6 +72,7 @@ export function TransitSidebar(p: {
   onOverview: () => void;
   onLayer: (key: LayerKey) => void;
   onSources?: () => void;
+  infrastructureControls?: ReactNode;
 }) {
   const [search, setSearch] = useState("");
   const terms = search.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
@@ -163,6 +164,7 @@ export function TransitSidebar(p: {
           </p>
           <ResourceNotice state={p.data.live} label="MTA board" />
         </section>
+        {p.infrastructureControls}
         <section className="transit-section">
           <label
             className="transit-input-label"
@@ -194,7 +196,9 @@ export function TransitSidebar(p: {
           <ul className="transit-station-list">
             {stations.map((station) => {
               const board = p.data.live.data?.stations.find(
-                (item) => item.station_id === station.id,
+                (item) =>
+                  item.station_id === station.id &&
+                  item.gtfs_stop_id === station.properties.gtfs_stop_id,
               );
               return (
                 <li key={station.id}>
@@ -294,6 +298,8 @@ export function TransitInspector(p: {
   onEvidence: (id: string) => void;
   evidence: TransitEvidenceState;
   clearEvidence?: () => void;
+  onExploreInfrastructure?: () => void;
+  infrastructureInspection?: ReactNode;
 }) {
   const panel = useRef<HTMLElement>(null);
   const close = useRef<HTMLButtonElement>(null);
@@ -343,7 +349,9 @@ export function TransitInspector(p: {
       ? selectedEntrance
       : undefined;
   const board = p.data.live.data?.stations.find(
-    (item) => item.station_id === stationId,
+    (item) =>
+      item.station_id === stationId &&
+      item.gtfs_stop_id === station?.properties.gtfs_stop_id,
   );
   const scheduleState = transitScheduleAvailability(p.data.live.data);
   const canCompareSchedule =
@@ -386,6 +394,7 @@ export function TransitInspector(p: {
         </button>
       </header>
       <div className="inspector-body">
+        {p.infrastructureInspection}
         {station && (
           <>
             <h2 className="transit-station-title">{station.properties.name}</h2>
@@ -412,6 +421,11 @@ export function TransitInspector(p: {
               unmatched comparisons remain unavailable.
             </p>
             <div className="transit-button-row">
+              {p.onExploreInfrastructure && (
+                <button onClick={p.onExploreInfrastructure}>
+                  Explore infrastructure
+                </button>
+              )}
               <button disabled={!station.geometry} onClick={p.onFocus}>
                 Focus station
               </button>

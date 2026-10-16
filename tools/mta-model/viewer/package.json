@@ -1,0 +1,11 @@
+{
+  "name": "swale-subway-export-viewer",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "gltf-validator": "2.0.0-dev.3.10"
+  }
+}

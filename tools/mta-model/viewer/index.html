@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data: blob:; worker-src 'none'; object-src 'none'; base-uri 'none'"
+    />
+    <title>Swale · Brooklyn schematic infrastructure export</title>
+  </head>
+  <body>
+    <aside>
+      <p class="eyebrow">SWALE / EXPORT INSPECTOR</p>
+      <h1>Brooklyn infrastructure</h1>
+      <p>
+        Static, schematic subway geometry. Generated structures and vertical
+        positions are assumptions, not surveyed interiors or navigation routes.
+      </p>
+      <p id="status" role="status">Loading local GLB…</p>
+      <fieldset id="groups"><legend>Export groups</legend></fieldset>
+      <label for="exaggeration"
+        >Vertical exaggeration <output id="factor">2×</output></label
+      >
+      <input
+        id="exaggeration"
+        type="range"
+        min="1"
+        max="5"
+        step="1"
+        value="2"
+      />
+      <p>
+        Exaggeration is relative to each vertex’s declared reference surface.
+        Source elevations remain unchanged in the canonical GLB.
+      </p>
+      <button id="overview" type="button">Frame visible model</button>
+      <label for="feature">Inspect a semantic feature</label>
+      <select id="feature">
+        <option value="">Choose a feature</option>
+      </select>
+      <pre id="metadata" aria-live="polite">
+Click geometry or choose a feature to inspect its source and assumptions.</pre
+      >
+      <p>
+        Source route colors belong to the export. The Swale map uses its own
+        blue palette. No live train positions or flood simulation are supplied
+        here.
+      </p>
+    </aside>
+    <main id="viewport" aria-label="Schematic three dimensional export viewer">
+      <div class="viewer-qualification">
+        STATIC / SCHEMATIC · <span id="display-factor">2×</span> vertical
+        display<br />Assumed structure · source-relative heights
+      </div>
+    </main>
+    <script type="module" src="./viewer.js"></script>
+  </body>
+</html>

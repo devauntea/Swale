@@ -44,6 +44,30 @@ import {
   type TransitMapSelection,
   type TransitPickKind,
 } from "./transitLayers";
+import type {
+  InfrastructureCameraRequest,
+  InfrastructureMapState,
+} from "../infrastructure/contracts";
+
+type InfrastructureRenderer = typeof import("./infrastructureLayers");
+interface SavedInfrastructureCamera {
+  center: Coordinate;
+  zoom: number;
+  pitch: number;
+  bearing: number;
+  padding: ReturnType<Map["getPadding"]>;
+}
+
+function captureMapCamera(map: Map): SavedInfrastructureCamera {
+  const center = map.getCenter();
+  return {
+    center: [center.lng, center.lat],
+    zoom: map.getZoom(),
+    pitch: map.getPitch(),
+    bearing: map.getBearing(),
+    padding: { ...map.getPadding() },
+  };
+}
 
 export type TransitCameraRequest = { nonce: number } & (
   | { kind: "focus"; position: Coordinate }
@@ -54,6 +78,9 @@ export type TransitCameraRequest = { nonce: number } & (
 setWorkerUrl(workerUrl);
 
 export interface SwaleMapProps {
+  infrastructure?: InfrastructureMapState | null;
+  infrastructureCamera?: InfrastructureCameraRequest | null;
+  onSelectInfrastructure?: (id: string) => void;
   transit?: TransitData | null;
   transitLayers?: TransitLayerVisibility;
   transitSelection?: TransitMapSelection;
@@ -130,6 +157,15 @@ export function SwaleMap(props: SwaleMapProps) {
   const lastCameraRequestRef = useRef(0);
   const lastBackendFocusRef = useRef(0);
   const lastTransitCameraRef = useRef(0);
+  const lastInfrastructureCameraRef = useRef(0);
+  const previousInfrastructureCameraRef =
+    useRef<SavedInfrastructureCamera | null>(null);
+  const recoveryCameraRef = useRef<SavedInfrastructureCamera | null>(null);
+  const activeInfrastructureStationRef = useRef<string | null>(null);
+  const fittedInfrastructureChunkRef =
+    useRef<InfrastructureMapState["chunk"]>(null);
+  const [infrastructureRenderer, setInfrastructureRenderer] =
+    useState<InfrastructureRenderer | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -161,6 +197,27 @@ export function SwaleMap(props: SwaleMapProps) {
   }, [backendMode]);
 
   useEffect(() => {
+    if (!props.infrastructure || infrastructureRenderer) return;
+    let cancelled = false;
+    // Download detail renderer code only after explicit exploration. The module
+    // uses the same installed deck primitives and existing overlay owner.
+    void import("./infrastructureLayers").then(
+      (renderer) => {
+        if (!cancelled) setInfrastructureRenderer(renderer);
+      },
+      () => {
+        if (!cancelled)
+          setWarning(
+            "Subway geometry rendering is unavailable. Station controls remain usable.",
+          );
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [props.infrastructure, infrastructureRenderer]);
+
+  useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     let disposed = false;
@@ -169,9 +226,9 @@ export function SwaleMap(props: SwaleMapProps) {
     let onContextLost: ((event: Event) => void) | null = null;
     // Nonce zero is the initial overview placeholder. Keep the architectural
     // home view on first load; replay a genuine pending command after retry.
-    lastCameraRequestRef.current = 0;
+    if (!recoveryCameraRef.current) lastCameraRequestRef.current = 0;
     setReady(false);
-    setPitched(HOME_CAMERA.pitch > 10);
+    setPitched((recoveryCameraRef.current?.pitch ?? HOME_CAMERA.pitch) > 10);
     setTooltip(null);
     setError(null);
     setWarning(null);
@@ -189,8 +246,9 @@ export function SwaleMap(props: SwaleMapProps) {
         container,
         style: BASEMAP_STYLE,
         ...HOME_CAMERA,
+        ...(recoveryCameraRef.current ?? {}),
         minZoom: 11,
-        maxZoom: 18.5,
+        maxZoom: 22,
         maxPitch: 70,
         maxBounds: [
           [-74.075, 40.53],
@@ -241,6 +299,7 @@ export function SwaleMap(props: SwaleMapProps) {
       onContextLost = (event: Event) => {
         event.preventDefault();
         if (disposed) return;
+        recoveryCameraRef.current = captureMapCamera(map);
         setReady(false);
         setError(
           "The browser lost its WebGL map context. Retry to restore the map.",
@@ -354,20 +413,68 @@ export function SwaleMap(props: SwaleMapProps) {
     if (!ready || !map || !overlay) return;
 
     const colors = MAP_THEMES[theme];
+    const infrastructureLayers =
+      props.infrastructure && infrastructureRenderer
+        ? infrastructureRenderer.infrastructureMapLayers(
+            props.infrastructure,
+            theme,
+            (id) => {
+              const current = propsRef.current.infrastructure;
+              const primitive = current?.chunk?.primitives.find(
+                (item) => item.id === id,
+              );
+              if (
+                current &&
+                primitive &&
+                current.stationId === props.infrastructure?.stationId &&
+                current.chunk?.stationId === current.stationId &&
+                infrastructureRenderer.infrastructurePrimitiveVisible(
+                  current,
+                  primitive,
+                )
+              )
+                propsRef.current.onSelectInfrastructure?.(id);
+            },
+            (tip) => {
+              if (
+                propsRef.current.infrastructure?.stationId ===
+                props.infrastructure?.stationId
+              )
+                setTooltip(tip);
+            },
+            (primitive) => {
+              const current = propsRef.current.infrastructure;
+              return (
+                !!current &&
+                current.stationId === props.infrastructure?.stationId &&
+                current.chunk?.primitives.some(
+                  (item) => item.id === primitive.id,
+                ) === true &&
+                infrastructureRenderer.infrastructurePrimitiveVisible(
+                  current,
+                  primitive,
+                )
+              );
+            },
+          )
+        : [];
     if (props.transit && props.transitLayers && props.transitSelection) {
       overlay.setProps({
-        layers: transitMapLayers(
-          props.transit,
-          props.transitLayers,
-          props.transitSelection,
-          theme,
-          labelLayerRef.current,
-          (kind, id) => {
-            if (propsRef.current.transit)
-              propsRef.current.onSelectTransit?.(kind, id);
-          },
-          setTooltip,
-        ),
+        layers: [
+          ...transitMapLayers(
+            props.transit,
+            props.transitLayers,
+            props.transitSelection,
+            theme,
+            labelLayerRef.current,
+            (kind, id) => {
+              if (propsRef.current.transit)
+                propsRef.current.onSelectTransit?.(kind, id);
+            },
+            setTooltip,
+          ),
+          ...infrastructureLayers,
+        ],
       });
       if (buildingLayerRef.current)
         map.setLayoutProperty(
@@ -459,7 +566,7 @@ export function SwaleMap(props: SwaleMapProps) {
           "visibility",
           layers.buildings ? "visible" : "none",
         );
-      overlay.setProps({ layers: backendLayers });
+      overlay.setProps({ layers: [...backendLayers, ...infrastructureLayers] });
       setTooltip(null);
       return;
     }
@@ -660,7 +767,7 @@ export function SwaleMap(props: SwaleMapProps) {
       );
     }
     // Neither this update nor any panel render reconstructs the map or camera.
-    overlay.setProps({ layers: nextLayers });
+    overlay.setProps({ layers: [...nextLayers, ...infrastructureLayers] });
     setTooltip(null);
     if (import.meta.env.DEV)
       performance.mark(`swale-scenario-${scenarioId}-submitted`);
@@ -677,6 +784,8 @@ export function SwaleMap(props: SwaleMapProps) {
     props.transit,
     props.transitLayers,
     props.transitSelection,
+    props.infrastructure,
+    infrastructureRenderer,
   ]);
 
   useEffect(() => {
@@ -786,6 +895,100 @@ export function SwaleMap(props: SwaleMapProps) {
     setTooltip(null);
   }, [ready, props.transit, props.transitCamera]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    const request = props.infrastructureCamera;
+    if (
+      !ready ||
+      !map ||
+      !request ||
+      request.nonce === lastInfrastructureCameraRef.current
+    )
+      return;
+    lastInfrastructureCameraRef.current = request.nonce;
+    const duration = prefersReducedMotion() ? 0 : 850;
+    if (request.kind === "return") {
+      const previous = previousInfrastructureCameraRef.current;
+      activeInfrastructureStationRef.current = null;
+      fittedInfrastructureChunkRef.current = null;
+      previousInfrastructureCameraRef.current = null;
+      if (previous) map.easeTo({ ...previous, duration, essential: false });
+    } else if (request.kind === "explore") {
+      if (!previousInfrastructureCameraRef.current) {
+        previousInfrastructureCameraRef.current = captureMapCamera(map);
+      }
+      activeInfrastructureStationRef.current = request.stationId;
+      fittedInfrastructureChunkRef.current = null;
+      map.flyTo({
+        center: request.position,
+        zoom: 20.5,
+        pitch: 59,
+        padding: cameraPadding(map.getContainer().clientWidth),
+        duration,
+        essential: false,
+      });
+    } else if (request.positions.length) {
+      const lons = request.positions.map((position) => position[0]);
+      const lats = request.positions.map((position) => position[1]);
+      map.fitBounds(
+        [
+          [Math.min(...lons), Math.min(...lats)],
+          [Math.max(...lons), Math.max(...lats)],
+        ],
+        {
+          padding: cameraPadding(map.getContainer().clientWidth),
+          absolutePadding: true,
+          maxZoom: 21.5,
+          pitch: map.getPitch(),
+          bearing: map.getBearing(),
+          duration,
+          essential: false,
+        },
+      );
+    }
+    setTooltip(null);
+  }, [ready, props.infrastructureCamera]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const state = props.infrastructure;
+    if (
+      !ready ||
+      !map ||
+      !state?.chunk ||
+      !infrastructureRenderer ||
+      state.stationId !== activeInfrastructureStationRef.current ||
+      state.chunk === fittedInfrastructureChunkRef.current
+    )
+      return;
+    const positions =
+      infrastructureRenderer.infrastructureFocusPositions(state);
+    fittedInfrastructureChunkRef.current = state.chunk;
+    if (!positions.length) return;
+    const lons = positions.map((position) => position[0]);
+    const lats = positions.map((position) => position[1]);
+    map.fitBounds(
+      [
+        [Math.min(...lons), Math.min(...lats)],
+        [Math.max(...lons), Math.max(...lats)],
+      ],
+      {
+        padding: cameraPadding(map.getContainer().clientWidth),
+        absolutePadding: true,
+        maxZoom: 20.5,
+        pitch: 59,
+        bearing: map.getBearing(),
+        duration: prefersReducedMotion() ? 0 : 650,
+        essential: false,
+      },
+    );
+  }, [
+    ready,
+    props.infrastructure,
+    props.infrastructureCamera,
+    infrastructureRenderer,
+  ]);
+
   const animate = (operation: (map: Map, duration: number) => void) => {
     if (mapRef.current && ready)
       operation(mapRef.current, prefersReducedMotion() ? 0 : 650);
@@ -809,7 +1012,14 @@ export function SwaleMap(props: SwaleMapProps) {
         <div className="map-status map-status-error" role="alert">
           <strong>Map rendering unavailable</strong>
           <span>{error}</span>
-          <button type="button" onClick={() => setRetry((value) => value + 1)}>
+          <button
+            type="button"
+            onClick={() => {
+              if (mapRef.current)
+                recoveryCameraRef.current = captureMapCamera(mapRef.current);
+              setRetry((value) => value + 1);
+            }}
+          >
             Retry map
           </button>
         </div>
