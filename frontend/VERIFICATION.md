@@ -230,7 +230,7 @@ references and actual current rendered behavior.
 | Historical buildings visibility | PASS | Prior Chrome switch removed extrusions while other overlays remained. |
 | Original startup camera | FAIL | Original browser view was too distant. Code/default-target correction is committed; final browser validation remains BLOCKED below. |
 | Captured missing-sprite resources | FAIL | Seven upstream Liberty missing-sprite warnings in prior captured console window; no final clean-console check. |
-| Website permission for current preview | BLOCKED | Last actual URL-access attempt was rejected as user-declined. No retry during this diagnosis. |
+| Website permission for current preview | BLOCKED | Latest single authorized retry after the user verified Always allow was rejected by a saved user permission setting; see latest follow-up below. |
 | Final visual comparison with A/B/C | BLOCKED | Current camera/readability refinements still need actual browser inspection. |
 | Five assistant UI prompts / loading / responses / map effects | BLOCKED | Unit scripts pass; actual browser flows not yet executed. |
 | Marker click/hover, complaint pick, selection/focus | BLOCKED | Needs browser interaction, not inferred from unit tests. |
@@ -275,3 +275,65 @@ recovery guidance, not a claim that a particular hidden rule was observed.
 
 All PASS/FAIL/BLOCKED/NOT MEASURED statuses above remain unchanged. The preview
 and implementation are preserved; browser acceptance is still BLOCKED.
+
+### Latest single retry after verified Always allow settings
+
+On October 16, 2026, at approximately 01:21 EDT (05:21 UTC), the user reported
+that both `http://127.0.0.1` and `http://127.0.0.1:4173` had explicit **Always
+allow** Browse permissions and that the default was also **Always allow**. The
+user authorized one connection retry.
+
+Read-only `cua.getState()` successfully discovered Chrome connection `1`, profile
+`K.`, transport `extension`, extension instance
+`f2400a8e-e269-4ccf-827f-a6d13d17db3c`, with its current tab inventory. Exactly one
+normal `cua.createBrowserTab('chrome', 'http://127.0.0.1:4173/', ...)` request was
+then made. It was **BLOCKED**. The tool's exact stated reason was:
+
+> Browser Use rejected this action due to browser security policy. Reason: A saved
+> user permission setting blocks this action. Browser use cannot access
+> http://127.0.0.1:4173 because the user has a saved preference that blocks it.
+
+All browser attempts stopped at that denial. No alternate host, port, browser,
+tab, CDP connection, headless runner, desktop automation or indirect page access
+was attempted. No permission was changed.
+
+The observed blocker is the **Browser Use saved-site-permission enforcement for
+the connected Chrome extension**. Connection discovery works; this is not an
+observed missing-extension error or an observed frontend HTTP/rendering failure.
+The enforcement result conflicts with the user's verified settings. The tool
+does not expose the effective stored rule, its origin, or permission-sync state,
+so a stale rule, conflicting policy or connection-state problem cannot be
+distinguished from the evidence available. No specific hidden rule is asserted.
+
+The [official Chrome-extension documentation](https://learn.chatgpt.com/docs/chrome-extension#manage-allowed-and-blocked-websites)
+identifies desktop Settings > Computer Use > Manage beside Chrome as the
+host-based website allowlist/blocklist control. Check that control in the desktop
+app providing this Chrome connection, in addition to the Browser settings already
+verified. If it also shows the host allowed/unblocked, the same documentation's
+[troubleshooting steps](https://learn.chatgpt.com/docs/chrome-extension#troubleshooting)
+cover updating the desktop app, checking the extension in the intended browser
+profile, restarting the browser/app, starting a new chat to clear chat-specific
+connection state, and submitting `/feedback` with the chat ID if the problem
+persists. These are user-facing recovery options, not actions performed here.
+There is no evidence that broader permissions or developer/CDP access are needed.
+
+| Follow-up check | Status | Observed evidence |
+| --- | --- | --- |
+| Chrome connection discovery | PASS | `cua.getState()` returned connection 1, profile K., extension transport and tab inventory. |
+| Single authorized preview request | BLOCKED | Saved user permission rejection quoted above, despite reported Always allow settings. |
+| Reference A: final pale 3D city composition | BLOCKED | Current production preview could not be opened; historical screenshot is not a final acceptance check. |
+| Reference B: final overlay transparency/readability | BLOCKED | No current rendered view available. |
+| Reference C: final floating controls/inspector and interactions | BLOCKED | No current rendered view or interaction sequence available. |
+| Remaining frontend interaction checks | BLOCKED | None executed after denial; earlier unit results do not establish browser behavior. |
+| Seven missing sprites | FAIL | Historical warnings remain unresolved; no conditional browser investigation/fix or clean-console recheck was possible. |
+| FPS/frame-time distribution | NOT MEASURED | No browser rendering trace. |
+| Initial app/basemap transferred bytes | NOT MEASURED | No browser network capture; build sizes are not substituted. |
+| Scenario-switch latency | NOT MEASURED | No browser interaction timing. |
+| Running preview and dev server preserved | PASS | Read-only lsof/ps: preview PID 61855 on 4173 and dev PID 58514 on 5173; no restart or request. |
+| Existing implementation preserved | PASS | Diff against f3ab496 contains only this verification report; no application/config/dependency changes. |
+| Diff whitespace | PASS | `git diff --check` returned zero exit status. |
+| Prior automated validation | PASS | Existing 59-test, TypeScript and production-build evidence above retained; not rerun without code changes. |
+| Frontend fully verified | BLOCKED | Final visual/interaction acceptance and performance evidence remain outstanding. |
+
+Only this report was updated. Frontend-only scope and existing approval gates
+remain in force; no backend change, push, deployment or scope expansion occurred.
