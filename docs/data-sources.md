@@ -83,7 +83,7 @@
   | `pothole` | Street Condition / Pothole |
   | `cave_in` | Street Condition / Cave-in |
 
-- **DEP resolution outcomes, version 1** (`swale/ingest/resolutions_311.py`, rules `dep-res-*-v1`). Each rule matches the full distinguishing clause of a DEP template, ignoring case and whitespace. Counts are Brooklyn DEP complaints since 2024 for the clogged-basin, street-flooding and sewer-backup descriptors.
+- **DEP resolution outcomes, version 1** (`swale/ingest/resolutions_311.py`, rules `dep-res-*-v1`). Each rule matches the full distinguishing clause of a DEP template, ignoring case and whitespace. Counts are lower bounds (only descriptor groups of 40+ were summed), from Brooklyn DEP complaints since 2024 under the clogged-basin, street-flooding and sewer-backup descriptors.
 
   | `verification.status` | Rule | Matching phrase (count) |
   |---|---|---|
