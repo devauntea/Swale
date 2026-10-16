@@ -183,7 +183,12 @@ only with computed positive boundary inflow; the flow strip depicts localized
 transfer without claiming measured velocity. Accumulation height follows the model
 stage. Display exaggeration transforms every structural/water/reference Z together
 and never enters the SI calculation. X-ray bypasses map occlusion while preserving
-negative heights; it is not a physical excavation.
+negative heights; it is not a physical excavation. For selected entrance detail,
+Surface explicitly omits entire faces/paths below the zero-metre map reference.
+It shows the above-reference collar, enclosure, sign, fixtures and street water.
+This bounded visibility rule is necessary because flat basemap road artwork does
+not provide a complete ground depth mask. Canonical infrastructure depth testing
+is unchanged; no source geometry or water values move above ground.
 
 Pure vertical railing/globe-post segments are real XYZ box faces because the
 ground-plane width of a vertical PathLayer segment degenerates. Vertical sign and
@@ -203,3 +208,28 @@ The publisher makes no network or database calls. The frontend catalog loader is
 bounded to 400,000 bytes and runs on demand; detailed stairs for all entrances are
 not generated or downloaded at startup. Canonical model hashes and inherited
 I1–I14 results remain separate from this additive feature's acceptance.
+
+
+## Playback and render ownership
+
+Only an explicit Run starts the local calculation. Editing inputs invalidates the
+trajectory. Changing station, entrance or geometry version cancels the old scenario;
+source selection retains keyboard focus and returns to Current evidence. Playback
+uses a monotonic wall clock to sample the immutable one-second trajectory at 1×,
+30× or 60× time. Pause, scrubbing, source changes, hidden-document state, exit and
+unmount stop its owned interval. Comparison hides water without changing values.
+The default flood-detail display scale is 1×; 1×–5× is presentation only.
+
+The existing transit hook remains the sole operational polling owner. No what-if
+result is submitted to an endpoint, stored in a database, inserted into history,
+or used to change official status or exposure. Current evidence explicitly leaves
+interior water unknown. The existing live board remains separate below the local
+scenario panel.
+
+Detail assets and the renderer remain on demand; the small geometry/model/control
+modules are included in initial application code. The canonical GLB is never an
+initial download. Static entrance layer data is weakly cached per immutable detail
+and Surface/X-ray mode so playback does not re-upload/tessellate unchanged faces.
+Only water presentation is rebuilt for a new sampled frame. Fixed locale/timezone
+formatting reuses one Intl formatter; source times and formatting meanings do not
+change. This is bounded JavaScript ownership, not a GPU-memory measurement.

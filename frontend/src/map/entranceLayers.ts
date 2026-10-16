@@ -9,6 +9,7 @@ import type { Theme } from "../app/theme";
 import type { InfrastructurePosition } from "../infrastructure/contracts";
 import type {
   EntranceDetailGeometry,
+  EntranceFixture,
   EntranceMaterial,
   EntrancePath,
   EntranceSurface,
@@ -18,6 +19,77 @@ import type { FloodFrame, FloodInputs } from "../infrastructure/floodModel";
 import type { TransitMapTooltip } from "./transitLayers";
 
 type Color = [number, number, number, number];
+type SurfaceGroup = "enclosure" | "stone" | "risers" | "treads" | "signs";
+interface EntranceStaticData {
+  surfaces: Record<SurfaceGroup, EntranceSurface[]>;
+  paths: EntrancePath[];
+  fixtures: EntranceFixture[];
+  signs: {
+    position: InfrastructurePosition;
+    text: string;
+    componentId: string;
+  }[];
+}
+// Ephemeron keys allow old selected geometry and its derived data to be collected.
+// Physics frames never enter this cache. Stable arrays avoid retessellating every
+// static XYZ face whenever the hypothetical playback frame updates.
+const staticDataCache = new WeakMap<
+  EntranceDetailGeometry,
+  Partial<Record<"surface" | "xray", EntranceStaticData>>
+>();
+function entranceStaticData(
+  detail: EntranceDetailGeometry,
+  mode: "surface" | "xray",
+): EntranceStaticData {
+  let entry = staticDataCache.get(detail);
+  if (!entry) {
+    entry = {};
+    staticDataCache.set(detail, entry);
+  }
+  const cached = entry[mode];
+  if (cached) return cached;
+  const presented = (points: InfrastructurePosition[]) =>
+    mode === "xray" || points.every((position) => position[2] >= 0);
+  const surfaces: Record<SurfaceGroup, EntranceSurface[]> = {
+    enclosure: [],
+    stone: [],
+    risers: [],
+    treads: [],
+    signs: [],
+  };
+  for (const face of detail.polygons) {
+    if (!presented(face.polygon)) continue;
+    const group: SurfaceGroup =
+      face.material === "wall"
+        ? "enclosure"
+        : face.material === "riser"
+          ? "risers"
+          : face.material === "tread"
+            ? "treads"
+            : face.material === "sign"
+              ? "signs"
+              : "stone";
+    surfaces[group].push(face);
+  }
+  const result: EntranceStaticData = {
+    surfaces,
+    paths: detail.paths.filter((path) => presented(path.path)),
+    fixtures: detail.fixtures.filter((fixture) =>
+      presented([fixture.position]),
+    ),
+    signs: presented([detail.signPosition])
+      ? [
+          {
+            position: detail.signPosition,
+            text: `Subway · ${detail.stationName}`,
+            componentId: detail.components[0].id,
+          },
+        ]
+      : [],
+  };
+  entry[mode] = result;
+  return result;
+}
 export interface EntranceWaterSurface {
   id: string;
   componentId: string;
@@ -162,6 +234,7 @@ export function buildEntranceLayers(
 ): Layer[] {
   const display = (position: InfrastructurePosition) =>
     entranceDisplayPosition(position, exaggeration);
+  const staticData = entranceStaticData(detail, mode);
   // Flat basemap roads are not a complete depth-writing ground surface. Surface
   // detail therefore explicitly presents only whole above-reference elements;
   // X-ray alone retains negative faces. Stored geometry/model values are intact.
@@ -203,10 +276,10 @@ export function buildEntranceLayers(
     onClick: pick,
     parameters,
   };
-  const surfaces = (suffix: string, data: EntranceSurface[]) =>
+  const surfaces = (suffix: SurfaceGroup) =>
     new PolygonLayer<EntranceSurface>({
       id: `swale-entrance-detail-${suffix}`,
-      data: data.filter((surface) => presented(surface.polygon)),
+      data: staticData.surfaces[suffix],
       ...shared,
       filled: true,
       stroked: true,
@@ -226,31 +299,14 @@ export function buildEntranceLayers(
     });
   const layers: Layer[] = [
     // Background enclosure precedes the individually modeled stair faces in X-ray.
-    surfaces(
-      "enclosure",
-      detail.polygons.filter((face) => face.material === "wall"),
-    ),
-    surfaces(
-      "stone",
-      detail.polygons.filter(
-        (face) => !["wall", "tread", "riser", "sign"].includes(face.material),
-      ),
-    ),
-    surfaces(
-      "risers",
-      detail.polygons.filter((face) => face.material === "riser"),
-    ),
-    surfaces(
-      "treads",
-      detail.polygons.filter((face) => face.material === "tread"),
-    ),
-    surfaces(
-      "signs",
-      detail.polygons.filter((face) => face.material === "sign"),
-    ),
+    surfaces("enclosure"),
+    surfaces("stone"),
+    surfaces("risers"),
+    surfaces("treads"),
+    surfaces("signs"),
     new PathLayer<EntrancePath>({
       id: "swale-entrance-detail-rails",
-      data: detail.paths.filter((path) => presented(path.path)),
+      data: staticData.paths,
       ...shared,
       getPath: (path) => path.path.map(display),
       getColor: (path) =>
@@ -271,7 +327,7 @@ export function buildEntranceLayers(
     }),
     new ScatterplotLayer({
       id: "swale-entrance-detail-globes",
-      data: detail.fixtures.filter((fixture) => presented([fixture.position])),
+      data: staticData.fixtures,
       ...shared,
       getPosition: (fixture) => display(fixture.position),
       getRadius: (fixture) => fixture.radiusM,
@@ -286,13 +342,7 @@ export function buildEntranceLayers(
     }),
     new TextLayer({
       id: "swale-entrance-detail-sign-text",
-      data: [
-        {
-          position: detail.signPosition,
-          text: `Subway · ${detail.stationName}`,
-          componentId: detail.components[0].id,
-        },
-      ].filter((label) => presented([label.position])),
+      data: staticData.signs,
       ...shared,
       getPosition: (label) => display(label.position),
       getText: (label) => label.text,

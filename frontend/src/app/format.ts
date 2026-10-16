@@ -1,5 +1,15 @@
 import type { DataProvenance, PriorityBand } from "../types";
 
+// Locale and source-display timezone are fixed; reuse the formatter during playback.
+const localTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/New_York",
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  timeZoneName: "short",
+});
+
 export function formatTime(
   value: string | null | undefined,
   fallback = "Not connected",
@@ -10,14 +20,7 @@ export function formatTime(
   // A floating source time is not a known instant in the browser's time zone.
   if (!/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value.trim()))
     return "Time zone unknown";
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName: "short",
-  }).format(date);
+  return localTimeFormatter.format(date);
 }
 export function fixtureTime(provenance: DataProvenance): string {
   return formatTime(provenance.fixtureCreatedAt, "Fixed local example");

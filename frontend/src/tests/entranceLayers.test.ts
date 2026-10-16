@@ -34,6 +34,73 @@ const makeDetail = (stationId = "F21", sourceId = "row-y4aj-tepy-nbif") =>
   )!;
 
 describe("selected entrance structural/water rendering contracts", () => {
+  it("reuses static geometry arrays across scenario frames and display changes while dynamic water remains frame-specific", () => {
+    const detail = makeDetail();
+    const trajectory = simulateFloodScenario(detail.floodGeometry, {
+      ...DEFAULT_FLOOD_INPUTS,
+    });
+    for (const mode of ["surface", "xray"] as const) {
+      const first = buildEntranceLayers(
+        detail,
+        "light",
+        mode,
+        1,
+        vi.fn(),
+        vi.fn(),
+        null,
+        { frame: trajectory.frames[10], inputs: trajectory.inputs },
+      );
+      const second = buildEntranceLayers(
+        detail,
+        "dark",
+        mode,
+        5,
+        vi.fn(),
+        vi.fn(),
+        detail.components[1].id,
+        { frame: trajectory.frames[200], inputs: trajectory.inputs },
+      );
+      for (const layer of first.filter((item) =>
+        item.id.startsWith("swale-entrance-detail-"),
+      )) {
+        const later = second.find((item) => item.id === layer.id)!;
+        expect(later.props.data).toBe(layer.props.data);
+      }
+      const water = (layers: ReturnType<typeof buildEntranceLayers>) =>
+        layers.find((layer) => layer.id === "swale-entrance-scenario-water")!;
+      expect(water(first).props.data).not.toBe(water(second).props.data);
+      if (mode === "xray")
+        expect(water(first).props.data).not.toEqual(water(second).props.data);
+      const treads = second.find(
+        (layer) => layer.id === "swale-entrance-detail-treads",
+      )!;
+      expect(treads.props.updateTriggers).toEqual(
+        expect.objectContaining({
+          getPolygon: [5],
+          getFillColor: ["dark"],
+          getLineWidth: [detail.components[1].id],
+        }),
+      );
+    }
+    const copy = structuredClone(detail);
+    const original = buildEntranceLayers(
+      detail,
+      "light",
+      "xray",
+      1,
+      vi.fn(),
+      vi.fn(),
+    );
+    const separate = buildEntranceLayers(
+      copy,
+      "light",
+      "xray",
+      1,
+      vi.fn(),
+      vi.fn(),
+    );
+    expect(original[0].props.data).not.toBe(separate[0].props.data);
+  });
   it("shows only above-reference elements in Surface while X-ray keeps original negative geometry and water without altering physical state", () => {
     const detail = makeDetail();
     const trajectory = simulateFloodScenario(detail.floodGeometry, {
