@@ -1,0 +1,15 @@
+[Unit]
+Description=Swale API (FastAPI + embedded SurrealDB)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=swale
+WorkingDirectory=/opt/swale/backend
+ExecStart=/usr/local/bin/uv run --frozen swale serve --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=3
+Environment=HOME=/home/swale
+
+[Install]
+WantedBy=multi-user.target
