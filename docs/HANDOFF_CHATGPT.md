@@ -83,6 +83,10 @@ Base: `/api/v1`. All `GET`s take `bbox` and `limit` (max 5000) unless noted.
 | DEP flood map | `GET /flood-maps?bbox=…&scenario=dep_moderate_current` | `predicted` Polygons from NYC DEP. Color by `depth_class` (`nuisance`, `deep`); label "NYC DEP model". |
 | Swale vs DEP | `GET /simulation-runs/{id}/compare-dep` | Only for the 2.13 in/hr run. `agreement_pct` and `counts` |
 | Log an inspection | `POST /inspections` with `{"basin_id":"catch_basin:…","result":"debris_found"\|"cleaned"\|"clear"\|"damaged"\|"not_found","notes":"…"}` | `observed`. Re-fetch `/risk-rankings` afterwards: debris raises the basin, a recent clean halves its score. |
+| Subway live board | `GET /subway/live?area_id=BK0601` | Per station: `status`, `next.N/S[]` arrivals with `delay_min`, `trains_next_30_min`; plus `trains[]` and MTA `alerts[]`. Poll every 60 s. |
+| Station flood exposure | `GET /subway/flood-exposure?area_id=BK0601&run_id={id}` | `inferred` station points with `score`, `tier`, `factors[]` and `live` status; `meta.rain.level` (`low`/`watch`/`warning`) |
+| Danger zones | `GET /danger-zones?area_id=BK0601&run_id={id}` | Polygons; color by `level` (`high` red, `moderate` orange); `entrances[]` inside each zone |
+| Subway stations, entrances | `GET /subway/stations?bbox=…`, `GET /subway/entrances?bbox=…` | `observed` points |
 | Ranking validation | `GET /risk-rankings/validation?cutoff=2025-10-01` | Precision and lift of the ranking on the following year's real outcomes |
 | Status bar | `GET /health` | `sources[].stale`, `sources[].fetched_at`, and `integrations` (which keys are configured) |
 
@@ -128,3 +132,4 @@ export async function runStorm(scenarioId, blockage = 0.5, runner = "local") {
 - **311 data:** about 1% of complaints lack coordinates and can't be mapped. A complaint is a report, not a confirmed condition.
 - **FloodNet:** updated every two weeks, so it isn't real time.
 - **Bedrock:** briefings fall back to a deterministic template until the AWS account has Claude model access enabled. Audio falls back to the premade Matilda voice if the configured ElevenLabs voice needs a paid plan.
+- **Subway:** MTA publishes no station flood sensors, so a station shows `flooding_reported` only when an MTA alert says so; otherwise it shows *exposure* (where water could get in). Delays need the committed weekly schedule, which covers 2026-10-16 to 2026-10-23. After that, run `uv run swale transit-data` (stop `swale serve` first).

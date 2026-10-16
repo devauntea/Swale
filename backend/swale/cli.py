@@ -31,6 +31,9 @@ def main(argv: list[str] | None = None) -> int:
     fm = sub.add_parser("flood-maps", help="download DEP stormwater flood maps, clip to the area, snapshot and load")
     fm.add_argument("--area", default="BK0601")
     fm.add_argument("--zip", type=Path, help="use an already-downloaded NYCFloodStormwaterFloodMaps.zip")
+    td = sub.add_parser("transit-data", help="download MTA subway stations, entrances and this week's schedule; snapshot and load")
+    td.add_argument("--area", default="BK0601")
+    td.add_argument("--gtfs", type=Path, help="use an already-downloaded gtfs_supplemented.zip")
     sub.add_parser("bench-bbox", help="SurrealDB bbox benchmark; arguments pass through", add_help=False)
     args, rest = parser.parse_known_args(argv)
     settings = Settings.from_env()
@@ -43,6 +46,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"unrecognized arguments: {' '.join(rest)}")
     if args.command == "flood-maps":
         return flood_maps_command(args, settings)
+    if args.command == "transit-data":
+        return transit_data_command(args, settings)
     if args.command == "serve":
         import uvicorn
 
@@ -79,7 +84,12 @@ def main(argv: list[str] | None = None) -> int:
             from swale.ingest import dep_flood_maps as dep
 
             maps = dep.load(db, dep.read_snapshot(args.from_snapshot / "dep_flood_maps.json.gz"), bundle.area_code, utcnow())
-    print(json.dumps({**asdict(summary), "dep_flood_maps": maps}, indent=2, default=str))
+        subway = None
+        if args.from_snapshot and (args.from_snapshot / "subway_stations.json.gz").exists():
+            from swale.transit import stations
+
+            subway = stations.load(db, stations.read_snapshot(args.from_snapshot / "subway_stations.json.gz"), bundle.area_code, utcnow())
+    print(json.dumps({**asdict(summary), "dep_flood_maps": maps, "subway": subway}, indent=2, default=str))
     return 0
 
 
@@ -111,4 +121,37 @@ def flood_maps_command(args: argparse.Namespace, settings: Settings) -> int:
         dep.write_snapshot(data, out)
         counts = dep.load(db, data, args.area, utcnow())
     print(json.dumps({"wrote": str(out), "polygons": counts, "skipped": data["skipped"]}, indent=2))
+    return 0
+
+
+def transit_data_command(args: argparse.Namespace, settings: Settings) -> int:
+    import urllib.request
+
+    from swale.core.geo import BBox
+    from swale.core.timeutil import utcnow
+    from swale.db import queries as q
+    from swale.db.connection import connect
+    from swale.transit import schedule, stations
+
+    out_dir = SAMPLE_DIR / args.area.lower()
+    with connect(settings.db_url) as db:
+        area = q.get_record(db, "area", args.area)
+        if area is None:
+            print(f"area {args.area} is not loaded; run swale ingest first")
+            return 2
+        data = stations.fetch(BBox(*area["bbox"]))
+        stations.write_snapshot(data, out_dir / "subway_stations.json.gz")
+        counts = stations.load(db, data, args.area, utcnow())
+    zip_path = args.gtfs
+    if zip_path is None:
+        zip_path = BACKEND_DIR / "var" / "gtfs_supplemented.zip"
+        zip_path.parent.mkdir(parents=True, exist_ok=True)
+        print("downloading MTA's supplemented subway schedule (about 20 MB)…")
+        urllib.request.urlretrieve(schedule.GTFS_URL, zip_path)
+    from swale.transit.schedule import TZ
+
+    sched = schedule.extract(zip_path, {s["gtfs_stop_id"] for s in data["stations"]}, utcnow().astimezone(TZ).date())
+    schedule.write_snapshot(sched, out_dir / "subway_schedule.json.gz")
+    print(json.dumps({**counts, "scheduled_stop_times": len(sched["stop_times"]), "schedule_dates": sorted({d for v in sched["services"].values() for d in v}),
+                      "wrote": [str(out_dir / "subway_stations.json.gz"), str(out_dir / "subway_schedule.json.gz")]}, indent=2))
     return 0

@@ -8,6 +8,7 @@ dependencies = [
     "arize-otel>=0.14.1",
     "daytona>=0.224.1",
     "fastapi>=0.143.2",
+    "gtfs-realtime-bindings>=3.0.0",
     "httpx>=0.28.1",
     "pyogrio>=0.13.0",
     "pyproj>=3.8.0",

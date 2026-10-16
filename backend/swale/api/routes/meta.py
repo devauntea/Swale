@@ -18,7 +18,8 @@ from swale.ingest.taxonomy_311 import CATEGORY_LABELS
 router = APIRouter()
 
 
-AVAILABLE = {"catch_basins", "incidents", "sensors", "flood_observations", "simulation_results", "risk_rankings", "dep_flood_maps"}
+AVAILABLE = {"catch_basins", "incidents", "sensors", "flood_observations", "simulation_results", "risk_rankings", "dep_flood_maps",
+             "subway_stations", "subway_entrances", "station_flood_exposure", "danger_zones"}
 
 
 def _layer(id: str, title: str, kt: str, geom: str, endpoint: str, milestone: str, filters: list[str], attribution: str, **extra: Any) -> dict[str, Any]:
@@ -36,6 +37,12 @@ LAYERS = [
     _layer("dep_flood_maps", "DEP stormwater flood maps", "predicted", "Polygon", "/api/v1/flood-maps", "M2", ["bbox", "scenario"], "NYC DEP Stormwater Flood Maps"),
     _layer("simulation_results", "Swale simulation results", "predicted", "Point", "/api/v1/simulation-runs/{id}/results", "M2", ["bbox"], "Swale SWMM demonstrator (not calibrated)"),
     _layer("risk_rankings", "Inspection priorities", "inferred", "Point", "/api/v1/risk-rankings", "M3", ["bbox", "run_id", "limit"], "Swale risk-v2 (rule-based)"),
+    _layer("subway_stations", "Subway stations", "observed", "Point", "/api/v1/subway/stations", "M4", ["bbox"], "MTA via NY Open Data"),
+    _layer("subway_entrances", "Subway entrances", "observed", "Point", "/api/v1/subway/entrances", "M4", ["bbox"], "MTA via NY Open Data"),
+    _layer("station_flood_exposure", "Station flood exposure", "inferred", "Point", "/api/v1/subway/flood-exposure", "M4", ["area_id", "run_id", "live"],
+           "Swale station-exposure-v1 (rule-based) with live MTA status"),
+    _layer("danger_zones", "Flood danger zones", "predicted", "Polygon", "/api/v1/danger-zones", "M4", ["area_id", "run_id", "weather"],
+           "NYC DEP flood maps, Swale simulation, FloodNet (observed zones)"),
 ]
 
 
