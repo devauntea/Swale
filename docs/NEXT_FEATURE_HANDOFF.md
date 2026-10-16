@@ -1,3 +1,19 @@
+# Current subway infrastructure feature handoff — October 16, 2026
+
+The next feature is implemented on the isolated local branch
+`feat/subway-infrastructure-3d` in `/Users/kerwynjean/Swale-subway-3d`.
+Read [SUBWAY_INFRASTRUCTURE.md](SUBWAY_INFRASTRUCTURE.md) first for the current
+CONDITIONAL verdict, source/model limitations, I1–I14 evidence and live preview5183.
+Implementation milestone `6b6265e`; published main remains `4db8f26`.
+This candidate has not been merged, pushed or deployed. Main/backend and the
+existing database arrangement remain unchanged; do not repeat acquisition/setup.
+
+The older publication handoff below is preserved as historical baseline evidence.
+Its instruction to choose a next feature was superseded by the owner's subway
+infrastructure request. No authorization for a future merge/push is implied.
+
+---
+
 # Next feature handoff — October 16, 2026
 
 Read this file before the latest execution report. This milestone repairs and

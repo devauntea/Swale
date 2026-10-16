@@ -8,7 +8,8 @@ The isolated package pins Three.js0.186.1 (MIT) for GLTFLoader/OrbitControls and
 the official Khronos glTF-validator2.0.0-dev.3.10 (Apache-2.0) for offline validation.
 Both came from the official npm registry; install hooks were reviewed and disabled.
 The lockfile retains registry URLs and integrity hashes. A point-in-time npm audit
-reported zero known vulnerabilities. The main frontend packages are reused solely
+reported zero known vulnerabilities. Installation used task-owned empty npm user/global configuration files, preserving
+application credential files. The main frontend packages are reused solely
 as build tooling; these viewer packages do not enter that dependency graph.
 
 Executed from this directory:
@@ -24,7 +25,7 @@ Open `http://127.0.0.1:8783/`; stop the temporary server with Ctrl+C. The Vite c
 disables dotenv and preserves model output. The builder must produce the GLB first.
 The browser loaded6,345semantic meshes from the28,110,124-byte final export. The
 official validator returned zero errors/warnings. A normal build warning notes
-the637.9KB viewer JavaScript bundle; this is a supplementary on-demand tool.
+the638.2KB viewer JavaScript bundle; this is a supplementary on-demand tool.
 
 Group toggles show actual mesh counts and disable empty optional groups. Select a
 semantic node or click geometry for source IDs, assumptions and confidence. The

@@ -1,3 +1,46 @@
+# Subway infrastructure candidate verification — October 16, 2026
+
+**CONDITIONAL — actual in-map exploration verified; model/source gaps remain.**
+Feature implementation `6b6265e`, isolated from unchanged published main `4db8f26`.
+Full current I1–I14 table, limitations, artifacts, runtime and handoff are in
+[SUBWAY_INFRASTRUCTURE.md](../docs/SUBWAY_INFRASTRUCTURE.md). Historical evidence
+below remains historical and is not relabeled as a fresh feature measurement.
+
+Fresh final checks: **188 frontend tests /20 files**, **16 model tests**, strict
+TypeScript/build/lint/format pass. All 169 actual generated chunks pass frontend
+schemas/budgets. Two cached full GLB/index builds and all final chunks reproduce.
+Official Khronos validator: 0 errors / 0 warnings; browser GLTFLoader: 6,345 meshes.
+I4 remains FAIL (614 gradient diagnostics), I7 FAIL (79 eligible associations with gaps),
+A1/A2 and absolute-ground completeness NOT_RUN. No surveyed-depth claim.
+
+Original Chrome verified ordinary station pointer → Explore → F21 underground
+X-ray/individual picking → matching live board → Return, plus F22 platform/deck/piers,
+source entrances, geometry-only D43, in-place themes and keyboard/reduced motion.
+One canvas remained. Real same-tab index 404→Retry recovered without reload; this
+is static-asset recovery, not new same-tab backend outage evidence. Context-loss
+Retry/cancellation/stale selection/cache caps have meaningful isolated tests.
+
+Native final production initial application: **822,113 transferred bytes /12 requests**,
+0 initial model requests; on-demand index+renderer+F21: 20,973 transferred bytes,
+106.9 ms network span (not click-to-visible). Separate API sample 25 requests / 697,535 bytes.
+Basemap wire bytes and actual GPU memory are NOT_RUN. Final native renderer Compositor
+DrawFrame: 45 unique sequences / 650 ms = **69.2308 frames/s**; gap median 13.202 ms,
+p95 19.1092 ms, max 67.845 ms (one >50 ms). Actual viewport 2038×1972 native; exact concurrent
+CSS/DPR unknown. EventTiming theme 94.890 ms, assistant 64.788 ms; no physical-display or
+GPU-completion certification. Fresh scenario latency and Escape next-paint NOT_RUN.
+Earlier slice capture lacks literal DrawFrame and does not substitute for this pass.
+
+Ignored local evidence lives in `verification-artifacts/subway/`, including native
+trace/analysis, transfer summaries, screenshots and a final console API query with
+no entries (capture completeness unestablished). Historical Liberty diagnostics
+remain below; no universal clean-console/resource claim. Existing main backend/helper
+suites are unchanged retained baselines, not rerun. Frontend manifest/lock, Vite
+proxy/envDir, backend source, runtime helpers and database ownership are preserved.
+Temporary 4183/8783 servers are stopped; final feature preview stays on loopback5183.
+No remote write, credential access, merge or deployment occurred.
+
+---
+
 # Final integration publication candidate — October 16, 2026
 
 **Latest additive checkpoint: main-backed localhost verified; final publication
