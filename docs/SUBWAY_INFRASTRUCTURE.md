@@ -1,3 +1,15 @@
+> **Final integrated-release scope note — October 16, 2026.**
+> [FINAL_RELEASE.md](FINAL_RELEASE.md) is the authority for the current candidate,
+> runtime, acceptance and publication status. The integrated application shares
+> Normal/Flood state between overview and constrained station exploration, with
+> contextual backend/AI, translation/audio controls and the guarded release launcher.
+> Read [FINAL_RELEASE_RUNTIME.md](FINAL_RELEASE_RUNTIME.md) and
+> [CONTEXTUAL_MASCOT_BRIEFINGS.md](CONTEXTUAL_MASCOT_BRIEFINGS.md) for those paths.
+> The predecessor evidence below remains unchanged: its unmerged branch, old
+> runtime/PIDs and frontend-only authority describe that earlier increment.
+> Geometry/scientific limitations remain; integration does not validate interiors,
+> water levels or current conditions. This note does not claim publication.
+
 # Detailed entrances and illustrative flood what-if — October 16, 2026
 
 **COMPLETE for the bounded local frontend increment; station hydraulics remain unvalidated.**

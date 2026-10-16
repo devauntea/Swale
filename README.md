@@ -1,176 +1,209 @@
 # Swale
 
-A map-first Brooklyn planning demonstration with a React/TypeScript/Vite frontend,
-MapLibre GL JS and deck.gl, and the reviewed Python/FastAPI/embedded SurrealDB
-backend. Connected coverage is BK0601. This is not a validated prediction of
-flooding, blockage, station safety or closure.
+A map-first Brooklyn planning workspace combining React/TypeScript/Vite,
+MapLibre GL JS and deck.gl with a Python/FastAPI/embedded SurrealDB backend.
+Connected data coverage is BK0601; the larger static station-model catalog does
+not enlarge live coverage. Inventory, reports, observations, forecasts, inferences
+and hypothetical scenarios retain separate identities and clocks. Swale does not
+establish current flooding, blockage, station safety, closure or accessibility.
 
-Read the [current runbook](docs/LOCAL_INTEGRATION.md),
-[verification](frontend/VERIFICATION.md), and
-[next-feature handoff](docs/NEXT_FEATURE_HANDOFF.md). Publishing source and
-successfully deploying a hosted app are separate outcomes.
+[FINAL_RELEASE.md](docs/FINAL_RELEASE.md) is the authority for the current
+candidate, acceptance, runtime and publication status. Also read the
+[runtime record](docs/FINAL_RELEASE_RUNTIME.md),
+[assistant contract](docs/CONTEXTUAL_MASCOT_BRIEFINGS.md),
+[visual semantics](docs/FINAL_VISUAL_SEMANTICS.md) and
+[verification matrix](frontend/VERIFICATION.md). Older handoffs and station
+acceptance records remain historical evidence; their frontend-only,
+unmerged-feature or scripted-only statements do not describe the integrated scope.
+Source publication, localhost verification and an actual public deployment are
+separate outcomes. No publication or deployment is implied by this README.
 
-This feature branch adds [schematic subway infrastructure exploration](docs/SUBWAY_INFRASTRUCTURE.md).
-The current feature handoff takes precedence for its build and verification state.
-It is a local candidate, separate from published main; backend code and the
-operational database remain owned by the existing main runtime.
+## Overview and station exploration
 
-## Subway infrastructure candidate
+The overview exposes **Normal view**, **Flood simulation** and **Explore station**.
+A supported selected station offers **Explore station — Normal view** and
+**Explore station — Flood simulation**. Both views share water mode, selected
+identities and the local scenario snapshot. The Carroll Street F21 600-second
+case remains a documented demonstration/regression example.
 
-From this worktree, keep the existing main backend/broker running, then start:
+Normal hides hypothetical water and retains the scenario; it does not mean dry,
+safe, open or operating normally. Flood simulation displays explicitly
+hypothetical water with its inputs, model identity and elapsed time. Play/pause,
+seek and reset use the existing bounded deterministic trajectory. Regional
+surface-flood context and local station storage are not scientifically coupled.
 
-```sh
-cd frontend
-npm run dev -- --port 5183
-```
+The constrained tour frames actual modeled entrances, stairs, landings and
+supported local platform components using close oblique viewpoints, component
+labels, orientation controls and Return to overview. It uses one existing map.
+It is not camera-based AR, a free physical walkthrough or a surveyed digital twin;
+it requests no camera, microphone, location or device tracking. Virtual viewpoints
+provide no real-world walking or evacuation guidance.
 
-Open **http://127.0.0.1:5183/**. Choose Backend / snapshot + transit → Subway
-monitoring. Explore infrastructure from a station inspector, or browse the static
-station index. X-ray reveals assumed underground geometry; Surface view restores
-ordinary occlusion. Static geometry does not enlarge the backend’s live coverage.
-Pause any other live board tab before activating this one.
+[SUBWAY_INFRASTRUCTURE.md](docs/SUBWAY_INFRASTRUCTURE.md) preserves source-linked
+geometry, stairs/rails, X-ray and predecessor evidence.
+[STATION_FLOOD_WHAT_IF.md](docs/STATION_FLOOD_WHAT_IF.md) preserves equations,
+units, bounds and assumptions. Uncalibrated depths, missing ground references,
+unsupported route associations and unmatched entrances remain disclosed limits.
+They do not establish current interior water.
 
-The source builder, pinned isolated geospatial requirements, offline-cache workflow,
-model QA and supplementary viewer are documented in
-[tools/mta-model](tools/mta-model/README.md). Full GLB/raw data are local ignored
-outputs; generated bounded map assets are distributed under
-`frontend/public/infrastructure/`. No GIS acquisition occurs in the browser.
-Do not run the geometry builder against the application database.
+## Run the integrated localhost candidate
 
-The supplementary export viewer uses pinned Three.js0.186.1, solely to inspect the
-full local GLB. Its official Khronos glTF validator is pinned2.0.0-dev.3.10.
-Neither package enters the main frontend or backend dependency environment.
-Package lifecycle scripts were reviewed and disabled during installation.
+The tested platform is macOS with `sandbox-exec`, Python 3.12, Node >=22.12.0 and
+locked dependencies. Use this checkout's own backend virtualenv and a consistent
+stopped-writer database copy. The original database and original `.env` remain
+preserved. Do not start another writer on either database.
 
-```sh
-cd tools/mta-model/viewer
-npm ci --ignore-scripts
-node ../../../frontend/node_modules/vite/bin/vite.js build --config vite.config.js
-node validate.mjs ../output/brooklyn_mta.glb ../output/gltf_validation.json
-```
+[FINAL_RELEASE_RUNTIME.md](docs/FINAL_RELEASE_RUNTIME.md) records exact
+locked/offline setup, copied-database evidence, credential handling, revisions,
+stop and recovery. The [launcher reference](scripts/local/RELEASE_RUNTIME.md)
+documents its guards. Current source root: `/Users/kerwynjean/Swale-final-release`.
 
-Serve `tools/mta-model/output/` using an ordinary loopback-only static HTTP server
-to open its `index.html`; the model must be built first. The independent viewer is
-an export/debugging tool; the primary journey is inside Swale’s existing map.
-
-## Run locally
-
-The tested platform is macOS with `sandbox-exec`, Python 3.12, Node >=22.12.0,
-locked dependencies and an existing task-owned database. The repository launcher
-recreates a clean environment, isolated home and native containment. No application
-credential file is needed or loaded. Do not start a second database writer.
-
-Backend, in one terminal:
+Default backend start, with paid providers disabled:
 
 ```sh
-/usr/bin/python3 -I -S /Users/kerwynjean/Swale/scripts/local/runtime.py serve-live \
-  --root /Users/kerwynjean/Swale \
-  --database /Users/kerwynjean/Swale-integration/backend/var/local-transit-c65f03b.db \
-  --runtime-dir /Users/kerwynjean/.local/share/swale-local/main-runtime
+/usr/bin/python3 -I -S /Users/kerwynjean/Swale-final-release/scripts/local/release_runtime.py serve \
+  --root /Users/kerwynjean/Swale-final-release \
+  --database /Users/kerwynjean/.local/share/swale-local/final-release-runtime/database.db \
+  --runtime-dir /Users/kerwynjean/.local/share/swale-local/final-release-runtime
 ```
 
-Frontend, in a separate terminal:
+Start only after stopping the existing controller through its ownership-checked
+procedure. The API/broker use fixed loopback ports 8000/8001. The launcher strips
+inherited environment, avoids application dotenv loading and disables unrelated
+monitoring/tracing/operator jobs. It permits reviewed data reads and explicit
+contextual actions while rejecting unrelated mutations. Both development and
+production-preview frontend proxies use the guarded backend contract.
+
+Frontend production preview, in a separate terminal:
 
 ```sh
-cd /Users/kerwynjean/Swale/frontend
-npm run dev
+cd /Users/kerwynjean/Swale-final-release/frontend
+npm run build
+npm run preview -- --port 4183
 ```
 
-Open **http://127.0.0.1:5173/**. Choose **Backend / snapshot + transit**, then
-**Subway monitoring**, and resume updates if paused. Backend: **127.0.0.1:8000**;
-managed broker: **127.0.0.1:8001**. `npm run dev` starts only Vite. Both development
-and production-preview proxies restrict the frontend to validated, bounded GETs.
+Open **http://127.0.0.1:4183/**. Choose **Backend / snapshot + transit** for real
+connected records; **Subway monitoring** supplies supported station context.
+Pause other live-board tabs before resuming updates. Development `npm run dev`
+uses loopback 5173 and starts only Vite.
 
-Ctrl+C stops each foreground service. To stop the managed backend separately:
+Stop the owned controller with the same paths:
 
 ```sh
-/usr/bin/python3 -I -S /Users/kerwynjean/Swale/scripts/local/runtime.py stop \
-  --root /Users/kerwynjean/Swale \
-  --database /Users/kerwynjean/Swale-integration/backend/var/local-transit-c65f03b.db \
-  --runtime-dir /Users/kerwynjean/.local/share/swale-local/main-runtime
+/usr/bin/python3 -I -S /Users/kerwynjean/Swale-final-release/scripts/local/release_runtime.py stop \
+  --root /Users/kerwynjean/Swale-final-release \
+  --database /Users/kerwynjean/.local/share/swale-local/final-release-runtime/database.db \
+  --runtime-dir /Users/kerwynjean/.local/share/swale-local/final-release-runtime
 ```
 
-Stop verifies the controller identity and supervises bounded backend/broker cleanup.
-[Runtime tooling](scripts/local/README.md) documents clean, locked, offline setup,
-preflight, enforcement probes and tests. The runbook records exact tested local
-paths and evidence. Other machines need their own absolute DB path and locked
-virtualenv. Local databases and private runtime output are not published. Generic
-partner setup examples do not replace this restricted workflow.
+Foreground Ctrl+C also performs bounded cleanup. The old main launch command is
+not the current startup path: its pre-existing dotenv configuration triggers the
+older restricted launcher's refusal. Use the documented recovery path rather
+than bypassing its guard or resetting a worktree.
 
-## Features and data meaning
+Provider execution defaults to **zero budget**. Authorized positive allowance
+also requires an explicitly selected private 0600 server credential file outside
+the checkout. Secrets never enter browser assets, process arguments or commits.
+The task's explicit $1 verification allowance has reserved **$0.81696**, consuming
+all **3 model / 1 provider-audio attempts**. Remaining unreserved funds do not
+grant more attempts. Preserve the same persistent ledger across restarts; never
+reset it to replenish allowance. This README grants no new paid execution.
 
-| View | Supported connected scope |
+## Connected evidence and assistant
+
+| Capability | Meaning and boundary |
 | --- | --- |
-| Snapshot | Health/capabilities, source freshness, catch basins and 311 reports, full-ID details, viewport loading and bounded pagination |
-| Subway | MTA stations/entrances, predicted arrivals, available schedule comparisons, applicable alerts and monitoring history |
-| Flood context | Inferred station exposure, DEP modeled polygons, derived sensor buffers and historical FloodNet event evidence |
+| Snapshot | Inventory, 311 reports, full opaque-ID details, source freshness and bounded viewport paging |
+| Subway | Supported MTA stations/entrances, predicted arrivals, available schedule comparisons, applicable alerts and monitoring samples |
+| Flood context | Inferred exposure, DEP modeled polygons, derived sensor buffers and historical FloodNet evidence; not present flood extent |
 | Weather | Separate NWS observations, interval-based forecast accumulation and supplied official alerts |
-| Fixture / demo | Two synthetic scenarios, example priorities, inspector and scripted DEMO assistant, separate from backend records |
+| Contextual assistant | Server-resolved selected evidence, explicit real-model requests and validated reversible UI actions |
+| Fixture / DEMO | Separate synthetic scenarios, example priorities and scripted DEMO responses; never substituted for failed backend data |
 
-The parser repair in `backend/swale/api/params.py` reverses the installed SDK's
-printed string-key delimiters. Collection-produced full event IDs now retrieve
-matching details/profiles after normal URL encoding. Frontend IDs are unchanged;
-wrong-table, empty, malformed and nonexistent IDs remain errors. Path404/query422
-semantics are preserved. The existing single-segment HTTP routes do not support
-actual slashes inside keys; current stored collection IDs are unaffected.
+The connected assistant uses the real backend and a bounded provider path. Its
+English model selects server-prepared evidence sentences and validated actions;
+it receives no arbitrary SQL, shell access, URLs or administrative tools.
+Automatic selections use provider-disabled explanations. Explicit model requests
+have separate opt-in, budget and attempt gates. Unavailable/rejected generation
+is labelled as a template fallback, never successful AI. The existing fixture
+assistant remains explicitly **DEMO** and scripted.
 
-Live transit/weather retrieval does not make inventory, complaints or historical
-sensor events live. One visible board owner polls no faster than 60 seconds, with
-Pause/Resume, backoff and hidden/inactive suspension; weather has a separate
-approximately 600-second boundary. Source, fetch, event, forecast and ingest times
-remain distinct. Errors stay visible without automatic fixture substitution.
+The mascot is a local simplified SVG interpretation of the supplied robot,
+raincoat and umbrella concept. One hand-carried character follows selected
+context. Separate motion/camera preferences and reduced motion retain useful
+static explanations. Camera ownership, clipping and choreography acceptance
+belong to browser evidence, rather than a claim based only on source.
 
-The committed schedule covers **October 16–23, 2026**. Expired/unmatched comparisons
-are unavailable, never zero delay or proof of normal service. A non-destructive
-schedule refresh/export remains partner work: the existing acquisition CLI
-rewrites tracked snapshots and is not exposed by this launcher.
+Live verification covers genuine English model responses, Spanish machine
+translation and explicit English provider-MPEG and Spanish local Mónica playback controls.
+Provider English audio generation/binary retrieval is also recorded.
+Translations remain **machine translated, not human reviewed**. Chinese, Arabic,
+Russian and French are configured but not live verified here. Voice language is
+distinct from translation and provider availability. Playing/paused/resumed/
+stopped/replayed states do not establish human audibility or complete auditory
+transcript agreement; those limits remain in the release record. There is no
+autoplay. Context changes cancel incompatible explanations and narration.
 
-Monitoring samples are not distinct long-term station flood events. Train rows
-are stop-associated; exact vehicle positions, destinations and station interiors
-are unavailable. Exposure is unvalidated inference. Sensor buffers are derived
-context, not measured flood boundaries. No emergency, closure, maintenance or
-safe-route instructions are supplied.
+Live transit/weather requests do not make inventory, reports or historical events
+live. Source, fetch, event, forecast, ingest and hypothetical elapsed times remain
+distinct. Errors stay visible without fixture substitution. The committed
+schedule covers **October 16–23, 2026**; expired/unmatched comparisons are
+unavailable, never zero delay or proof of service health. Monitoring samples are
+not distinct long-term flood events. Stop-associated rows are not precise train
+positions. Inventory, exposure, dated findings and administrative closure do not
+prove present condition, causation, cleaning or accessibility.
 
-## Themes and assistant
+## Themes, routes and report indicators
 
 First visits default to light; explicit light/dark preference persists. Theme
-changes restyle one map in place. Blue/black/white tokens span both themes; yellow
-is reserved for the local mascot. Its simplified SVG robot/raincoat/umbrella is
-an interpretation of the supplied concept. The short opening wave respects
-reduced motion; keyboard focus, history and map state remain functional.
+changes restyle one map while preserving selection, view modes and scenario.
+Light mode uses cool-white/pale-blue surfaces and navy text; dark mode retains
+its established navy presentation.
 
-Replies use scripted **DEMO** fixtures and four validated frontend commands:
-`set_scenario`, `set_layers`, `highlight`, `fly_to`. Backend actions and real
-conversational AI are not connected.
+The shared [official MTA palette](docs/FINAL_VISUAL_SEMANTICS.md) identifies
+services across badges and source-associated route paths. Authentic yellow
+N/Q/R/W services are the explicit exception to the mascot-only yellow rule.
+Official fills do not change with theme, health or flood risk. Mixed-service
+stations retain all supplied route labels.
 
-## Verification and boundaries
+Drain reports use a grate icon; pothole reports use a separate cracked-road
+silhouette. A restrained red halo applies only to recognized recent unresolved
+reports meeting the documented status/freshness gates; it does not confirm
+current obstruction. Inventory, dated findings, historical/closed and uncertain
+records remain static; closure never proves cleaning. Density grouping preserves
+source counts and selected identities. Persisted pause and reduced motion retain
+static, identifiable indicators.
+
+## Verification and source tooling
 
 ```sh
-cd /Users/kerwynjean/Swale/frontend
-npm test
+cd /Users/kerwynjean/Swale-final-release/frontend
+npm test -- --maxWorkers=4
 npm run typecheck
 npm run build
 npm run lint
 npm run format:check
 ```
 
-The runbook also provides contained backend/helper tests. Verification separates
-fresh automated, API, browser and compositor/transfer evidence from historical
-results. Three upstream Liberty filter warnings and imported EOF whitespace
-findings remain documented; no universal clean-console or production-security
-claim is made.
+The runtime documentation contains contained backend/helper test commands.
+[FINAL_RELEASE.md](docs/FINAL_RELEASE.md) and the
+[verification matrix](frontend/VERIFICATION.md) record fresh results and exact
+revisions. Historical totals, compositor samples and resource warnings remain
+historical. Browser matrix, motion, performance, native enforcement and final
+runtime status are separate checks. No universal clean-console, hydraulic
+validation or public-production-security claim is made.
 
-The broker enforces exact MTA/NWS CONNECT authorities in software with normal TLS.
-Its native TCP443 permission is coarse; encrypted methods/paths are not inspected.
-The stock backend mounts additional loopback routers. Frontend guards and CORS
-are not server authorization. Backend request coalescing, cancellation, retention
-and production authentication/hosting remain follow-ups. Keep localhost private.
+The cached geometry builder and supplementary export viewer are documented in
+[tools/mta-model](tools/mta-model/README.md). Full GLB/raw outputs remain ignored
+local artifacts; bounded distributable assets live under
+`frontend/public/infrastructure/`. The browser acquires no GIS datasets and the
+builder does not operate on the application database. The separate export viewer
+does not replace in-application acceptance.
 
-The October 16 final instruction authorizes this bounded repair, normal main
-promotion/publication and existing push-triggered automation. It does not authorize
-manual hosting changes, credentials, paid services, new features or unrelated
-backend edits. Broader partner references are [backend overview](backend/README.md),
-[API draft](docs/api/v1.md) and [source register](docs/data-sources.md); they describe
-more than this UI executes. The historical frontend contract remains
-**PROPOSED — NOT YET AGREED WITH BACKEND TEAM**. Older standalone-only authority
-entries are superseded within the approved scope.
+The latest owner instruction authorizes scoped integrated implementation and
+ordinary main publication after required verification; actual publication and
+deployment must still be observed. It grants no new infrastructure, destructive
+operations, unrelated features or additional paid usage. Broader
+[backend documentation](backend/README.md) and [API contracts](docs/api/v1.md)
+also describe operator features outside this guarded public flow. The historical
+frontend contract remains **PROPOSED — NOT YET AGREED WITH BACKEND TEAM**.

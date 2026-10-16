@@ -1,3 +1,13 @@
+> **Final integrated-release scope note — October 16, 2026.**
+> [FINAL_RELEASE.md](FINAL_RELEASE.md) is the authority for current acceptance,
+> runtime and publication. The same local scenario snapshot, including Carroll
+> Street's 600-second case, carries between overview and station Normal/Flood views;
+> Normal hides water without erasing it. The constrained virtual tour and guarded
+> contextual assistant retain hypothetical labels and separate source clocks.
+> Backend integration does not turn this calculation into a backend SWMM run, a
+> coupled regional model or an observation. The equations, assumptions, numerical
+> checks and historical evidence below remain unchanged.
+
 # Station entrance what-if calculation
 
 **Illustrative what-if model — not calibrated station flooding.**

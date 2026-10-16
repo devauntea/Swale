@@ -1,5 +1,10 @@
 # Restricted localhost runtime
 
+For the final integrated selected-context assistant, use the separately bounded
+[release runtime](RELEASE_RUNTIME.md). Its provider allowance defaults to zero;
+explicit authorized execution uses persistent reservations and a limited API surface.
+The original credential-free controller below remains available unchanged.
+
 These nonsecret sources replace the formerly private, checkout-specific launch
 helpers. They run only the existing reviewed API and MTA/NWS transit/weather slice.
 No ingestion, snapshot acquisition, simulation, briefing, cloud, or credential
