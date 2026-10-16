@@ -144,7 +144,9 @@ def test_catch_basin_errors_are_problem_json(client, params, status, kind, code)
 
 @pytest.mark.parametrize(
     "params",
-    [{"category": "not_a_category"}, {"verification": "confirmed"}, {"since": "2020-01-01T00:00:00"}, {"basin": "CB1"}],
+    [{"category": "not_a_category"}, {"verification": "confirmed"}, {"since": "2020-01-01T00:00:00"},
+     {"basin": "CB1"}, {"basin": "incident:wrong_table"}, {"basin": "catch_basin:⟨⟩"},
+     {"basin": "catch_basin:⟨unclosed"}],
 )
 def test_incident_parameter_errors_are_problem_json(client, bbox, params):
     problem(client.get("/api/v1/incidents", params={"bbox": bbox, **params}), 422, "invalid-parameter")
@@ -158,3 +160,89 @@ def test_unknown_records_are_404_problems(client):
 def test_openapi_is_published_under_v1(client):
     paths = client.get("/api/v1/openapi.json").json()["paths"]
     assert {"/api/v1/catch-basins", "/api/v1/incidents", "/api/v1/layers", "/api/v1/health"} <= set(paths)
+
+
+@pytest.mark.parametrize("key", [
+    # Exact collection-produced ID from the 2026-10-16 localhost 404 reproduction.
+    "BK-3rd-ave-bergen-st-2jg440_20260807T205455Z",
+    "sensor:é洪水:⟨quoted⟩\\⟩:%opaque'\"`[x]",
+])
+def test_flood_collection_opaque_id_retrieves_matching_profile(client, bbox, key):
+    from surrealdb import RecordID
+
+    from swale.db import queries as q
+
+    # Synthetic profile data lives only in this module's in-memory test DB.
+    # The Henry Street bundle has no flood events, so borrow a fixture point.
+    events = client.get("/api/v1/flood-observations", params={"bbox": bbox}).json()["features"]
+    basin = q.page_in_bbox(client.app.state.db, "catch_basin", BBox.parse(bbox), limit=1).records[0]
+    doc = {
+        "sensor": RecordID("sensor", "parser_regression"), "sensor_id": "parser_regression",
+        "geom": basin["geom"], "lon": basin["lon"], "lat": basin["lat"],
+        "started_at": NOW, "ended_at": NOW, "max_depth_in": 2.5,
+        "profile_t_s": [0.0, 60.0, 120.0], "profile_depth_in": [0.0, 2.5, 0.0],
+        "knowledge_type": "observed", "source": RecordID("data_source", "floodnet_events"),
+        "source_record_id": key, "source_url": "https://example.invalid/parser-regression",
+        "ingested_at": NOW, "ingest_run": RecordID("ingest_run", "parser_regression"), "raw": {},
+    }
+    q.upsert_many(client.app.state.db, "flood_event", [(key, doc)])
+    try:
+        collection = client.get("/api/v1/flood-observations", params={"bbox": bbox, "limit": 5000})
+        assert collection.status_code == 200
+        full_id = str(RecordID("flood_event", key))
+        feature = next(f for f in collection.json()["features"] if f["id"] == full_id)
+        assert len(collection.json()["features"]) == len(events) + 1
+        response = client.get(f"/api/v1/flood-observations/{quote(feature['id'], safe='')}")
+        assert response.status_code == 200
+        detail = response.json()
+        assert detail["id"] == feature["id"]
+        assert detail["geometry"] == feature["geometry"]
+        assert detail["properties"] == {
+            **feature["properties"],
+            "profile": {"t_s": doc["profile_t_s"], "depth_in": doc["profile_depth_in"]},
+        }
+    finally:
+        from swale.db.connection import run
+
+        run(client.app.state.db, "DELETE $record;", {"record": RecordID("flood_event", key)})
+
+
+@pytest.mark.parametrize("event_id", [
+    "flood_event:missing", "flood_event:⟨missing:key⟩", "incident:missing",
+    "flood_event:", "flood_event:⟨⟩", "flood_event:⟨unclosed",
+])
+def test_flood_detail_invalid_and_missing_ids_are_problem_json(client, event_id):
+    problem(client.get(f"/api/v1/flood-observations/{quote(event_id, safe='')}"), 404, "not-found")
+
+
+def test_shared_parser_delimited_basin_and_incident_ids_in_paths_and_query(client, bbox):
+    from surrealdb import RecordID
+
+    from swale.db import queries as q
+    from swale.db.connection import run
+
+    db = client.app.state.db
+    basin_key, incident_key = "CB:é⟨parser⟩", "nyc311:é⟩"
+    basin_seed = q.page_in_bbox(db, "catch_basin", BBox.parse(bbox), limit=1).records[0]
+    incident_seed = q.page_in_bbox(db, "incident", BBox.parse(bbox), limit=1).records[0]
+    q.upsert_many(db, "catch_basin", [(basin_key, {
+        **{k: v for k, v in basin_seed.items() if k != "id"}, "unitid": basin_key,
+    })])
+    q.upsert_many(db, "incident", [(incident_key, {k: v for k, v in incident_seed.items() if k != "id"})])
+    q.replace_near_basin(db, [{"incident": incident_key, "basin": basin_key, "distance_ft": 1.0,
+                              "method": "parser_regression", "computed_at": NOW}])
+    try:
+        basin_id = str(RecordID("catch_basin", basin_key))
+        incident_id = str(RecordID("incident", incident_key))
+        for route, full_id in (("catch-basins", basin_id), ("incidents", incident_id)):
+            response = client.get(f"/api/v1/{route}/{quote(full_id, safe='')}")
+            assert response.status_code == 200
+            assert response.json()["id"] == full_id
+        filtered = client.get("/api/v1/incidents", params={"bbox": bbox, "since": SINCE, "basin": basin_id})
+        assert filtered.status_code == 200
+        assert [f["id"] for f in filtered.json()["features"]] == [incident_id]
+        assert filtered.json()["features"][0]["properties"]["linked_basin"]["id"] == basin_id
+    finally:
+        q.replace_near_basin(db, [{"incident": incident_key, "basin": None}])
+        for table, key in (("catch_basin", basin_key), ("incident", incident_key)):
+            run(db, "DELETE $record;", {"record": RecordID(table, key)})

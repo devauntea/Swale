@@ -63,10 +63,25 @@ def require_utc(value: datetime | None, param: str) -> datetime | None:
 
 
 def feature_key(feature_id: str, table: str, *, param: str | None = None) -> str:
-    """'catch_basin:CB305116' -> 'CB305116'. A wrong prefix is a 404 in a path and a 422 in a query parameter."""
+    """Recover a string key from an opaque SDK ID; paths use 404, queries 422.
+
+    surrealdb 2.0.0 prints special string keys as ``table:⟨key⟩``, escaping
+    interior closing delimiters as ``\\⟩``. Its RecordID.parse neither unquotes
+    these keys nor supports embedded colons. Undo only that printed wrapper;
+    never URL-decode here (the HTTP framework already handled the URL).
+    """
     prefix = f"{table}:"
     if feature_id.startswith(prefix) and len(feature_id) > len(prefix):
-        return feature_id[len(prefix):]
+        key = feature_id[len(prefix):]
+        if not key.startswith("⟨"):
+            return key
+        if key.endswith("⟩"):
+            encoded = key[1:-1]
+            raw = encoded.replace("\\⟩", "⟩")
+            # Require a nonempty, correctly escaped wrapper. Preserve all other
+            # punctuation/backslashes, including literal delimiters in the key.
+            if raw and raw.replace("⟩", "\\⟩") == encoded:
+                return raw
     if param:
         raise invalid(param, "bad_id", f"{param} must be a {table} id such as {prefix}…")
     raise Problem(404, "not-found", "Not found", f"no {table} with id {feature_id}")
