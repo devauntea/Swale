@@ -34,6 +34,8 @@ export function MascotCarry(p: Props) {
   const manualStopped = useRef(false);
   const startedSelection = useRef(false);
   const sequenceActive = useRef(false);
+  const projectionPending =
+    p.selectionKey !== null && p.target?.key !== p.selectionKey;
   const targetValid =
     p.selectionKey !== null &&
     p.target?.key === p.selectionKey &&
@@ -74,6 +76,18 @@ export function MascotCarry(p: Props) {
     const draw = (now: number) => {
       if (cancelled) return;
       const props = current.current;
+      if (
+        props.selectionKey !== null &&
+        props.target?.key !== props.selectionKey
+      ) {
+        // A new selection can precede its map projection by a render. Preserve
+        // the actual current position; this is not an offscreen destination.
+        setFrame(
+          carryFrame(CARRY_DURATION, position.current, position.current),
+        );
+        sequenceActive.current = false;
+        return;
+      }
       const valid =
         props.selectionKey !== null &&
         props.target?.key === props.selectionKey &&
@@ -118,9 +132,21 @@ export function MascotCarry(p: Props) {
       cancelAnimationFrame(raf);
       sequenceActive.current = false;
     };
-  }, [p.selectionKey, p.interrupted, p.movementEnabled, reduced, targetValid]);
+  }, [
+    p.selectionKey,
+    p.interrupted,
+    p.movementEnabled,
+    reduced,
+    targetValid,
+    projectionPending,
+  ]);
   useEffect(() => {
-    if (frame.phase !== "explaining" || sequenceActive.current) return;
+    if (
+      projectionPending ||
+      frame.phase !== "explaining" ||
+      sequenceActive.current
+    )
+      return;
     const valid =
       p.selectionKey !== null &&
       p.target?.key === p.selectionKey &&
@@ -129,7 +155,7 @@ export function MascotCarry(p: Props) {
     position.current = next;
     setFrame((previous) => ({ ...previous, position: next }));
     setDocked(!valid);
-  }, [p.target, p.dock, p.selectionKey, frame.phase]);
+  }, [p.target, p.dock, p.selectionKey, frame.phase, projectionPending]);
   useEffect(() => {
     onPhaseChange?.(frame.phase);
   }, [frame.phase, onPhaseChange]);
@@ -161,7 +187,7 @@ export function MascotCarry(p: Props) {
         className="mascot-carry-hand"
         viewBox="0 0 88 112"
         style={{
-          opacity: frame.hand,
+          opacity: projectionPending ? 0 : frame.hand,
           transform: `translate(${(1 - frame.hand) * -24}px,${(1 - frame.hand) * -30}px) rotate(${frame.grip ? -8 : 3}deg)`,
         }}
       >

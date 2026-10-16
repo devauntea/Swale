@@ -173,6 +173,18 @@ class AudioRequest(StrictModel):
     user_intent: Literal[True]
 
 
+class ModelExecutionDisabled(ValueError):
+    """A known local control state, safe to disclose without provider details."""
+
+
+class ModelAllowanceExhausted(ValueError):
+    """A known local spending limit, safe to disclose without provider details."""
+
+
+def model_control_message(error: ModelExecutionDisabled | ModelAllowanceExhausted) -> str:
+    return "Model execution is disabled on this server." if isinstance(error, ModelExecutionDisabled) else "The approved model execution allowance is exhausted."
+
+
 def digest(value: Any) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
 
@@ -510,8 +522,10 @@ class ContextualService:
 
     def _model(self, system: str, data: dict[str, Any], output: type[BaseModel]) -> BaseModel:
         caps = self.capabilities()
-        if not caps["model"]["enabled"] or caps["model"]["remaining_calls"] <= 0:
-            raise ValueError("Model execution is disabled or its approved call allowance is exhausted.")
+        if not caps["model"]["enabled"]:
+            raise ModelExecutionDisabled()
+        if caps["model"]["remaining_calls"] <= 0 or caps["budget"]["remaining_usd"] < 0.2:
+            raise ModelAllowanceExhausted()
         payload = json.dumps(data, ensure_ascii=False)
         # UTF-8 bytes conservatively bound tokens; include generated schema/system overhead.
         total_bytes = len((payload + system + json.dumps(output.model_json_schema())).encode())
@@ -558,6 +572,9 @@ class ContextualService:
                     with db_lock:
                         actions = self.validate_actions(db, choice.actions, canonical, prompt)
                     source = "model"
+                except (ModelExecutionDisabled, ModelAllowanceExhausted) as exc:
+                    selected, actions = evidence, []
+                    error = model_control_message(exc) + " Showing the deterministic public explanation."
                 except Exception as exc:  # provider errors are shown without provider bodies/credentials
                     selected, actions = evidence, []
                     error = f"Model unavailable or response rejected ({type(exc).__name__}); showing the deterministic public explanation."
@@ -609,6 +626,8 @@ class ContextualService:
                         if re.search(english_pattern, before, re.I) and not re.search(targets[language], after, re.I):
                             raise ValueError(f"translation dropped a critical {qualifier} qualifier")
                 source = "machine_translation"
+            except (ModelExecutionDisabled, ModelAllowanceExhausted) as exc:
+                raise Problem(409, "translation-unavailable", "Translation unavailable", model_control_message(exc) + " Original English remains available.") from None
             except Exception as exc:
                 raise Problem(502, "translation-unavailable", "Translation unavailable", f"Translation did not pass the bounded checks ({type(exc).__name__}); original English remains available.") from None
         transcript = " ".join([*translated, WARNINGS[language]])

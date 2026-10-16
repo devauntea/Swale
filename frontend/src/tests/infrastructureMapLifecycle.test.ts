@@ -29,6 +29,8 @@ import {
 const renderer = vi.hoisted(() => ({
   maps: [] as Record<string, unknown>[],
   overlays: [] as Record<string, unknown>[],
+  resizeCallbacks: [] as (() => void)[],
+  resizeDisconnects: [] as ReturnType<typeof vi.fn>[],
 }));
 vi.mock("maplibre-gl", () => ({
   setWorkerUrl: vi.fn(),
@@ -86,7 +88,10 @@ vi.mock("maplibre-gl", () => ({
       getEast: () => -73.98,
       getNorth: () => 40.69,
     });
+    project = vi.fn(() => ({ x: 850, y: 555 }));
+    isMoving = () => false;
     on = vi.fn();
+    off = vi.fn();
     once = (event: string, handler: () => void) => {
       this.handlers.set(event, handler);
     };
@@ -137,17 +142,25 @@ vi.mock("../map/presentation", async (original) => ({
 beforeEach(() => {
   renderer.maps.length = 0;
   renderer.overlays.length = 0;
+  renderer.resizeCallbacks.length = 0;
+  renderer.resizeDisconnects.length = 0;
   vi.stubGlobal(
     "ResizeObserver",
     class {
+      constructor(callback: () => void) {
+        renderer.resizeCallbacks.push(callback);
+        renderer.resizeDisconnects.push(this.disconnect);
+      }
       observe() {}
-      disconnect() {}
+      unobserve() {}
+      disconnect = vi.fn();
     },
   );
 });
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 const detail: InfrastructureMapState = {
@@ -208,6 +221,7 @@ type MockMap = {
   flyTo: ReturnType<typeof vi.fn>;
   easeTo: ReturnType<typeof vi.fn>;
   fitBounds: ReturnType<typeof vi.fn>;
+  project: ReturnType<typeof vi.fn>;
   remove: ReturnType<typeof vi.fn>;
   canvas: HTMLCanvasElement;
 };
@@ -216,6 +230,77 @@ function map() {
 }
 
 describe("infrastructure uses the original map and camera owner", () => {
+  it("projects only after map readiness and repositions around resized or hidden UI without changing map coordinates or camera", async () => {
+    let panelBottom = 563;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        if (this.classList.contains("map-canvas"))
+          return new DOMRect(0, 0, 1636, 896);
+        if (this.classList.contains("viewing-modes"))
+          return new DOMRect(352, 82, 470, panelBottom - 82);
+        return new DOMRect();
+      },
+    );
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) =>
+      window.setTimeout(() => callback(performance.now()), 0),
+    );
+    vi.stubGlobal("cancelAnimationFrame", (frame: number) =>
+      window.clearTimeout(frame),
+    );
+    const onMascotProjection = vi.fn();
+    const target = {
+      key: "model_entrance:source-row",
+      position: [-73.995, 40.68] as [number, number],
+      label: "Selected source entrance",
+    };
+    const view = render(
+      createElement(
+        "main",
+        { className: "workspace" },
+        createElement("section", { className: "viewing-modes" }),
+        createElement(SwaleMap, {
+          ...props(),
+          mascotTarget: target,
+          onMascotProjection,
+        }),
+      ),
+    );
+    expect(onMascotProjection).not.toHaveBeenCalled();
+    expect(map().project).not.toHaveBeenCalled();
+    await act(async () => map().handlers.get("load")!());
+    expect(onMascotProjection).toHaveBeenLastCalledWith({
+      key: target.key,
+      label: target.label,
+      x: 946,
+      y: 490,
+      visible: true,
+      moving: false,
+    });
+    panelBottom = 300;
+    act(() => renderer.resizeCallbacks.forEach((callback) => callback()));
+    await waitFor(() =>
+      expect(onMascotProjection.mock.calls.at(-1)?.[0].x).toBe(850),
+    );
+    panelBottom = 563;
+    act(() => renderer.resizeCallbacks.forEach((callback) => callback()));
+    await waitFor(() =>
+      expect(onMascotProjection.mock.calls.at(-1)?.[0].x).toBe(946),
+    );
+    act(() => {
+      view.container.querySelector<HTMLElement>(".viewing-modes")!.hidden =
+        true;
+    });
+    await waitFor(() =>
+      expect(onMascotProjection.mock.calls.at(-1)?.[0].x).toBe(850),
+    );
+    for (const [position] of map().project.mock.calls)
+      expect(position).toEqual(target.position);
+    expect(map().flyTo).not.toHaveBeenCalled();
+    expect(map().easeTo).not.toHaveBeenCalled();
+    view.unmount();
+    for (const disconnect of renderer.resizeDisconnects)
+      expect(disconnect).toHaveBeenCalledOnce();
+  });
   it("rejects retained detail pick/hover callbacks after entrance changes, hiding, and scenario comparison/evidence changes", async () => {
     const read = (path: string): unknown =>
       JSON.parse(

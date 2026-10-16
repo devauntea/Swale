@@ -51,6 +51,25 @@ import { backendMapLayers } from "./backendHazardLayers";
 import { useHazardPulse } from "./useHazardPulse";
 import { boundedPulsingIds } from "./hazards";
 import type { ProjectedMascotTarget } from "../contextual/MascotCarry";
+import { visibleMascotAnchor } from "../contextual/screenAnchor";
+
+const MASCOT_OCCLUSIONS = [
+  ".control-sidebar",
+  ".viewing-modes",
+  ".assistant-panel",
+  ".basin-inspector",
+  ".map-controls",
+  ".map-legend",
+  ".workspace-topbar",
+  ".workspace-footer > *",
+  ".entrance-map-badge",
+  ".map-building-note",
+  ".workspace-banner",
+  ".map-resource-warning",
+  ".sources-panel",
+  ".complaint-detail",
+  ".assistant-launcher",
+].join(",");
 
 type InfrastructureRenderer = typeof import("./infrastructureLayers");
 interface SavedInfrastructureCamera {
@@ -976,6 +995,18 @@ export function SwaleMap(props: SwaleMapProps) {
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map || !trackMascot) return;
+    const workspace = map.getContainer().closest(".workspace") ?? document.body;
+    let frame = 0;
+    let disposed = false;
+    const watched = new Set<Element>();
+    const scheduleProjection = () => {
+      if (disposed || frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        if (!disposed) project();
+      });
+    };
+    const panelResize = new ResizeObserver(scheduleProjection);
     const project = () => {
       const target = propsRef.current.mascotTarget;
       if (!target) {
@@ -986,24 +1017,51 @@ export function SwaleMap(props: SwaleMapProps) {
       const rect = map.getContainer().getBoundingClientRect();
       const x = point.x + rect.left;
       const y = point.y + rect.top - 65;
+      const occlusions = [];
+      for (const element of workspace.querySelectorAll(MASCOT_OCCLUSIONS)) {
+        if (!watched.has(element)) {
+          panelResize.observe(element);
+          watched.add(element);
+        }
+        const style = getComputedStyle(element);
+        if (style.display === "none" || style.visibility === "hidden") continue;
+        const panel = element.getBoundingClientRect();
+        if (panel.width && panel.height) occlusions.push(panel);
+      }
+      for (const element of watched)
+        if (!workspace.contains(element)) {
+          panelResize.unobserve(element);
+          watched.delete(element);
+        }
+      const anchor = visibleMascotAnchor(
+        { x, y },
+        {
+          left: Math.max(0, rect.left),
+          top: Math.max(0, rect.top),
+          right: Math.min(window.innerWidth, rect.right),
+          bottom: Math.min(window.innerHeight, rect.bottom),
+        },
+        occlusions,
+      );
       propsRef.current.onMascotProjection?.({
         key: target.key,
-        x,
-        y,
+        x: anchor?.x ?? x,
+        y: anchor?.y ?? y,
         label: target.label,
-        visible:
-          Number.isFinite(x) &&
-          Number.isFinite(y) &&
-          x > 350 &&
-          x < rect.right - 370 &&
-          y > 150 &&
-          y < rect.bottom - 135,
+        visible: anchor !== null,
         moving: map.isMoving(),
       });
     };
     const interrupt = (event: { originalEvent?: unknown }) => {
       if (event.originalEvent) propsRef.current.onManualCamera?.();
     };
+    const visibilityChanges = new MutationObserver(scheduleProjection);
+    visibilityChanges.observe(workspace, {
+      attributes: true,
+      attributeFilter: ["class", "hidden"],
+      childList: true,
+      subtree: true,
+    });
     project();
     map.on("move", project);
     map.on("moveend", project);
@@ -1012,6 +1070,10 @@ export function SwaleMap(props: SwaleMapProps) {
     map.on("zoomstart", interrupt);
     map.on("rotatestart", interrupt);
     return () => {
+      disposed = true;
+      cancelAnimationFrame(frame);
+      panelResize.disconnect();
+      visibilityChanges.disconnect();
       map.off("move", project);
       map.off("moveend", project);
       map.off("resize", project);

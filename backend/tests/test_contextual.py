@@ -352,3 +352,33 @@ def test_translation_preserves_numeric_sign_and_exponent(client, monkeypatch, re
     monkeypatch.setattr(service, "_model", translated)
     result = client[0].post(f"/api/v1/context/briefings/{body['id']}/translations", json={"language": "es", "use_model": True})
     assert result.status_code == 502
+
+
+@pytest.mark.parametrize("enabled,calls,reserved,expected", [
+    (False, 0, 0, "disabled on this server"),
+    (True, 3, 600000, "approved model execution allowance is exhausted"),
+    (True, 2, 950000, "approved model execution allowance is exhausted"),
+])
+def test_model_control_failures_are_clear_without_provider_execution(client, monkeypatch, tmp_path, enabled, calls, reserved, expected):
+    import json
+    import anthropic
+    ledger = tmp_path / "provider-ledger.json"
+    ledger.write_text(json.dumps({"version": 1, "reserved_microusd": reserved, "calls": {"model": calls, "audio": 0}}))
+    ledger.chmod(0o600)
+    before = ledger.read_bytes()
+    monkeypatch.setenv("SWALE_CONTEXT_LEDGER_PATH", str(ledger))
+    monkeypatch.setenv("SWALE_CONTEXT_BUDGET_USD", "1")
+    monkeypatch.setenv("SWALE_CONTEXT_MAX_MODEL_CALLS", "3")
+    monkeypatch.setenv("SWALE_CONTEXT_MODEL_ENABLED", "1" if enabled else "0")
+    monkeypatch.setenv("AWS_BEARER_TOKEN_BEDROCK", "offline-test-not-a-real-key")
+    invoked = []
+    def forbidden_provider(*args, **kwargs):
+        invoked.append(True)
+        raise AssertionError("A local control failure must not construct a provider client")
+    monkeypatch.setattr(anthropic, "AnthropicBedrockMantle", forbidden_provider)
+    response = generate(client, use_model=True)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["source"] == "template" and body["actions"] == []
+    assert expected in body["error"] and "ValueError" not in body["error"]
+    assert not invoked and ledger.read_bytes() == before

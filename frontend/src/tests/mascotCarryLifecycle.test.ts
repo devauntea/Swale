@@ -34,6 +34,103 @@ describe("mascot carry cancellation and map anchor lifecycle", () => {
     label: key,
     moving,
   });
+  it("holds the current position through stale A/B/C projections, then starts each pickup there; matched offscreen targets still dock", async () => {
+    const settings = { dock, movementEnabled: true };
+    const view = render(
+      createElement(MascotCarry, {
+        ...settings,
+        selectionKey: "A",
+        target: target("A"),
+      }),
+    );
+    const character = () =>
+      view.container.querySelector<HTMLElement>(".mascot-travel")!;
+    const hand = () =>
+      view.container.querySelector<SVGElement>(".mascot-carry-hand")!;
+    await act(async () => vi.advanceTimersByTime(2500));
+    const atA = character().style.transform;
+    expect(atA).toBe("translate3d(456px, 298px, 0)");
+    view.rerender(
+      createElement(MascotCarry, {
+        ...settings,
+        selectionKey: "B",
+        target: target("A"),
+      }),
+    );
+    expect(hand().style.opacity).toBe("0");
+    await act(async () => vi.advanceTimersByTime(20));
+    expect(character().style.transform).toBe(atA);
+    expect(character().getAttribute("data-docked")).toBe("false");
+    view.rerender(
+      createElement(MascotCarry, {
+        ...settings,
+        selectionKey: "B",
+        target: target("B"),
+      }),
+    );
+    await act(async () => vi.advanceTimersByTime(20));
+    expect(character().getAttribute("data-phase")).toBe("reaching");
+    expect(character().style.transform).toBe(atA);
+    await act(async () => vi.advanceTimersByTime(850));
+    const inFlight = character().style.transform;
+    expect(inFlight).not.toBe(atA);
+    expect(character().getAttribute("data-phase")).toBe("carrying");
+    view.rerender(
+      createElement(MascotCarry, {
+        ...settings,
+        selectionKey: "C",
+        target: target("B"),
+      }),
+    );
+    expect(hand().style.opacity).toBe("0");
+    await act(async () => vi.advanceTimersByTime(20));
+    expect(character().style.transform).toBe(inFlight);
+    // An even older projection must not resume either obsolete trip.
+    view.rerender(
+      createElement(MascotCarry, {
+        ...settings,
+        selectionKey: "C",
+        target: target("A"),
+      }),
+    );
+    await act(async () => vi.advanceTimersByTime(20));
+    expect(character().style.transform).toBe(inFlight);
+    const c = { ...target("C"), x: 750, y: 300 };
+    view.rerender(
+      createElement(MascotCarry, {
+        ...settings,
+        selectionKey: "C",
+        target: c,
+      }),
+    );
+    await act(async () => vi.advanceTimersByTime(20));
+    expect(character().getAttribute("data-phase")).toBe("reaching");
+    expect(character().style.transform).toBe(inFlight);
+    await act(async () => vi.advanceTimersByTime(2500));
+    expect(character().style.transform).toBe("translate3d(706px, 248px, 0)");
+    expect(vi.getTimerCount()).toBe(0);
+    view.rerender(
+      createElement(MascotCarry, {
+        ...settings,
+        selectionKey: "D",
+        target: c,
+      }),
+    );
+    await act(async () => vi.advanceTimersByTime(20));
+    expect(character().style.transform).toBe("translate3d(706px, 248px, 0)");
+    view.rerender(
+      createElement(MascotCarry, {
+        ...settings,
+        selectionKey: "D",
+        target: { ...target("D"), visible: false },
+      }),
+    );
+    await act(async () => vi.advanceTimersByTime(20));
+    expect(character().getAttribute("data-docked")).toBe("true");
+    expect(character().style.transform).toBe("translate3d(856px, 648px, 0)");
+    view.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
   it("waits for initial projection, shows one attached character, and retargets without queuing old drops", async () => {
     const phases = vi.fn();
     const view = render(
