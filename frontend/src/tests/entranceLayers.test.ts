@@ -34,6 +34,62 @@ const makeDetail = (stationId = "F21", sourceId = "row-y4aj-tepy-nbif") =>
   )!;
 
 describe("selected entrance structural/water rendering contracts", () => {
+  it("shows only above-reference elements in Surface while X-ray keeps original negative geometry and water without altering physical state", () => {
+    const detail = makeDetail();
+    const trajectory = simulateFloodScenario(detail.floodGeometry, {
+      ...DEFAULT_FLOOD_INPUTS,
+    });
+    const scenario = {
+      frame: trajectory.frames.at(-1)!,
+      inputs: trajectory.inputs,
+    };
+    const before = JSON.stringify({ detail, scenario });
+    const positions = (layers: ReturnType<typeof buildEntranceLayers>) =>
+      layers.flatMap((layer) => {
+        const data = layer.props.data as {
+          polygon?: [number, number, number][];
+          path?: [number, number, number][];
+          position?: [number, number, number];
+        }[];
+        return data.flatMap(
+          (record) =>
+            record.polygon ??
+            record.path ??
+            (record.position ? [record.position] : []),
+        );
+      });
+    for (const current of [undefined, scenario]) {
+      const surface = positions(
+        buildEntranceLayers(
+          detail,
+          "light",
+          "surface",
+          5,
+          vi.fn(),
+          vi.fn(),
+          null,
+          current,
+        ),
+      );
+      expect(surface.length).toBeGreaterThan(0);
+      expect(surface.every((point) => point[2] >= 0)).toBe(true);
+      expect(
+        positions(
+          buildEntranceLayers(
+            detail,
+            "light",
+            "xray",
+            5,
+            vi.fn(),
+            vi.fn(),
+            null,
+            current,
+          ),
+        ).some((point) => point[2] < 0),
+      ).toBe(true);
+    }
+    expect(JSON.stringify({ detail, scenario })).toBe(before);
+  });
   it("keeps selected current-evidence surfaces neutral and distinguishes selection with outlines/rails rather than water-like fills", () => {
     const detail = makeDetail();
     const landing = detail.components.find(

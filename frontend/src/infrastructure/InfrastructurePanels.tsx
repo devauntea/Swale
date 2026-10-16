@@ -141,7 +141,9 @@ export function InfrastructureControls(p: ControlsProps) {
           <p className="transit-copy">
             {p.state.mode === "xray"
               ? "X-ray reveals schematic structures through the map surface; ground is not physically clipped."
-              : "Surface view respects the map surface; underground structure may be occluded."}
+              : p.state.entranceDetail
+                ? "Surface shows above-reference entrance components. Use X-ray for below-reference stairs; no physical ground opening is claimed."
+                : "Surface view respects ordinary map occlusion; underground structure may be occluded."}
           </p>
           <div className="infrastructure-visibility">
             {(

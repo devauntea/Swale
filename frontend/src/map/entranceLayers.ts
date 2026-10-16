@@ -162,6 +162,11 @@ export function buildEntranceLayers(
 ): Layer[] {
   const display = (position: InfrastructurePosition) =>
     entranceDisplayPosition(position, exaggeration);
+  // Flat basemap roads are not a complete depth-writing ground surface. Surface
+  // detail therefore explicitly presents only whole above-reference elements;
+  // X-ray alone retains negative faces. Stored geometry/model values are intact.
+  const presented = (points: InfrastructurePosition[]) =>
+    mode === "xray" || points.every((position) => position[2] >= 0);
   const known = new Map(
     detail.components.map((component) => [component.id, component]),
   );
@@ -201,7 +206,7 @@ export function buildEntranceLayers(
   const surfaces = (suffix: string, data: EntranceSurface[]) =>
     new PolygonLayer<EntranceSurface>({
       id: `swale-entrance-detail-${suffix}`,
-      data,
+      data: data.filter((surface) => presented(surface.polygon)),
       ...shared,
       filled: true,
       stroked: true,
@@ -245,7 +250,7 @@ export function buildEntranceLayers(
     ),
     new PathLayer<EntrancePath>({
       id: "swale-entrance-detail-rails",
-      data: detail.paths,
+      data: detail.paths.filter((path) => presented(path.path)),
       ...shared,
       getPath: (path) => path.path.map(display),
       getColor: (path) =>
@@ -266,7 +271,7 @@ export function buildEntranceLayers(
     }),
     new ScatterplotLayer({
       id: "swale-entrance-detail-globes",
-      data: detail.fixtures,
+      data: detail.fixtures.filter((fixture) => presented([fixture.position])),
       ...shared,
       getPosition: (fixture) => display(fixture.position),
       getRadius: (fixture) => fixture.radiusM,
@@ -287,7 +292,7 @@ export function buildEntranceLayers(
           text: `Subway · ${detail.stationName}`,
           componentId: detail.components[0].id,
         },
-      ],
+      ].filter((label) => presented([label.position])),
       ...shared,
       getPosition: (label) => display(label.position),
       getText: (label) => label.text,
@@ -311,7 +316,9 @@ export function buildEntranceLayers(
       updateTriggers: { getPosition: [exaggeration] },
     }),
   ];
-  const water = entranceWaterSurfaces(detail, scenario);
+  const water = entranceWaterSurfaces(detail, scenario).filter((surface) =>
+    presented(surface.polygon),
+  );
   if (!water.length || !scenario?.frame) return layers;
   layers.push(
     new PolygonLayer<EntranceWaterSurface>({
@@ -353,12 +360,14 @@ export function buildEntranceLayers(
     layers.push(
       new PathLayer<{ path: InfrastructurePosition[]; componentId: string }>({
         id: "swale-entrance-scenario-flow",
-        data: detail.flowPaths.map((path, index) => ({
-          path,
-          componentId: detail.components.find((component) =>
-            component.id.endsWith(`flight-${index + 1}`),
-          )!.id,
-        })),
+        data: detail.flowPaths
+          .map((path, index) => ({
+            path,
+            componentId: detail.components.find((component) =>
+              component.id.endsWith(`flight-${index + 1}`),
+            )!.id,
+          }))
+          .filter((flow) => presented(flow.path)),
         ...shared,
         getPath: (path) =>
           path.path.map(([lng, lat, z]) => display([lng, lat, z + 0.04])),
