@@ -4,9 +4,8 @@
   height="48"
   viewBox="0 0 48 48"
 >
-  <rect width="48" height="48" rx="13" fill="#173d37" />
-  <g fill="none" stroke="#95ddbd" stroke-width="3" stroke-linecap="round">
-    <path d="M12 16h13c9 0 9 8 0 8h-3c-9 0-9 8 0 8h14" />
-    <path d="M12 24h3m18 0h3" />
+  <rect width="48" height="48" rx="13" fill="#10254B" />
+  <g fill="none" stroke="#88BDFF" stroke-width="3" stroke-linecap="round">
+    <path d="M10 15c9-9 17 9 28 0M10 24c9-9 17 9 28 0M10 33c9-9 17 9 28 0" />
   </g>
 </svg>

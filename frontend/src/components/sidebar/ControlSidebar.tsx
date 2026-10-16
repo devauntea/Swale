@@ -60,11 +60,11 @@ export function ControlSidebar(p: Props) {
       <header className="brand-header">
         <div className="brand-mark">
           <svg viewBox="0 0 36 36" aria-hidden="true">
-            <path d="M7 9h12c10 0 10 9 0 9h-2c-10 0-10 9 0 9h12M7 18h3m16 0h3" />
+            <path d="M4 10c8-9 16 9 28 0M4 18c8-9 16 9 28 0M4 26c8-9 16 9 28 0" />
           </svg>
         </div>
         <div>
-          <h1>SWALE</h1>
+          <h1>Swale</h1>
           <p>URBAN FLOOD READINESS</p>
         </div>
         <span className="brand-corner">BK</span>

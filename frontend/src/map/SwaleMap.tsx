@@ -23,12 +23,17 @@ import {
   cameraPadding,
   HOME_CAMERA,
   prefersReducedMotion,
-  PRIORITY_COLORS,
+  MAP_THEMES,
+  PRIORITY_RADII,
 } from "./presentation";
+
+import type { Theme } from "../app/theme";
+import { installLocalBasemapGlyphs } from "./spriteFallbacks";
 
 setWorkerUrl(workerUrl);
 
 export interface SwaleMapProps {
+  theme: Theme;
   snapshot: DemoSnapshot;
   scenarioId: ScenarioId;
   layers: LayerVisibility;
@@ -85,6 +90,9 @@ export function SwaleMap(props: SwaleMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
   const overlayRef = useRef<MapLibreOverlay | null>(null);
+  const glyphsRef = useRef<ReturnType<typeof installLocalBasemapGlyphs> | null>(
+    null,
+  );
   const propsRef = useRef(props);
   const buildingLayerRef = useRef<string | undefined>(undefined);
   const labelLayerRef = useRef<string | undefined>(undefined);
@@ -139,6 +147,17 @@ export function SwaleMap(props: SwaleMapProps) {
       });
       currentMap = map;
       mapRef.current = map;
+      // Resolve only the seven audited Liberty class gaps before first tile layout.
+      glyphsRef.current = installLocalBasemapGlyphs(
+        map,
+        () => propsRef.current.theme,
+      );
+      map.on("styleimagemissing", ({ id }) => {
+        if (!disposed)
+          setWarning(
+            `A basemap symbol is unavailable (${id}). Other map layers remain usable.`,
+          );
+      });
       map.addControl(
         new AttributionControl({ compact: false }),
         "bottom-right",
@@ -178,7 +197,7 @@ export function SwaleMap(props: SwaleMapProps) {
       map.once("load", () => {
         if (disposed) return;
         try {
-          const style = applyArchitecturalStyle(map);
+          const style = applyArchitecturalStyle(map, propsRef.current.theme);
           buildingLayerRef.current = style.buildingLayerId;
           labelLayerRef.current = style.labelLayerId;
           if (!style.buildingLayerId) {
@@ -248,6 +267,8 @@ export function SwaleMap(props: SwaleMapProps) {
       }
       overlayRef.current?.finalize();
       overlayRef.current = null;
+      glyphsRef.current?.dispose();
+      glyphsRef.current = null;
       currentMap?.remove();
       mapRef.current = null;
       buildingLayerRef.current = undefined;
@@ -261,8 +282,15 @@ export function SwaleMap(props: SwaleMapProps) {
     const overlay = overlayRef.current;
     if (!ready || !map || !overlay) return;
 
-    const { snapshot, scenarioId, layers, selectedBasinId, highlightedIds } =
-      props;
+    const {
+      snapshot,
+      scenarioId,
+      layers,
+      selectedBasinId,
+      highlightedIds,
+      theme,
+    } = props;
+    const colors = MAP_THEMES[theme];
     const knownIds = new Set(snapshot.basins.map((basin) => basin.id));
     const highlighted = new Set(
       highlightedIds.filter((id) => knownIds.has(id)),
@@ -290,13 +318,8 @@ export function SwaleMap(props: SwaleMapProps) {
         filled: true,
         stroked: true,
         getFillColor:
-          scenarioId === "extreme_2080"
-            ? [20, 139, 173, 115]
-            : [34, 162, 173, 90],
-        getLineColor:
-          scenarioId === "extreme_2080"
-            ? [16, 121, 154, 210]
-            : [19, 140, 149, 200],
+          scenarioId === "extreme_2080" ? colors.floodExtreme : colors.flood,
+        getLineColor: colors.floodOutline,
         getLineWidth: 1.1,
         lineWidthUnits: "pixels",
         parameters: { depthWriteEnabled: false },
@@ -320,12 +343,11 @@ export function SwaleMap(props: SwaleMapProps) {
         filled: true,
         stroked: true,
         getFillColor: (cell) => [
-          218,
-          158,
-          70,
-          Math.min(105, 30 + cell.count * 3),
+          ...colors.density,
+          Math.min(theme === "dark" ? 125 : 105, 30 + cell.count * 3),
         ],
-        getLineColor: [173, 125, 56, 120],
+        getLineColor: colors.densityOutline,
+        updateTriggers: { getFillColor: [theme, snapshot.version] },
         getLineWidth: 0.8,
         lineWidthUnits: "pixels",
         parameters: { depthWriteEnabled: false },
@@ -349,8 +371,8 @@ export function SwaleMap(props: SwaleMapProps) {
         radiusUnits: "pixels",
         getRadius: 3.5,
         stroked: true,
-        getFillColor: [116, 101, 158, 245],
-        getLineColor: [255, 255, 255, 230],
+        getFillColor: colors.complaint,
+        getLineColor: colors.markerOutline,
         getLineWidth: 1,
         lineWidthUnits: "pixels",
         parameters: { depthCompare: "always", depthWriteEnabled: false },
@@ -389,11 +411,11 @@ export function SwaleMap(props: SwaleMapProps) {
         getRadius: (basin) => (basin.id === selectedBasinId ? 13 : 11),
         filled: true,
         stroked: true,
-        getFillColor: [255, 255, 255, 48],
+        getFillColor: colors.emphasisFill,
         getLineColor: (basin) =>
           basin.id === selectedBasinId
-            ? [31, 67, 63, 255]
-            : [44, 139, 125, 230],
+            ? colors.selectedOutline
+            : colors.highlightOutline,
         getLineWidth: 1.8,
         lineWidthUnits: "pixels",
         parameters: { depthCompare: "always", depthWriteEnabled: false },
@@ -414,17 +436,22 @@ export function SwaleMap(props: SwaleMapProps) {
             ? 7.5
             : highlighted.has(basin.id)
               ? 6.5
-              : 5,
+              : PRIORITY_RADII[basin.priorities[scenarioId].band],
         stroked: true,
         getFillColor: (basin) =>
-          PRIORITY_COLORS[basin.priorities[scenarioId].band],
-        getLineColor: [255, 255, 255, 255],
+          colors.priority[basin.priorities[scenarioId].band],
+        getLineColor: colors.markerOutline,
         getLineWidth: 1.6,
         lineWidthUnits: "pixels",
         parameters: { depthCompare: "always", depthWriteEnabled: false },
         updateTriggers: {
-          getFillColor: [scenarioId, snapshot.version],
-          getRadius: [selectedBasinId, highlightedIds],
+          getFillColor: [scenarioId, snapshot.version, theme],
+          getRadius: [
+            selectedBasinId,
+            highlightedIds,
+            scenarioId,
+            snapshot.version,
+          ],
         },
         onHover: (info) =>
           pickTooltip(info, (basin) => {
@@ -467,7 +494,16 @@ export function SwaleMap(props: SwaleMapProps) {
     props.layers,
     props.selectedBasinId,
     props.highlightedIds,
+    props.theme,
   ]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    // Only paint/light changes: no map reconstruction, camera move or setStyle.
+    applyArchitecturalStyle(map, props.theme);
+    glyphsRef.current?.updateTheme(props.theme);
+  }, [ready, props.theme]);
 
   useEffect(() => {
     const map = mapRef.current;

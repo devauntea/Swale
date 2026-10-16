@@ -93,6 +93,38 @@ validates future backend commands again. `search_basins` and `explain_basin` rem
 backend-owned and are not implemented. No arbitrary code/SQL/external tool bridge.
 Current assistant is deterministic scripted DEMO only, not a model or live query.
 
+The original future assistant capability set consists of those four UI commands
+plus backend-owned `search_basins` and `explain_basin`. The redesign adds no agent
+tools, transport or execution authority. It changes presentation only.
+
+## Assistant presentation and future message requirements
+
+The current assistant's local presentation can be idle, opening/greeting,
+processing, highlighting, acknowledged, unavailable/error or closing. These states
+drive the recognizable mascot and panel, not backend operations. Pending indicates
+a local scripted demonstration delay; it must not imply an active production model
+request. Every local reply/card retains its DEMO status and fixture evidence.
+
+A future agreed message contract must distinguish pending, complete, unsupported,
+unavailable and error outcomes; associate evidence/provenance with any displayed
+numbers/IDs; and supply only the existing allowlisted structured UI actions.
+Cancelled, failed or unsupported messages must not mutate the map. Frontend action
+validation remains mandatory even if a future backend has already validated them.
+Do not add proposed fields to a transport or imply partner agreement here.
+
+Theme choice, mascot expression, panel visibility/animation, focus and chat layout
+are local frontend concerns. They require no new backend endpoint. Theme or panel
+changes must preserve active scenario, valid selection/highlights, layer choices
+and camera; closing/minimizing the panel must not silently discard conversation.
+Reduced-motion preferences affect decoration without changing message/action
+semantics. The current SVG is a simplified concept-inspired illustration rather
+than an exact isolated extraction of the supplied artwork.
+
+Displayable scores must retain the exact label, scenario, nullable value, stored
+band, factors/contributions, version, source/time and demo/production status. Blue
+presentation tokens or mascot poses never establish scientific confidence, source
+freshness, verified blockage or public-safety authority.
+
 ## Loading, errors, missing data and refresh
 
 Provider loading -> visible status; failure -> specific retryable UI error; empty

@@ -6,7 +6,114 @@ production-data coverage. Infrastructure records, overlays, scores, forecast and
 assistant responses are local synthetic examples. The basemap/building tiles are
 the permitted OpenFreeMap resources.
 
-## Automated checks
+## October 16 redesign — latest evidence
+
+Updated at 02:45 EDT (06:45 UTC), after the owner's new frontend redesign brief.
+Baseline: `25a44f5` on `main`. The current implementation uses the new blue/navy/
+white identity, with yellow confined to the original local mascot SVG component.
+Earlier observations below are historical; they do not establish acceptance of
+this redesign.
+
+### Implemented and independently checked
+
+- Semantic light/dark tokens cover panels, controls, legends and map overlays.
+  Light is the first-visit default. A synchronous head script applies a valid
+  stored preference before styles/application code; invalid/unavailable storage
+  falls back to light. React updates the document/native color scheme, stores the
+  explicit preference, and handles cross-tab storage changes. A visible keyboard-
+  operable button has a stable accessible name and pressed state.
+- The existing Liberty map is restyled in place. No alternate style URL or new
+  provider was introduced. Source/code review and pure map-adapter tests verify
+  that theme styling does not call setStyle/flyTo or change building visibility.
+  Actual camera retention and deck repaint still require the browser.
+- All Swale overlay/marker colors are blue/neutral. Four priority bands retain
+  explicit labels and now have increasing marker sizes. Legend colors match the
+  actual map palette; no new depth/severity classes or scoring were introduced.
+- The assistant uses an isolated, locally authored vector interpretation of the
+  supplied character: blue robot, dark faceplate, white eyes, yellow raincoat,
+  hood and blue umbrella. It is not a pixel-perfect reproduction of the 3D sheet.
+  The full concept sheet is not loaded into the application. No generation or
+  animation dependency was added.
+- Opening state defines a 650 ms arm wave/umbrella acknowledgement coordinated
+  with the panel transition; idle is static, processing and result states are
+  driven by local messages, and closing settles briefly. The composer is usable
+  immediately. Reduced-motion CSS removes decorative animation. Focus/ref/Escape
+  paths and a mounted hidden panel preserve conversation state; actual keyboard,
+  repeated-motion and clipping acceptance remain blocked.
+- An independent source review caught and corrected the forecast glyph's old
+  green colors, legend/map palette differences, sidebar separator inheritance,
+  and equal low/moderate marker sizes. Map controls now sit beside the inspector
+  or the open assistant, rather than under those panels.
+
+### Current acceptance matrix
+
+| Check / required group | Status | Actual evidence and limits |
+| --- | --- | --- |
+| TypeScript | PASS | `npm --prefix frontend run typecheck`, zero exit status. |
+| Regression/unit contracts | PASS | `npm --prefix frontend test`: **84 tests / 6 files**, 02:45:01 EDT, 182 ms. Original 59 fixture/state/script/format tests remain passing; 9 map/sprite and 16 theme/design tests added. |
+| Production build | PASS | `npm --prefix frontend run build`: Vite 8.3.4, 969 modules, zero exit status, reported 396 ms. |
+| A: Owned palette restrictions | PASS | Source color-literal scan excludes only mascot artwork; map color-array tests require blue/neutral colors. This is not a full rendered-pixel audit of third-party basemap art. |
+| A/B: Text contrast | PASS | Numerical tests of 11 text/action pairs in each theme meet 4.5:1. Minimum tested ratio: light **4.896:1**, dark **5.169:1**. Includes sidebar and priority label pairs; not a complete rendered accessibility audit. |
+| B: Default/stored theme logic | PASS | Actual inline startup script executed in Node VM against unset, valid, invalid and throwing storage. Store/read round-trip and write-failure tests pass. Production HTML places the bootstrap before its stylesheet. No browser or page renderer was used. |
+| B: Reload persistence / startup paint / full map theme | BLOCKED | Source and script behavior tested; actual browser reload, flash, contrast and map repaint not observed. |
+| C: Mascot asset isolation | PASS | Original SVG component only; unique per-instance gradient IDs; no image/href/external resources. Defined motion/geometry reviewed in source. |
+| C: Rendered mascot and animation | BLOCKED | No current rendered asset/app inspection, animation trace, repeated opening, reduced-motion or clipping check. Standalone artwork raster appearance is NOT MEASURED. |
+| D: Five scripted assistant requests and safety | PASS | Existing fixture-backed script tests pass, with approved commands/known IDs and honest blockage/unsupported answers. No production AI requests. |
+| D: Browser assistant experience | BLOCKED | Composer/history/pending/focus/Escape/result-card/map effects need actual interaction verification. |
+| E/H: Scenario, selection, layer and map contracts | PASS | Original reducer tests plus pure style-adapter tests pass; theme updates do not replace the map in source. Adapter spies are not rendering evidence. |
+| E/H: Rendered map, picking and controls | BLOCKED | 3D Brooklyn, both scenarios, layer visibility, marker/complaint picking, inspector, forecast/refresh/error states, pan/zoom/rotation and theme retention need browser acceptance. |
+| A/E: Reference A architectural city | BLOCKED | New white-building/light-city and dark variants exist in source; final pitched city composition cannot be compared with the current app. |
+| A/E: Reference B overlays | BLOCKED | Blue transparent overlays preserve the reference's analytical intent; actual building/overlay legibility and differentiation not observed. Red/orange/yellow reference heat colors were intentionally superseded by the owner's palette. |
+| A/E: Reference C floating control layout | BLOCKED | Navy sidebar, compact controls and inspector retained/refined; actual laptop layout and keyboard/clipping checks outstanding. |
+| C: Reference D mascot identity | BLOCKED | Defining character features implemented as simplified vector art; final rendered fidelity/small-size appearance not inspected. |
+| F: Sprite-source diagnosis | PASS | Bounded public GETs of the approved Liberty style and its sprite index returned HTTP 200. All **seven** historical IDs are absent from its **264-entry** sprite index; recorded byte counts and SHA-256 hashes in `docs/sprite-audit.json`. No localhost/page request used. |
+| F: Targeted remediation | PASS | Nine map/sprite tests include seven distinct nonempty glyphs, theme contrast update, upstream-image preservation and unknown-ID handling. Supported MapLibre v6 missing-image resolver is installed before layout. No blanket warning suppression. |
+| F: Historical resource failure / fresh runtime | FAIL | Historical seven warnings remain recorded as observed failures. A source fix is implemented; absence of warnings in the actual application is still BLOCKED, so no runtime resource pass is claimed. |
+| G: Initial transferred bytes | NOT MEASURED | No browser network capture. Build output was 13 files / 2,828,607 disk bytes; disk and estimated gzip sizes are not transfer measurements. No 20 MB target pass claimed. |
+| G: FPS / frame times | NOT MEASURED | No representative browser trace; no 30 FPS target pass claimed. |
+| G: Scenario / assistant / theme latency | NOT MEASURED | No browser event-to-render timings. CSS durations, test durations and build timings do not measure interaction latency. |
+| I: Frontend-only boundaries | PASS | Fixtures/provider/schema/reducer/scripted responses, dependencies/lockfile and DATA_NOTES.md unchanged. No backend, ingestion, scoring, API client, credential or LLM integration added. |
+| I: Credential patterns / ignore rules | PASS | All 48 indexed UTF-8 text files, including new source, scanned: zero OpenAI/AWS/GitHub-token or private-key-pattern hits. Env, node_modules and dist paths remain ignored. Pattern scanning is not an exhaustive security guarantee. |
+| Formatting / diff checks | PASS | Prettier checks pass for index/source and the SVG with its explicit HTML parser; `git diff --check` passes. No lint configuration exists. |
+| Existing preview preserved | PASS | Read-only lsof/ps confirms production preview PID 61855 on 127.0.0.1:4173 and dev PID 58514 on :5173. No stop/restart or alternate preview introduced. |
+| Full frontend acceptance | BLOCKED | Required rendered/interaction checks and performance evidence remain outstanding. |
+
+### Browser denial during this redesign
+
+The new brief reported successful access in a separate diagnostic session and
+authorized legitimate browser testing. One normal Chrome request to
+`http://127.0.0.1:4173/` was made. It was rejected:
+
+> Browser Use rejected this action due to browser security policy. Reason: A saved
+> user permission setting blocks this action. Browser use cannot access
+> http://127.0.0.1:4173 because the user has a saved preference that blocks it.
+
+Browser attempts stopped immediately. No alternate host/port/browser, indirect
+page access, raw CDP or headless browser was used. Independent implementation,
+source review, pure Node tests, public sprite-resource inspection and local builds
+continued under the brief's explicit failure instructions. The separate diagnostic
+success does not override this session's effective denial. No permission setting
+was changed, and the effective conflicting rule remains unexposed by the tool.
+
+Current browser version/hardware/viewport and performance conditions could not be
+observed; the historical Chrome environment below is not presented as a fresh
+measurement. No lint configuration exists, so no lint pass is claimed.
+
+Each historical sprite shares the following independently recorded outcome.
+"Source fix" means a real class-specific local glyph/resolver is implemented and
+covered by tests; it does not mean that the browser console was rechecked.
+
+| Sprite ID | Upstream index absence | Source fix | Current runtime reproduction/resolution | Visible user impact |
+| --- | --- | --- | --- | --- |
+| sailing | PASS — confirmed | PASS | BLOCKED | NOT MEASURED |
+| running | PASS — confirmed | PASS | BLOCKED | NOT MEASURED |
+| gate | PASS — confirmed | PASS | BLOCKED | NOT MEASURED |
+| ferry_terminal | PASS — confirmed | PASS | BLOCKED | NOT MEASURED |
+| bicycle_parking | PASS — confirmed | PASS | BLOCKED | NOT MEASURED |
+| brownfield | PASS — confirmed | PASS | BLOCKED | NOT MEASURED |
+| office | PASS — confirmed | PASS | BLOCKED | NOT MEASURED |
+
+## Historical automated checks before redesign
 
 | Command | Actual outcome |
 | --- | --- |

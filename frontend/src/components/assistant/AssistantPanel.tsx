@@ -7,6 +7,8 @@ import type {
 } from "../../types";
 import { Icon } from "../controls/Icon";
 import { fixtureTime } from "../../app/format";
+import { SwaleMascot, type MascotExpression } from "./SwaleMascot";
+import "./assistant.css";
 
 interface Props {
   open: boolean;
@@ -16,6 +18,7 @@ interface Props {
   onClose: () => void;
   onSubmit: (text: string) => DemoAssistantReply;
   onSelect: (id: string) => void;
+  onExpressionChange?: (expression: MascotExpression) => void;
 }
 const initialMessage: AssistantMessage = {
   id: "welcome",
@@ -31,17 +34,50 @@ export function AssistantPanel(p: Props) {
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [formError, setFormError] = useState("");
+  const [expression, setExpression] = useState<MascotExpression>("idle");
   const onSubmitRef = useRef(p.onSubmit);
   onSubmitRef.current = p.onSubmit;
+  const openRef = useRef(p.open);
+  openRef.current = p.open;
+  const pendingRef = useRef(pending);
+  pendingRef.current = pending;
   const sequence = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const motionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previousOpen = useRef(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
   const log = useRef<HTMLDivElement>(null);
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
+      if (motionTimer.current) clearTimeout(motionTimer.current);
     },
     [],
   );
+  useEffect(() => {
+    if (motionTimer.current) clearTimeout(motionTimer.current);
+    if (p.open) {
+      setExpression(pendingRef.current ? "processing" : "opening");
+      // The panel is immediately interactive; only decorative motion settles later.
+      motionTimer.current = setTimeout(() => {
+        setExpression(pendingRef.current ? "processing" : "greeting");
+      }, 650);
+      (pendingRef.current ? closeRef.current : inputRef.current)?.focus({
+        preventScroll: true,
+      });
+    } else if (previousOpen.current) {
+      setExpression("closing");
+      motionTimer.current = setTimeout(() => setExpression("idle"), 180);
+    }
+    previousOpen.current = p.open;
+    return () => {
+      if (motionTimer.current) clearTimeout(motionTimer.current);
+    };
+  }, [p.open]);
+  useEffect(() => {
+    p.onExpressionChange?.(expression);
+  }, [expression, p.onExpressionChange]);
   useEffect(() => {
     log.current?.scrollTo({ top: log.current.scrollHeight, behavior: "auto" });
   }, [messages, pending, p.open]);
@@ -50,15 +86,19 @@ export function AssistantPanel(p: Props) {
     const value = text.trim();
     if (!value) {
       setFormError("Enter a question or choose a demonstration prompt.");
+      setExpression("error");
       return;
     }
     if (value.length > 600) {
       setFormError("Keep the demonstration question under 600 characters.");
+      setExpression("error");
       return;
     }
     setFormError("");
     setInput("");
     setPending(true);
+    if (motionTimer.current) clearTimeout(motionTimer.current);
+    setExpression("processing");
     setMessages((current) => [
       ...current,
       {
@@ -72,6 +112,15 @@ export function AssistantPanel(p: Props) {
     timer.current = setTimeout(() => {
       try {
         const reply = onSubmitRef.current(value);
+        setExpression(
+          openRef.current
+            ? reply.status === "error"
+              ? "error"
+              : reply.actions.some((action) => action.name === "highlight")
+                ? "highlighting"
+                : "information"
+            : "idle",
+        );
         setMessages((current) => [
           ...current,
           {
@@ -85,6 +134,7 @@ export function AssistantPanel(p: Props) {
           },
         ]);
       } catch {
+        setExpression(openRef.current ? "error" : "idle");
         setMessages((current) => [
           ...current,
           {
@@ -112,19 +162,27 @@ export function AssistantPanel(p: Props) {
   return (
     <section
       className="assistant-panel"
+      id="swale-assistant-panel"
       hidden={!p.open}
       aria-labelledby="assistant-title"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          p.onClose();
+        }
+      }}
     >
       <header className="assistant-header">
         <span className="assistant-symbol">
-          <Icon name="sparkle" size={20} />
+          <SwaleMascot expression={expression} />
         </span>
         <div>
           <h2 id="assistant-title">Swale assistant</h2>
-          <p>SCRIPTED FRONTEND DEMONSTRATION</p>
+          <p>LOCAL DEMONSTRATION</p>
         </div>
         <button
           className="icon-button"
+          ref={closeRef}
           aria-label="Close assistant"
           onClick={p.onClose}
         >
@@ -228,12 +286,13 @@ export function AssistantPanel(p: Props) {
           Ask the demonstration assistant
         </label>
         <textarea
+          ref={inputRef}
           id="assistant-input"
           placeholder="Ask about the example workspace…"
           rows={2}
           maxLength={600}
           value={input}
-          disabled={pending}
+          readOnly={pending}
           aria-invalid={!!formError}
           aria-describedby={formError ? "composer-error" : "composer-note"}
           onChange={(e) => {
@@ -241,7 +300,11 @@ export function AssistantPanel(p: Props) {
             if (formError) setFormError("");
           }}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
+            if (
+              e.key === "Enter" &&
+              !e.shiftKey &&
+              !e.nativeEvent.isComposing
+            ) {
               e.preventDefault();
               send(input);
             }

@@ -18,6 +18,8 @@ export type IconName =
   | "focus"
   | "check"
   | "chat"
+  | "sun"
+  | "moon"
   | "expand";
 const paths: Record<IconName, string> = {
   layers: "m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5",
@@ -41,6 +43,8 @@ const paths: Record<IconName, string> = {
     "M3 8V3h5m8 0h5v5m0 8v5h-5M8 21H3v-5M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z",
   check: "m5 12 4 4L19 6",
   chat: "M21 11a9 9 0 0 1-9 9H4l-2 2V11a9 9 0 0 1 19 0ZM7 10h10m-10 4h6",
+  sun: "M12 3V1m0 22v-2M3 12H1m22 0h-2M5.6 5.6 4.2 4.2m15.6 15.6-1.4-1.4M5.6 18.4l-1.4 1.4M19.8 4.2l-1.4 1.4M17 12a5 5 0 1 1-10 0 5 5 0 0 1 10 0Z",
+  moon: "M20.8 13A9 9 0 0 1 11 3.2a9 9 0 1 0 9.8 9.8Z",
   expand: "M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5",
 };
 export function Icon({

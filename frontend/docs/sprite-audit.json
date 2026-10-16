@@ -1,0 +1,37 @@
+{
+  "checkedAt": "2026-10-16T06:31:38.709855Z",
+  "method": "Bounded read-only public curl GETs; no browser, localhost or tile downloads. Python urllib returned 403; ordinary curl GETs returned 200.",
+  "style": {
+    "url": "https://tiles.openfreemap.org/styles/liberty",
+    "httpStatus": 200,
+    "bytes": 43079,
+    "sha256": "6010998863b4876911ac9a2d62c9a28d97c8877f6d20cd158b74808572257b60",
+    "poiIconExpression": [
+      "match",
+      ["get", "subclass"],
+      ["florist", "furniture"],
+      ["get", "subclass"],
+      ["get", "class"]
+    ],
+    "poiTransitIconExpression": ["to-string", ["get", "class"]]
+  },
+  "sprite": {
+    "url": "https://tiles.openfreemap.org/sprites/ofm_f384/ofm.json",
+    "httpStatus": 200,
+    "bytes": 27737,
+    "sha256": "73e75e58d8c7bb62cc25d9d150660500552f4d04f6eac5efa4e236076773c356",
+    "entryCount": 264,
+    "historicallyMissingIds": {
+      "sailing": false,
+      "running": false,
+      "gate": false,
+      "ferry_terminal": false,
+      "bicycle_parking": false,
+      "brownfield": false,
+      "office": false
+    },
+    "membershipMeaning": "false = not present in the returned sprite index"
+  },
+  "remediation": "Original per-class local vector pictograms rasterized at 2x, registered only for these seven IDs using the supported MapLibre v6 missing-image resolver before initial tile layout. Unknown missing images remain reported. Existing upstream images are never overwritten. No blanket warning suppression.",
+  "browserStatus": "BLOCKED: browser permission denied before this remediation; fresh render and clean-console acceptance remain unverified."
+}

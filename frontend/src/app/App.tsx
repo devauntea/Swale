@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
 } from "react";
 import {
@@ -20,6 +21,11 @@ import { BasinInspector } from "../components/inspector/BasinInspector";
 import { AssistantPanel } from "../components/assistant/AssistantPanel";
 import { MapLegend } from "../components/controls/MapLegend";
 import { Icon } from "../components/controls/Icon";
+import {
+  SwaleMascot,
+  type MascotExpression,
+} from "../components/assistant/SwaleMascot";
+import { useTheme } from "./useTheme";
 
 const SwaleMap = lazy(() => import("../map/SwaleMap"));
 
@@ -105,12 +111,20 @@ function Workspace({
   settings: Required<LocalFixtureOptions>;
   onSettings: (settings: Required<LocalFixtureOptions>) => void;
 }) {
+  const [theme, setTheme] = useTheme();
   const [state, dispatch] = useReducer(
     appReducer,
     snapshot,
     createInitialState,
   );
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [mascotExpression, setMascotExpression] =
+    useState<MascotExpression>("idle");
+  const assistantTrigger = useRef<HTMLButtonElement>(null);
+  const closeAssistant = useCallback(() => {
+    setAssistantOpen(false);
+    assistantTrigger.current?.focus({ preventScroll: true });
+  }, []);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -184,6 +198,7 @@ function Workspace({
         }
       >
         <SwaleMap
+          theme={theme}
           snapshot={snapshot}
           scenarioId={state.scenarioId}
           layers={state.layers}
@@ -202,10 +217,24 @@ function Workspace({
           <span>/</span>
           <span>Stormwater planning</span>
         </div>
-        <span className="workspace-readiness">
-          <i className={mapReady ? "ready" : ""} />
-          {mapReady ? "BASEMAP READY" : "LOADING BASEMAP"}
-        </span>
+        <div className="workspace-actions">
+          <span className="workspace-readiness" role="status">
+            <i className={mapReady ? "ready" : ""} />
+            {mapReady ? "BASEMAP READY" : "LOADING BASEMAP"}
+          </span>
+          <button
+            className="theme-toggle"
+            aria-label="Dark mode"
+            aria-pressed={theme === "dark"}
+            title={
+              theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
+            }
+            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+          >
+            <Icon name={theme === "light" ? "moon" : "sun"} size={16} />
+            <span>{theme === "light" ? "Dark mode" : "Light mode"}</span>
+          </button>
+        </div>
       </div>
       <ControlSidebar
         snapshot={snapshot}
@@ -305,23 +334,28 @@ function Workspace({
         snapshot={snapshot}
         scenarioId={state.scenarioId}
         selectedBasinId={state.selectedBasinId}
-        onClose={() => setAssistantOpen(false)}
+        onClose={closeAssistant}
+        onExpressionChange={setMascotExpression}
         onSubmit={runAssistant}
         onSelect={onQueueSelect}
       />
       <button
         className={`assistant-launcher ${assistantOpen ? "is-open" : ""}`}
-        onClick={() => setAssistantOpen((v) => !v)}
+        ref={assistantTrigger}
+        onClick={() =>
+          assistantOpen ? closeAssistant() : setAssistantOpen(true)
+        }
         aria-expanded={assistantOpen}
+        aria-controls="swale-assistant-panel"
         aria-label={
           assistantOpen ? "Close Swale assistant" : "Open Swale assistant"
         }
       >
         <span className="launcher-symbol">
-          <Icon name="sparkle" size={20} />
+          <SwaleMascot expression={mascotExpression} />
         </span>
         <span>
-          <strong>Ask Swale</strong>
+          <strong>Swale Assistant</strong>
           <small>Scripted demonstration</small>
         </span>
         <span className="demo-label">DEMO</span>

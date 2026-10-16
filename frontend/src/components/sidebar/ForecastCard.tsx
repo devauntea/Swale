@@ -76,11 +76,11 @@ function RainGlyph() {
     >
       <path
         d="M21 29c-15 0-14-20 0-20 4-13 25-10 27 2 17-3 22 18 5 18H21Z"
-        fill="#284a4d"
-        stroke="#77b8af"
+        fill="var(--surface-elevated)"
+        stroke="var(--accent)"
         strokeWidth="1.3"
       />
-      <g stroke="#9bd7c2" strokeWidth="2" strokeLinecap="round">
+      <g stroke="var(--accent)" strokeWidth="2" strokeLinecap="round">
         <path d="m23 36-3 6m16-6-3 6m16-6-3 6" />
       </g>
     </svg>
