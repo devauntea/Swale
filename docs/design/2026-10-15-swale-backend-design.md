@@ -269,12 +269,12 @@ LIMIT $limit;
 - Retries 429 and 5xx responses with exponential backoff. The 503s seen during the checks are why.
 - Applies per-request timeouts and logs every request URL into the `ingest_run`.
 
-**Area clip**
+**Area scope**
 1. Fetch with `within_box` using the area's bbox.
-2. Clip exactly to the polygon with shapely.
-3. Fill in `area_ids`.
+2. Store every row inside the bbox.
+3. Set `area_ids = [code]` on rows that are also inside the polygon, using shapely. Rows outside the polygon are kept: they're real basins and reports at the area's edge.
 
-Using the bbox for the query keeps the query string short; a 500-vertex polygon in a URL is fragile.
+Using the bbox for the query keeps the query string short; a 500-vertex polygon in a URL is fragile. Complaints without coordinates can't be selected by area, so they aren't loaded; the source register records this as a limitation.
 
 **Validation.** Rows that fail a check are rejected with a reason code rather than dropped silently:
 - Required fields are present.
