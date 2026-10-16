@@ -61,7 +61,15 @@
   .rank-marker { width: 26px; height: 26px; border-radius: 50%; border: 3px dashed var(--inferred); background: rgba(255,255,255,.92); color: #0b3d1a;
                  display: grid; place-items: center; font: 700 12px system-ui; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
   .rank-marker.sel { background: var(--inferred); color: #fff; border-style: solid; }
+  /* A canvas does not stretch to its insets: give it an explicit size, or resizing to clientWidth feeds back forever. */
+  #rain { position: absolute; top: 0; left: 380px; width: calc(100% - 380px); height: 100%; pointer-events: none; z-index: 2; }
+  .hours { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; align-items: end; height: 46px; margin-top: 8px; }
+  .hours div { background: var(--observed); border-radius: 2px 2px 0 0; min-height: 2px; }
+  .hours-axis { display: flex; justify-content: space-between; color: var(--muted); font-size: 10.5px; }
+  .wx-big { font-size: 15px; font-weight: 650; }
+  .alert { border: 1px solid var(--deep); color: var(--deep); border-radius: 6px; padding: 5px 8px; margin-top: 6px; }
   @media (max-width: 760px) {
+    #rain { left: 0; width: 100%; height: 55vh; }
     #map { inset: 0 0 45vh 0; }
     #panel { top: auto; height: 45vh; width: 100%; border-right: 0; border-top: 1px solid var(--line); }
   }
@@ -69,6 +77,7 @@
 </head>
 <body>
 <div id="map" role="region" aria-label="Map of the demo area"></div>
+<canvas id="rain" aria-hidden="true"></canvas>
 <aside id="panel">
   <header>
     <h1>Swale</h1>
@@ -76,6 +85,20 @@
     <div class="sub" id="area-name">BK0601 · Carroll Gardens–Cobble Hill–Gowanus–Red Hook</div>
     <div class="chips" id="health" aria-live="polite"></div>
   </header>
+
+  <section>
+    <h2>Weather now · live from the National Weather Service</h2>
+    <div id="wx-obs" aria-live="polite">Loading the weather…</div>
+    <div id="wx-fc"></div>
+    <div class="hours" id="wx-hours" aria-label="Rain chance for the next 24 hours"></div>
+    <div class="hours-axis"><span id="wx-h0"></span><span>next 24 h · bar height = chance of rain, color = amount</span><span id="wx-h1"></span></div>
+    <div id="wx-alerts"></div>
+    <div class="row"><label><input type="checkbox" id="rain-on" checked> Rain on the map <span class="note" id="rain-src"></span></label></div>
+    <div class="row"><button id="wx-run" disabled>Simulate today's forecast</button></div>
+    <div class="status" id="wx-status" aria-live="polite"></div>
+    <div id="wx-card"></div>
+    <div class="note" id="wx-meta"></div>
+  </section>
 
   <section>
     <h2>Layers</h2>
@@ -183,7 +206,8 @@ map.on("load", async () => {
     map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
   }
   map.on("moveend", debounce(refreshViewport, 250));
-  await Promise.all([loadHealth(), loadScenarios(), refreshViewport(), refreshRankings()]);
+  await Promise.all([loadHealth(), loadScenarios(), refreshViewport(), refreshRankings(), loadWeather()]);
+  setInterval(loadWeather, 10 * 60 * 1000);
 });
 
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
@@ -244,10 +268,11 @@ async function loadScenarios() {
   scenarios.sort((a, b) => order.findIndex((o) => a.id.includes(o)) - order.findIndex((o) => b.id.includes(o)));
   $("scenario").innerHTML = scenarios.map((s) => `<option value="${esc(s.id)}" ${s.id.includes("dep_moderate") ? "selected" : ""}>${esc(s.name)} · ${fmt(s.total_depth_in, 2)} in total</option>`).join("")
     + `<option value="__nws">Live NWS forecast, next 48 h (fetch now)</option>`;
-  $("run").disabled = false; $("compare").disabled = false;
+  $("run").disabled = false; $("compare").disabled = false; $("wx-run").disabled = false;
 }
 
 async function scenarioId() {
+  if (!state.scenarios) state.scenarios = Object.fromEntries((await api(`/scenarios?area_id=${AREA}`)).scenarios.map((s) => [s.id, s]));
   const v = $("scenario").value;
   if (v !== "__nws") return v;
   $("run-status").textContent = "Fetching the NWS forecast…";
@@ -260,6 +285,8 @@ async function scenarioId() {
 async function runStorm(blockage, label) {
   const sid = await scenarioId();
   const runner = $("runner").value;
+  const sc = state.scenarios?.[sid];
+  if (sc && sc.kind !== "nws_forecast") { state.rainOverride = true; setRain(sc.peak_in_hr, `what-if storm: ${sc.peak_in_hr} in/hr, not the live forecast`); }
   const run = await api("/simulation-runs", { method: "POST", body: JSON.stringify({ scenario_id: sid, runner, params: { blockage_factor: blockage } }) });
   const t0 = performance.now();
   let r = run;
@@ -420,6 +447,83 @@ $("brief").addEventListener("click", () => guard($("brief"), async () => {
       ${b.links.audio ? `<audio controls src="${b.links.audio}"></audio>` : `<div class="note">${esc(b.audio_error || "")}</div>`}</div>`;
   bindEvidence($("briefing"));
 }));
+
+// ---------- live weather ----------
+const tfmt = (iso) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: iso.slice(14, 16) === "00" ? undefined : "2-digit" });
+async function loadWeather() {
+  try {
+    const w = await api(`/weather/now?area_id=${AREA}&hours=24`);
+    state.weather = w;
+    const o = w.observation, f = w.forecast;
+    $("wx-obs").innerHTML = o ? `<div class="row"><span class="kt observed">observed</span><span class="wx-big">${esc(o.description || "No description")}${o.temperature_f != null ? ", " + o.temperature_f + "°F" : ""}</span></div>
+      <div class="note">${esc(o.station_name)} (${esc(o.station)}), reported ${esc(tfmt(o.observed_at))}${o.precip_last_hour_in != null ? ` · ${o.precip_last_hour_in} in in the last hour` : ""}</div>`
+      : `<div class="note">No station observation available right now.</div>`;
+    const now = f.hours[0];
+    $("wx-fc").innerHTML = `<div class="row" style="margin-top:6px"><span class="kt predicted">forecast</span><b>${esc(now?.short_forecast || "–")} now · ${now?.rain_chance_pct ?? 0}% chance</b></div>
+      <div>${f.rain_expected ? `About <b>${fmt(f.total_rain_in, 2)} in</b> of rain in the next 24 h, heaviest around ${esc(f.peak_at ? tfmt(f.peak_at) : "–")} (${fmt(f.peak_rate_in_hr, 3)} in/hr).` : "No meaningful rain forecast in the next 24 h."}</div>
+      <div class="note">Peak forecast rate is ${fmt(w.context.peak_vs_smallest_dep_storm_pct, 1)}% of DEP's smallest design storm (${w.context.smallest_dep_design_storm_in_hr} in/hr). ${esc(w.context.note)}</div>`;
+    const maxIn = Math.max(0.02, ...f.hours.map((h) => h.rain_in));
+    $("wx-hours").innerHTML = f.hours.slice(0, 24).map((h) => `<div title="${esc(tfmt(h.start))}: ${h.rain_chance_pct}% · ${h.rain_in} in · ${esc(h.short_forecast)}"
+      style="height:${Math.max(4, h.rain_chance_pct)}%;opacity:${0.25 + 0.75 * (h.rain_in / maxIn)}"></div>`).join("");
+    $("wx-h0").textContent = f.hours[0] ? tfmt(f.hours[0].start) : ""; $("wx-h1").textContent = f.hours.at(-1) ? tfmt(f.hours.at(-1).end) : "";
+    $("wx-alerts").innerHTML = w.alerts.length ? w.alerts.map((a) => `<div class="alert"><b>${esc(a.event)}</b> · ${esc(a.headline || "")}</div>`).join("")
+      : `<div class="note" style="margin-top:6px">No active NWS alerts for this area.</div>`;
+    $("wx-meta").textContent = `NWS forecast issued ${tfmt(w.forecast_issued_at)} · fetched ${tfmt(w.fetched_at)} · gridpoint ${w.gridpoint}`;
+    if (!state.rainOverride) setRain(liveRate(w), o?.raining ? `observed: ${o.description}` : `forecast: ${now?.short_forecast || "dry"}, ${now?.rain_chance_pct ?? 0}%`);
+  } catch (err) { $("wx-obs").textContent = "Weather unavailable: " + err.message; setRain(0, "no weather data"); }
+}
+function liveRate(w) {
+  const h = w.forecast.hours[0]; if (!h) return 0;
+  const raining = w.observation?.raining || (h.rain_chance_pct >= 50 && /rain|shower|drizzle|storm/i.test(h.short_forecast || ""));
+  return raining ? Math.max(h.rain_in, 0.02) * (h.rain_chance_pct / 100) : 0;
+}
+
+$("wx-run").addEventListener("click", () => guard($("wx-run"), async () => {
+  $("wx-status").textContent = "Turning today's NWS forecast into a rainfall series…";
+  const s = await api("/scenarios", { method: "POST", body: JSON.stringify({ kind: "nws_forecast", area_id: AREA, hours: 24 }) });
+  state.scenarios = { ...(state.scenarios || {}), [s.id]: s };
+  const opt = document.createElement("option"); opt.value = s.id; opt.textContent = `${s.name} · ${fmt(s.total_depth_in, 2)} in total`;
+  $("scenario").insertBefore(opt, $("scenario").lastElementChild); $("scenario").value = s.id;
+  const blocked = $("blocked").checked ? 0.5 : 0;
+  const r = await runStorm(blocked, "Today's forecast");
+  state.rainOverride = false; if (state.weather) setRain(liveRate(state.weather), "live forecast");
+  $("wx-status").textContent = "";
+  const sm = r.summary;
+  $("wx-card").innerHTML = `<div class="card"><div class="row"><span class="kt predicted">predicted</span><b>Today's forecast through the model</b></div>
+    <div class="big">${sm.basins_flooded ? `${fmt(sm.basins_flooded)} basins pond (${fmt(sm.deep)} deep)` : "No basins pond"} · ${fmt(s.total_depth_in, 2)} in of rain over 24 h</div>
+    <div class="note">${sm.basins_flooded ? "Light rain still overwhelms some inlets in the model." : "Catch basins keep up with this rain in the model."}
+      Use the storm buttons below to see what a DEP design storm would do. ${esc(sm.engine)}, uncalibrated demonstrator.</div></div>`;
+  await useRun(r);
+}));
+
+// ---------- rain overlay (visual only; intensity follows the live forecast or the storm being simulated) ----------
+const rain = { canvas: $("rain"), drops: [], rate: 0, label: "", raf: 0 };
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function setRain(rateInHr, label) {
+  rain.rate = rateInHr; rain.label = label;
+  $("rain-src").textContent = rateInHr > 0 ? `(${label})` : `(dry: ${label})`;
+  const target = $("rain-on").checked ? Math.round(Math.min(900, rateInHr <= 0 ? 0 : 60 + 3000 * Math.sqrt(rateInHr) / 2)) : 0;
+  const w = rain.canvas.clientWidth, h = rain.canvas.clientHeight;
+  while (rain.drops.length < target) rain.drops.push({ x: Math.random() * w, y: Math.random() * h, v: 9 + Math.random() * 8, l: 8 + Math.random() * 12 });
+  rain.drops.length = target;
+  if (!rain.raf) rain.raf = requestAnimationFrame(drawRain);
+}
+function drawRain() {
+  const c = rain.canvas, ctx = c.getContext("2d"), dpr = devicePixelRatio || 1;
+  const cw = Math.round(c.clientWidth * dpr), ch = Math.round(c.clientHeight * dpr);
+  if (c.width !== cw || c.height !== ch) { c.width = cw; c.height = ch; }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, c.clientWidth, c.clientHeight);
+  if (!rain.drops.length) { rain.raf = 0; return; }
+  ctx.strokeStyle = "rgba(70,110,170,0.45)"; ctx.lineWidth = 1.1; ctx.beginPath();
+  for (const d of rain.drops) {
+    ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - 2, d.y + d.l);
+    if (!reduceMotion) { d.y += d.v; d.x -= 1; if (d.y > c.clientHeight) { d.y = -d.l; d.x = Math.random() * (c.clientWidth + 40); } }
+  }
+  ctx.stroke();
+  rain.raf = reduceMotion ? 0 : requestAnimationFrame(drawRain);
+}
+$("rain-on").addEventListener("change", () => setRain(rain.rate, rain.label));
+addEventListener("resize", () => setRain(rain.rate, rain.label));
 </script>
 </body>
 </html>
