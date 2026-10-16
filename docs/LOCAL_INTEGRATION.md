@@ -1,4 +1,338 @@
-# Local integration checkpoint — October 16, 2026
+# Transit integration checkpoint — October 16, 2026
+
+**CONDITIONAL — local transit candidate with a partner detail defect and explicit
+data/performance limits.** Fresh automated checks, observed browser interactions,
+production preview and reduced-motion child checks passed within the recorded
+scope. Verified frontend code checkpoint:
+`a769d6891795fde9f7c80edd540e8541f0bb3431`. The subsequent documentation-only
+closeout is the integration branch HEAD; its exact SHA and final audit are recorded
+in ignored `frontend/verification-artifacts/transit/final-candidate.json` and the
+owner-facing completion report.
+The new owner-authorized
+subway/exposure/danger-zone slice supersedes the earlier basin-only closeout;
+the earlier direct basin-marker acceptance gap is now resolved by a genuine pick.
+First new-task clock sample: **2026-10-16T13:47:58Z**. Prior cumulative active time
+is unmeasured; this is not a budget reset. No full-product readiness claim is made.
+
+The code commit time is **14:33:39Z**; final documentation review was at
+**14:37Z**. These wall-clock samples do not reconstruct prior active work.
+
+## Transit authority, inputs and ownership
+
+The owner's subsequent October 16 transit instruction authorizes this local
+integration, selected offline tests/setup, committed snapshots, the specified
+unauthenticated official MTA/NWS reads and loopback preview. It overrides older
+backend/transit prohibitions only within that scope. Partner-owned backend source
+remains unchanged; other services, real AI, credentials and deployment remain out
+of scope. Main merge, push and publication are **NOT AUTHORIZED**.
+
+| Input | Verified value |
+| --- | --- |
+| I: previous integration candidate | `41a7a1e2c2d5ee383c88d4fe97ff60058d92a7aa` |
+| B: new reviewed backend | `c65f03b569fc941264bb1b6ec80f8e0a079263d0` |
+| Actual backend branch | `claude/m1-data-foundation` (digit `1`) |
+| Detached review checkout | `/Users/kerwynjean/Swale-backend-review-c65f03b` |
+| Local merge into integration | `2b8d8d3f313b847e798139ca7362e4de673ae0a2` |
+| Verified transit code commit | `a769d6891795fde9f7c80edd540e8541f0bb3431` |
+| Documentation closeout / final candidate | Integration branch HEAD; exact SHA in `frontend/verification-artifacts/transit/final-candidate.json` |
+| Integration checkout/branch | `/Users/kerwynjean/Swale-integration`, `integration/frontend-backend-v1` |
+| Actual handoff reviewed in B | `docs/HANDOFF_CHATGPT.md`, “Swale: frontend ↔ backend integration hand-off” |
+
+B adds five transit lines to its earlier handoff. The owner's reproduced expanded
+transit prompt is not identical to that file; actual contracts/source are the
+implementation evidence. Additional actual API behavior includes monitoring
+history, `no_service` and rain `unknown`; these require honest UI treatment rather
+than assuming richer payloads. Root verified the merge's backend tree exactly B
+and unchanged frontend before implementation. Imported partner whitespace at
+`backend/swale/transit/exposure.py:263` and `docs/data-sources.md:290` is preserved;
+it prevents an unqualified whole-tree `git diff --check` pass for the imported
+delta. No independent backend correction was made.
+
+## Fresh backend gate and snapshot provenance
+
+**125 backend tests passed in 7.48 seconds across eight reviewed modules:** the
+six original offline modules plus `test_transit.py` and MockTransport-only
+`test_weather.py`. Tests use in-memory databases/local synthetic ZIP/protobuf and
+recorded data; no full-suite, live-test, simulation, ranking or briefing execution.
+The new locked dependency is `gtfs-realtime-bindings==3.0.0`, a source-reviewed
+11,875-byte pure wheel from the locked official registry. uv 0.13.1/Python 3.12.15
+were reused. Review has a newly built virtualenv; integration synced its own
+environment from the same lock with cache-only downloads, without copying a venv.
+
+Clean helpers remove inherited credentials/proxies/config before imports, use
+isolated HOME/TMP, reject checkout `backend/.env` without reading it and create no
+dotenv files. Offline profiles deny all network access; TCP/UDP/marker and
+exec-child probes returned EPERM. The installer is a separate authorized locked
+dependency operation: attempted OS public-IP rules did not compile on this Mac.
+Actual setup used reviewed locked PyPI inputs and credential/file protections;
+an OS registry-host allowlist is **not** claimed. Real credential files were not
+read, copied, changed or validated.
+
+The new integration DB is
+`backend/var/local-transit-c65f03b.db`; earlier databases are preserved. Its offline
+pre-server audit recorded:
+
+| Records | Count |
+| --- | ---: |
+| Area / catch basins / incidents | 1 / 2,093 / 7,472 |
+| Sensors / flood events / basin links | 17 / 83 / 5,594 |
+| Sources / original ingest runs / DEP polygons | 8 / 5 / 1,802 |
+| Subway stations / entrances / initial transit polls | 15 / 73 / 0 |
+
+All original transform rejects are zero; 726 basins outside the area polygon are
+retained. Original sources ingested **14:02:12Z**; DEP/transit loaded **14:02:15Z**.
+All five original ingest runs store actual `code_version=2b8d8d3`. Original fetched
+times remain **05:30Z** for the initial bundle, **09:21:38Z** DEP and **10:06:56Z**
+transit; replay time is not source freshness. Transit source loading has no
+separate ingest-run record. The committed schedule was extracted **10:06:58Z**,
+uses `America/New_York`, and actually covers service dates **October 16–23**
+inclusive (eight days), including the checked current date. No live static/schedule
+refresh or `transit-data` command was needed; that command would overwrite tracked
+snapshot files. Schedule-validity dates are not exposed by the live API.
+
+## Managed live boundary and current local launch
+
+Exact tested command:
+
+```sh
+/usr/bin/python3 -I -S /Users/kerwynjean/.local/share/swale-local/transit-runtime.py integration serve-live
+```
+
+Development frontend, in a separate terminal:
+
+```sh
+cd /Users/kerwynjean/Swale-integration/frontend
+npm run dev
+```
+
+Open **http://127.0.0.1:5173/**. Select **Backend / snapshot + transit**, then
+**Subway monitoring**. The retained tab is paused: use **Resume transit updates**
+to resume its visible 60-second monitoring. `npm run dev` starts only Vite.
+Do not start duplicate services on occupied ports. Current task-owned stop commands,
+after confirming the same PID/command identities, are:
+
+```sh
+kill -INT 80635  # managed controller stops backend 80638 and broker 80637
+kill -INT 53870  # Vite development frontend
+```
+
+The earlier `backend.py integration serve` command below belongs to the historical
+offline snapshot candidate; it does not enable this transit runtime.
+
+The clean controller launches the backend with direct networking denied except
+its loopback broker **127.0.0.1:8001**, and listens at **127.0.0.1:8000**. The trusted
+broker accepts only exact CONNECT authorities **api-endpoint.mta.info:443** and
+**api.weather.gov:443**, using public numeric addresses resolved once by the clean
+controller. Its native profile permits coarse outbound TCP 443; the exact-host
+guard is software, **not an OS per-host/IP allowlist**. TLS remains end-to-end with
+normal certificate verification; encrypted HTTP paths/methods cannot be inspected
+by this broker. Intended GET paths/default no-follow behavior were source-reviewed.
+
+Reviewed external requests are **GET** only: MTA
+`/Dataservice/mtagtfsfeeds/nyct%2Fgtfs`, `nyct%2Fgtfs-ace`, `nyct%2Fgtfs-bdfm`,
+`nyct%2Fgtfs-g`, `nyct%2Fgtfs-nqrw` and `camsys%2Fsubway-alerts.json` under that
+same prefix. NWS uses `/points/{area-centroid}`, its returned same-host
+`/gridpoints/OKX/34,40` and `/gridpoints/OKX/34,40/forecast/hourly`,
+`/stations/KJRB/observations/latest` (KNYC fallback), and
+`/alerts/active?point=…`. Each reviewed HTTPX request has a 20-second timeout and
+does not follow redirects. The backend caches successful MTA feed/alert retrievals for 30
+seconds; the single frontend board owner polls no faster than 60 seconds and backs
+off 120–600 seconds after failure. Weather uses its own 600-second boundary/cache.
+Manual refresh observes those same boundaries. Exposure requests use `live=false`;
+weather-aware zones follow the weather owner rather than creating a second poller.
+The browser's 30-second transit timeout/cancellation does not guarantee cancellation
+of already-running sequential upstream backend GETs. Backend cache misses have no
+single-flight guarantee; these remain partner runtime limitations.
+
+No data.ny.gov/static GTFS/DEP/FloodNet live acquisition was needed. Committed
+inventories/schedule/context were reused. Source-reviewed acquisition destinations
+are data.ny.gov `/resource/39hk-dx4f.json` and `/resource/i9wp-a4ja.json`, and
+rrgtfsfeeds.s3.amazonaws.com `/gtfs_supplemented.zip`; they are **not enabled in
+the live broker**. The acquisition CLI overwrites tracked backend snapshots and
+has no output-directory switch. If the schedule expires, comparisons become
+unavailable; a partner-supported refresh/export path must preserve backend-tree
+ownership before new acquisition. No unrelated historical or citywide ingest ran.
+
+Final positive probe: direct backend TCP/UDP/marker and exec-child TCP returned
+EPERM; an unknown CONNECT target returned **403 before resolution**. The approved
+MTA GTFS-G and NWS points requests returned **200**, **19,119 B / 3,917 B**, no
+redirect, provider dates **14:26:23Z** for both. Initial **14:01Z** successful gate
+remains preserved. Probe assertions now require actual200/no redirect after printing
+evidence. Controller changes add startup cancellation, bounded independent cleanup
+and broker-exit supervision. **20 offline mocked helper tests passed**, including
+an occupied fixed8001 port refusing startup with no fallback. The first restart
+hit EADDRINUSE with no listener; SO_REUSEADDR before the same fixed bind corrected
+the TIME_WAIT case. Failed attempts are preserved, alongside earlier profile/
+clean-system-Python failures; no unsupported IP restriction is claimed.
+
+Actual stop of controller **73244** cleaned its backend/broker and both listener
+ports. Restart using the revised helper: controller **80635**, broker **80637**,
+backend **80638**; Vite dev **53870** at **http://127.0.0.1:5173/**. Browser recovered
+at **14:27:07Z**. Temporary production preview **81428** on loopback4173 passed
+and was stopped with SIGINT (expected exit130); no4173 listener remains. Retained
+services are dev53870 plus controller80635/broker80637/backend80638. The user dev
+tab is marked Deliverable and left **Paused**, with a visible Resume control and
+no unattended frontend polling. Final viewport is863×896; media preferences are
+reset and QA instrumentation absent.
+The broker follows its controller's lifetime, has bounded tunnels/rate and logs
+authority/results only; there is no independent background collector. Backend has
+no automatic transit polling at startup; approved live GETs can persist monitoring
+rows in the new local DB. Logs: `transit-live-containment-final2.json`,
+`transit-helper-reuseaddr-tests-final.txt`, `transit-server-final.txt` and
+`transit-runtime-peer-review.md` under the task evidence root.
+
+`/subway/live` can write one `transit_poll` per minute/area; no retention/deletion
+mechanism exists. `/subway/history?hours=6` limits retrieval, not storage retention.
+Weather/feed caches are process-local. Stock backend routes beyond this frontend
+remain mounted on loopback; frontend guards and CORS are not backend authorization.
+
+## Actual API evidence and feature matrix
+
+A clean, bounded localhost client exercised only approved GET shapes, without raw
+payload logs or opening the DB while serving. Combined runs made **23 requests:
+22 expected outcomes and one reproduced partner detail-ID defect**. The earlier
+successful seven-route slice is not a substitute for this fresh transit evidence.
+
+| Capability | Actual evidence / limit | Frontend acceptance |
+| --- | --- | --- |
+| Existing inventory/incidents and health | Approved collection/detail shapes returned expected results | Genuine basin pick changed CB305000 → CB305002 with matching full-ID inspector; historical gap resolved |
+| Subway inventory | 15 station points; 64 viewport entrances from 73 stored | Carroll F21 list and genuine map pick; five-entrance fit/list/inspection passed; F22 Viaduct source verified |
+| Arrivals/directions/delays | Initial board at 14:05:52Z; five feed ages 4.1–11.1 s, errors 0; 117 displayed arrival records, five unmatched/null delays; negative/zero values retained | Actual live display, pause/resume and disconnect/recovery observed; missing/null cases covered in automated candidate suite |
+| Alerts/status | 13 normal / 2 alert stations in initial sample, two applicable alerts (one station-specific), zero flood mentions | Qualified UI/source labels; actual flood/closure claim not demonstrated |
+| Train positions/destinations | 22 stop-associated vehicle rows; no coordinates or destination/headsign | No precise train-position/destination claim |
+| Monitoring history | Actual poll count 0 → 1 at 14:05:52Z | Repeated polls are not distinct flood events; long-term station flood history unavailable |
+| Station exposure | 15 inferred records, 1 high / 3 medium / 11 low, method `station-exposure-v1`, no simulation run | Union R32 inferred exposure89 → canonical sensor factor → five historical sensor events observed; not five station flood events |
+| Danger zones | 201: 196 DEP predicted polygons + five derived historical sensor circles; 75 high / 126 moderate | Genuine derived-circle pick passed in final production; caveat opens automatically, raw Backend classification is qualified and entrance count0 is shown without carrying prior station context |
+| Weather | Initial request at 14:05:54Z, errors 0; observation 13:40Z, forecast issue 07:47:17Z, 24-hour accumulation 0.24 in, derived peak 0.017 in/hr, no official alerts | Observed/forecast/inferred distinctions retained; initial zones reused cached weather |
+| Supporting flood evidence | 17 sensors, 83 stored events; 196 current DEP maps and 33 filtered non-tidal observations | Full opaque event profile404 shown visibly while retaining collection evidence |
+| Underground information | Station structure/points only; no interior geometry, depth or real train coordinates | Do not invent underground detail |
+
+The API's default normal status does not prove healthy feeds or no disruption;
+show source times/errors and stale/unknown distinctions. `no_service` can mean no
+scheduled/predicted arrivals, not an official closure. Route-wide flood-word
+alerts do not prove an individual station flooded or shut down. Exposure is an
+unvalidated inference; nearby complaints/DEP polygons/sensor circles do not prove
+causation, current flood extent or a safe route. The rain `watch`/`warning` level
+is Swale's rule, distinct from an official NWS alert. Safety/closure/maintenance
+instructions remain outside scope.
+
+**Partner defect:** a flood-observation collection's full opaque ID, including its
+Surreal printed delimiters, returned **404** when fully URL-encoded for its detail
+route. The shared key parser retains the printed delimiters as literal key text.
+The frontend preserves the opaque event ID and visibly reports unavailable detail
+while retaining the original collection evidence. It does not rewrite the key or
+independently correct partner source. Actual source/feed results are preserved in
+`logs/transit-api-actual.json` and `logs/transit-api-live.json`; browser evidence
+includes `frontend/verification-artifacts/transit/evidence-profile-404.*`.
+
+## Fresh frontend and browser evidence
+
+At **14:27Z**, **163 tests across 14 files**, strict typecheck, production build,
+lint and format all passed. The official npm metadata audit found **zero
+vulnerabilities** with unchanged package/lock hashes; it ran without inherited npm
+credentials, installation or fix. Earlier125-frontend-test results below remain
+historical. Fresh 163 frontend tests and fresh 125 backend tests are distinct gates.
+Static palette audit passed: 43 owned non-test files, yellow only in mascot,
+16 text pairs/theme at least 4.5 (light minimum 4.8962; dark 5.3408). This is not
+formal rendered WCAG certification (`logs/transit-final-style-audit.json`).
+
+Observed in actual Chrome: one map canvas across modes; Carroll station and basin
+pointer selection/full IDs; entrance fit/inspection; derived zone picking; layer
+toggles/3D/overview; camera preservation; Sources Escape and focus return; live
+pause/resume. Stopping all three managed processes produced visible stale/error
+HTTP502 without a fixture fallback; the restarted backend recovered in browser.
+Both themes and dark preference before map-ready after reload passed. Actual CSS
+viewports **1309×909,758×1011,354×767** had no horizontal overflow; narrow Plan
+controls/Escape/focus were observed. Assistant repeat greeting/composer/scripted
+complaints, keyboard Enter/Escape, focus return and retained history passed without
+obvious clipping. Production wave child uses `swale-wave`/0.65s; its computed
+transform changed across180ms. Emulated reduced motion matched true and the same
+child had animation none, duration0s and transform none. Enter/Escape/focus return
+passed; normal media was restored. This resolves the earlier inconclusive root-only
+motion check (`transit/mascot-motion.json`).
+The normal umbrella child also showed changing transforms over180ms with
+`swale-umbrella`/0.65s. Backend-mode assistant content remained labelled fixture
+history only, with backend actions unavailable (`mascot-umbrella-motion.json`).
+The prior direct basin-marker gap is closed by `transit/basin-pointer.*`; the
+older unconfirmed clicks below remain historical, not a current manual prerequisite.
+
+Development-only performance sample: **36 active camera transitions**, **32,529.7ms
+active**, **3,919 MapLibre render events**, weighted **120.47 events/s**, minimum
+window **116.46/s**, over about49.9s wall time. These are render-event rates, not
+GPU/compositor or physical-display FPS proof. Warm-cache development ResourceTiming:
+app **106,975B transferred /20,350,603B decoded**; API **1,408,546B /89 requests**
+across the stress session. Main document was excluded; basemap transfer is
+**unavailable across origin**, not zero. These do not establish cold production
+initial bytes or a combined initial-load total. Single-sample DOM-mutation
+latencies: theme **67.1ms**, assistant **29.9ms**, reduced-motion scenario **12.8ms**,
+reduced-motion assistant **21.8ms**; these are not paint/GPU completion times.
+Evidence: `transit/performance*.json`, `interaction-latency-*.json` under ignored
+frontend verification artifacts. QA instrumentation was removed and a bare-URL
+reload confirmed its dataset absent. Production fresh-origin first visit was light
+Fixture mode; map-ready showed one canvas, and Backend Subway displayed Union R32
+LIVE (`transit/production-transit.*`). Six bounded dev/preview proxy checks for
+health, viewport stations and full-ID CB305002 all returned200. Captured dev/
+production console messages were Grammarly extension messages, with no captured
+app-owned errors; this is not a universal clean-console claim. The three historical
+Liberty warnings remain and are not promoted to a fresh resource pass.
+
+Actual loopback downloads of **all 13 production files**, including index/worker/
+optional chunks, returned200 and **2,992,842 response-body bytes**, no content
+encoding. This conservative complete-production-file body bound is **below 20MB**;
+it is not a cold-browser HAR. HTTP/TLS headers, API and basemap bytes are excluded.
+Evidence: `transit/production-app-transfer.json`, `proxy-actual-final.json`.
+
+## Conditional limits and next partner review
+
+- The verified code checkpoint is `a769d6891795fde9f7c80edd540e8541f0bb3431`.
+  The precommit repository/security/scope audit passed. The final documentation
+  HEAD and frozen audit are recorded in the local ignored final-candidate artifact;
+  imported EOF findings remain preserved.
+- Partner detail404 remains unresolved; precise train positions/destinations,
+  interiors/depth and distinct long-term station flood-event history are unavailable.
+  Current live sampling contained no flood alert; do not turn mocked states into
+  actual event claims. This is a bounded local conditional candidate, not full
+  product readiness or authorization to merge/publish.
+
+The next partner review is the opaque-key handling in
+`backend/swale/api/params.py` used by `GET /flood-observations/{id}`. It must accept
+the full IDs the collection returns and restore detail/profile retrieval. A richer
+station history requires distinct source event IDs, station applicability and
+event times; the current monitoring table cannot supply it. Precise vehicle
+coordinates, destination/headsign and alert end/cause/effect selectors remain
+unsupported contract fields. Review a subsequent partner commit separately before
+importing any correction. The proposed team integration contract remains
+**PROPOSED — NOT YET AGREED WITH BACKEND TEAM**. Any main merge still requires a
+subsequent explicit owner instruction and fresh reconciliation.
+
+## Three-minute local transit route
+
+Runbook only; no complete three-minute video was captured.
+
+1. **0:00–0:40:** Start in light Fixture mode, identify DEMO/scenario labels, then
+   enter Backend Subway and inspect live source/feed times and limitations.
+2. **0:40–1:15:** Pick Carroll F21 on the map, inspect its five entrances and fit
+   the entrance view; distinguish inventory structure from underground detail.
+3. **1:15–2:00:** Select Union R32 exposure, open a sensor factor and historical
+   event evidence. Explain the inferred score and visible partner detail404 while
+   preserving the original evidence; do not count sensor events as station floods.
+4. **2:00–2:35:** Pick a danger zone, read its DEP/derived evidence and caveat,
+   inspect observed versus forecast weather and pause/resume monitoring.
+5. **2:35–3:00:** Toggle theme, open Sources and Escape back, then return to Fixture
+   for the DEMO assistant. Keep the map/camera/selection behavior visible.
+
+Task evidence root: `/Users/kerwynjean/.local/share/swale-local/`.
+Source review: `logs/transit-backend-source-review.md`; offline tests/setup:
+`logs/transit-review-*`; integration DB/probes: `logs/transit-integration-*`;
+live boundary: `logs/transit-live-containment.json`, `transit-egress.jsonl` and
+`transit-server*.txt`. New frontend logs: `logs/transit-frontend-*-final.txt`,
+`transit-npm-audit.json`; peer/helper/repository evidence: `transit-runtime-peer-review.md`,
+`transit-helper-reuseaddr-tests-final.txt`, `transit-final-repository-audit.json`.
+This conditional checkpoint does not authorize main merge, push or publication.
+
+---
+
+# Historical first integration checkpoint — October 16, 2026
 
 **CONDITIONAL — direct basin-marker picking requires manual confirmation.**
 Backend gate, 125 frontend tests, actual API, frozen disconnect/recovery,
