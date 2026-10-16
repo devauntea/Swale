@@ -168,3 +168,21 @@ def test_new_routes_validate(client):
     assert client.get("/api/v1/simulation-sweeps/simulation_sweep:nope").status_code == 404
     assert client.post("/api/v1/simulation-sweeps", json={"blockage_factors": [1.5]}).status_code == 422
     assert client.get("/api/v1/briefings/evals").status_code == 200
+
+
+# ---- transit summary ------------------------------------------------------------------------------
+def test_transit_summary_checks_numbers_stations_and_flood_claims():
+    from swale.transit import summary
+
+    fs = [{"id": "f1", "kind": "overview", "text": "15 stations in the area; 310 train arrivals predicted in the next 30 minutes."},
+          {"id": "f2", "kind": "equipment", "text": "Smith-9 Sts has 4 escalators out of service (Capital Replacement), expected back November 1."}]
+    names = {"Smith-9 Sts", "Union St"}
+    good = ("Service across the area's 15 stations looks steady, with 310 train arrivals expected in the next half hour. "
+            "Riders who rely on escalators should know that 4 are out at Smith-9 Sts for capital replacement until November 1, "
+            "so plan extra time for the climb. No delays or service alerts are affecting the lines that serve the neighborhood right now.")
+    assert summary.check(good, fs, names) == []
+    assert any("numbers" in p for p in summary.check(good.replace("310", "312"), fs, names))
+    assert any("stations" in p for p in summary.check(good + " Union St is fine.", fs, names))
+    assert any("forbidden" in p for p in summary.check(good + " Smith-9 Sts is flooded.", fs, names))
+    assert summary._spoken_date("2026-11-01T03:59:00Z") == "November 1"
+    assert summary.template(fs).startswith("15 stations")

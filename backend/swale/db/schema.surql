@@ -329,3 +329,6 @@ DEFINE INDEX OVERWRITE forecast_snapshot_area ON forecast_snapshot FIELDS area_i
 
 -- Briefing quality evaluations (one per briefing; also sent to Arize as evaluator spans) ----------
 DEFINE TABLE OVERWRITE briefing_eval SCHEMALESS;
+
+-- Spoken transit summaries (inferred; each stores the facts it was written from) -----------------
+DEFINE TABLE OVERWRITE transit_summary SCHEMALESS;

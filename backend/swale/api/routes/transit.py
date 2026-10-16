@@ -8,7 +8,8 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
+from pydantic import BaseModel
 
 from swale.api.deps import get_db
 from swale.api.geojson import API_VERSION, collection, freshness
@@ -226,3 +227,63 @@ def subway_accessibility(
         st = next(x for x in stations if x["gtfs_stop_id"] == s["gtfs_stop_id"])
         s["lon"], s["lat"] = st["lon"], st["lat"]
     return {"api_version": API_VERSION, "area_id": area_id, "fetched_at": iso_z(now), **out}
+
+
+class SummaryCreate(BaseModel):
+    area_id: str = "BK0601"
+    audio: bool = True
+
+
+def _summary_out(rec: dict[str, Any]) -> dict[str, Any]:
+    sid = f"transit_summary:{rec['id'].id}"
+    return {"api_version": API_VERSION, "id": sid, "area_id": rec["area_id"], "paragraph": rec["paragraph"], "source": rec["source"],
+            "model": rec.get("model"), "prompt_version": rec["prompt_version"], "checks": rec.get("checks") or [], "error": rec.get("error"),
+            "facts": rec["facts"], "fact_ids": rec.get("fact_ids") or [], "created_at": iso_z(rec["created_at"]),
+            "audio_error": rec.get("audio_error"), "knowledge_type": "inferred",
+            "links": {"self": f"/api/v1/subway/summary/{sid}", "audio": f"/api/v1/subway/summary/{sid}/audio" if rec.get("audio_file") else None}}
+
+
+@router.post("/subway/summary", status_code=201)
+def create_summary(body: SummaryCreate, request: Request, db: Any = Depends(get_db)) -> dict[str, Any]:
+    """One spoken paragraph on what is going wrong on the area's subway now: delays, alerts, outages, flood exposure."""
+    import uuid
+
+    from swale.ai.service import _audio
+    from swale.transit import summary
+    from swale.transit.accessibility import accessibility
+
+    area = _area(db, body.area_id)
+    box = BBox(*area["bbox"])
+    now = utcnow()
+    board = live_board(db, body.area_id)
+    stations = q.page_in_bbox(db, "subway_station", box, limit=1000).records
+    ex = exposure.station_exposure(db, box, now=now)
+    by_stop = {it["station"]["gtfs_stop_id"]: {"score": it["score"], "tier": it["tier"]} for it in ex["items"]}
+    zones = exposure.danger_zones(db, box, now=now)
+    in_zone = {e["station_id"] for z in zones if z["level"] == "high" for e in z["entrances"]}
+    access = accessibility(stations, by_stop, in_zone)
+    fs = summary.facts(board, access, ex["items"], exposure.rain_level(_weather(area)))
+    result = summary.generate(fs, {s["name"] for s in stations}, getattr(request.app.state, "tracer", None))
+    key = f"{body.area_id}_{now:%Y%m%dT%H%M%SZ}_{uuid.uuid4().hex[:4]}"
+    audio_file, audio_error = _audio(result["paragraph"], f"transit_{key}") if body.audio else (None, None)
+    q.upsert_many(db, "transit_summary", [(key, {"area_id": body.area_id, "created_at": now, "facts": fs, **result,
+                                                 "audio_file": audio_file, "audio_error": audio_error, "knowledge_type": "inferred"})])
+    return _summary_out(q.get_record(db, "transit_summary", key))
+
+
+@router.get("/subway/summary/{summary_id}")
+def get_summary(summary_id: str, db: Any = Depends(get_db)) -> dict[str, Any]:
+    rec = q.get_record(db, "transit_summary", feature_key(summary_id, "transit_summary"))
+    if rec is None:
+        raise Problem(404, "not-found", "Not found", f"no transit summary {summary_id}")
+    return _summary_out(rec)
+
+
+@router.get("/subway/summary/{summary_id}/audio")
+def get_summary_audio(summary_id: str, db: Any = Depends(get_db)) -> Any:
+    from fastapi.responses import FileResponse
+
+    rec = q.get_record(db, "transit_summary", feature_key(summary_id, "transit_summary"))
+    if rec is None or not rec.get("audio_file"):
+        raise Problem(404, "not-found", "Not found", f"no audio for {summary_id}")
+    return FileResponse(rec["audio_file"], media_type="audio/mpeg")
