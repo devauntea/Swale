@@ -1,0 +1,45 @@
+{
+  "area_code": "BK0601",
+  "fetched_at": "2026-10-16T05:23:16Z",
+  "since": "2020-01-01",
+  "bbox": [
+    -74.01995197798658,
+    40.66456833578927,
+    -73.97961680019212,
+    40.692549071104274
+  ],
+  "note": "Rows exactly as served by NYC Open Data (Socrata), unmodified.",
+  "sources": {
+    "nyc_nta_2020": {
+      "dataset": "9nt8-h7nd",
+      "file": "area.json.gz",
+      "rows": 1,
+      "dataset_updated_at": "2026-05-28T15:11:19Z",
+      "requests": [
+        "https://data.cityofnewyork.us/resource/9nt8-h7nd.json?%24limit=5000&%24offset=0&%24order=%3Aid&%24where=nta2020+%3D+%27BK0601%27",
+        "https://data.cityofnewyork.us/api/views/9nt8-h7nd.json"
+      ]
+    },
+    "nyc_catch_basins": {
+      "dataset": "2w2g-fk3i",
+      "file": "catch_basins.json.gz",
+      "rows": 2093,
+      "dataset_updated_at": "2025-12-18T16:29:33Z",
+      "requests": [
+        "https://data.cityofnewyork.us/resource/2w2g-fk3i.json?%24limit=5000&%24offset=0&%24order=%3Aid&%24where=within_box%28the_geom%2C+40.692549071104274%2C+-74.01995197798658%2C+40.66456833578927%2C+-73.97961680019212%29",
+        "https://data.cityofnewyork.us/api/views/2w2g-fk3i.json"
+      ]
+    },
+    "nyc311": {
+      "dataset": "erm2-nwe9",
+      "file": "nyc311.json.gz",
+      "rows": 7472,
+      "dataset_updated_at": "2026-10-16T01:37:53Z",
+      "requests": [
+        "https://data.cityofnewyork.us/resource/erm2-nwe9.json?%24limit=5000&%24offset=0&%24order=%3Aid&%24where=within_box%28location%2C+40.692549071104274%2C+-74.01995197798658%2C+40.66456833578927%2C+-73.97961680019212%29+AND+created_date+%3E%3D+%272020-01-01T00%3A00%3A00%27+AND+%28complaint_type+in%28%27Sewer%27%2C%27Sewer+Maintenance%27%29+OR+%28complaint_type+%3D+%27Industrial+Waste%27+AND+descriptor+in%28%27Concrete+In+Catch+Basin+%28IEA%29%27%2C%27Wastewater+Into+Catch+Basin+%28IEB%29%27%2C%27Grease+In+Sewer%2FCatch+Basin+%28IDG%29%27%29%29+OR+%28complaint_type+%3D+%27Street+Condition%27+AND+descriptor+in%28%27Pothole%27%2C%27Cave-in%27%29%29%29",
+        "https://data.cityofnewyork.us/resource/erm2-nwe9.json?%24limit=5000&%24offset=5000&%24order=%3Aid&%24where=within_box%28location%2C+40.692549071104274%2C+-74.01995197798658%2C+40.66456833578927%2C+-73.97961680019212%29+AND+created_date+%3E%3D+%272020-01-01T00%3A00%3A00%27+AND+%28complaint_type+in%28%27Sewer%27%2C%27Sewer+Maintenance%27%29+OR+%28complaint_type+%3D+%27Industrial+Waste%27+AND+descriptor+in%28%27Concrete+In+Catch+Basin+%28IEA%29%27%2C%27Wastewater+Into+Catch+Basin+%28IEB%29%27%2C%27Grease+In+Sewer%2FCatch+Basin+%28IDG%29%27%29%29+OR+%28complaint_type+%3D+%27Street+Condition%27+AND+descriptor+in%28%27Pothole%27%2C%27Cave-in%27%29%29%29",
+        "https://data.cityofnewyork.us/api/views/erm2-nwe9.json"
+      ]
+    }
+  }
+}

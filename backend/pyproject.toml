@@ -12,6 +12,9 @@ dependencies = [
     "uvicorn>=0.54.0",
 ]
 
+[project.scripts]
+swale = "swale.cli:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8.3",

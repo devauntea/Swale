@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Swale dev map</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<style>
+  html, body, #map { margin: 0; height: 100%; }
+  body { font: 13px/1.4 system-ui, sans-serif; }
+  .panel { position: absolute; top: 10px; left: 10px; background: #fff; color: #1b1f24; padding: 10px 12px; border-radius: 6px;
+           box-shadow: 0 1px 4px rgba(0, 0, 0, .3); max-width: 300px; }
+  .panel h1 { font-size: 14px; margin: 0 0 6px; }
+  .key { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; box-sizing: border-box; }
+  #status { color: #57606a; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="panel">
+  <h1>Swale dev map (not the product UI)</h1>
+  <div class="key"><span class="dot" style="background:#1f6feb"></span>Catch basin: observed (DEP inventory)</div>
+  <div class="key"><span class="dot" style="border:2px solid #d4631a"></span>311 report: reported, not verified</div>
+  <div class="key"><span class="dot" style="border:3px solid #b42318"></span>311 report with a DEP field finding</div>
+  <div id="status">Loading…</div>
+</div>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+const API = "/api/v1";
+const EMPTY = { type: "FeatureCollection", features: [] };
+const map = new maplibregl.Map({
+  container: "map",
+  center: [-73.9998, 40.6786],
+  zoom: 15,
+  style: {
+    version: 8,
+    sources: { osm: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256,
+                      attribution: "© OpenStreetMap contributors" } },
+    layers: [{ id: "osm", type: "raster", source: "osm" }],
+  },
+});
+
+map.on("load", () => {
+  map.addSource("basins", { type: "geojson", data: EMPTY });
+  map.addSource("incidents", { type: "geojson", data: EMPTY });
+  map.addLayer({ id: "basins", type: "circle", source: "basins",
+                 paint: { "circle-radius": 4, "circle-color": "#1f6feb", "circle-opacity": 0.85 } });
+  map.addLayer({ id: "incidents", type: "circle", source: "incidents", paint: {
+    "circle-radius": 6, "circle-color": "rgba(0,0,0,0)",
+    "circle-stroke-color": ["case", ["==", ["get", "finding"], "observed"], "#b42318", "#d4631a"],
+    "circle-stroke-width": ["case", ["==", ["get", "finding"], "observed"], 3, 2],
+  } });
+  for (const layer of ["basins", "incidents"]) {
+    map.on("click", layer, (e) => {
+      const pretty = JSON.stringify(JSON.parse(e.features[0].properties.raw), null, 1);
+      new maplibregl.Popup({ maxWidth: "360px" }).setLngLat(e.lngLat)
+        .setHTML(`<pre style="white-space:pre-wrap;margin:0;max-height:300px;overflow:auto">${escapeHtml(pretty)}</pre>`).addTo(map);
+    });
+  }
+  refresh();
+  map.on("moveend", refresh);
+});
+
+// MapLibre flattens nested properties, so keep the full properties as JSON and lift out what the style needs.
+function flatten(fc, kind) {
+  return { type: "FeatureCollection", features: fc.features.map((f) => ({
+    type: "Feature", id: f.id, geometry: f.geometry,
+    properties: { raw: JSON.stringify({ id: f.id, ...f.properties }),
+                  finding: kind === "incidents" ? f.properties.verification.knowledge_type : "observed" },
+  })) };
+}
+
+async function fetchLayer(path, params) {
+  const response = await fetch(`${API}/${path}?${new URLSearchParams(params)}`);
+  const body = await response.json();
+  if (!response.ok) throw new Error(`${path}: ${body.title}: ${body.detail}`);
+  return body;
+}
+
+async function refresh() {
+  const b = map.getBounds();
+  const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].map((v) => v.toFixed(6)).join(",");
+  const status = document.getElementById("status");
+  try {
+    const [basins, incidents] = await Promise.all([
+      fetchLayer("catch-basins", { bbox, limit: 5000 }),
+      fetchLayer("incidents", { bbox, limit: 5000, since: "2020-01-01T00:00:00Z" }),
+    ]);
+    map.getSource("basins").setData(flatten(basins, "basins"));
+    map.getSource("incidents").setData(flatten(incidents, "incidents"));
+    const more = (m) => (m.truncated ? " (truncated: zoom in)" : "");
+    status.textContent = `${basins.meta.count} basins${more(basins.meta)} · ${incidents.meta.count} reports since 2020${more(incidents.meta)}`;
+  } catch (err) {
+    status.textContent = String(err);
+  }
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+}
+</script>
+</body>
+</html>

@@ -66,6 +66,13 @@ REAL_TEXTS = [
     ("The Department of Environmental Protection inspected the condition and determined that it is outside its jurisdiction.", "referred", "dep-res-jurisdiction-v1"),
     ("The Department of Environmental Protection has inspected your complaint and determined that further investigation is required. More information will be available once the condition is resolved. Please visit nyc.gov/311 or call 311 at a later time to check the status of your complaint.", "pending", "dep-res-pending-v1"),
     ("The Department of Environmental Protection resolved this complaint by speaking to the complainant on the phone.", "no_inspection", "dep-res-phone-v1"),
+    ("NYC DEP investigated and determined the sewer or catchbasin was overtaxed due to heavy rain and no further action is required.", "capacity_surcharge", "dep-res-overtaxed-rain-v1"),
+    ("The Department of Environmental Protection has investigated this complaint and has performed repair work.", "agency_found_defect", "dep-res-repair-work-v1"),
+    ("The Department of Environmental Protection inspected your complaint and repaired the problem. If the condition returns, please call 311 (or 212-639-9675 if calling from a non-New York City area code) to submit a new complaint.", "agency_found_defect", "dep-res-repaired-v1"),
+    ("The Department of Environmental Protection has investigated this complaint. Upon investigation, a defect was found done.", "agency_found_defect", "dep-res-defect-found-v1"),
+    # Seen in BK0601 data and deliberately left unknown: the text does not say what DEP found.
+    ("Please call 311 for further information. If you are outside of New York City, please call (212) NEW-YORK (212-639-9675).", "unknown", None),
+    ("The Department of Environmental Protection investigated this complaint and resolved the issue during a field inspection.", "unknown", None),
 ]
 
 

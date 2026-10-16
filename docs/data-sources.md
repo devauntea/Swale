@@ -91,6 +91,8 @@
   | `agency_found_obstruction` | `surcharge-grease` | "surcharge conditions have been confirmed and attributed to grease" (747): a **sewer blockage**, cleared by DEP |
   | `agency_found_defect` | `surcharge-defect` | "…and is attributed to a defective sewer" (45) |
   | `capacity_surcharge` | `surcharge-rain` | "…due to rain intensity or volume" (578): sewer capacity was exceeded; **not** a blockage |
+  | `capacity_surcharge` | `overtaxed-rain` | "was overtaxed due to heavy rain" (28 in BK0601) |
+  | `agency_found_defect` | `repair-work`, `repaired`, `defect-found` | "has performed repair work", "inspected your complaint and repaired the problem", "a defect was found" (101 in BK0601) |
   | `agency_cleaned` | `cleaned` | "cleaned the catch basin or inlet" (2,227) |
   | `agency_functioning` | `functioning` | "the catch basin is now functioning properly" (58) |
   | `agency_not_found` | `not-found` | "could not find the problem you reported" (2,445) |
