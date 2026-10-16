@@ -29,6 +29,12 @@ Rules:
 - FloodNet readings are past measurements; give their date range only if the pack does.
 - Plain language, no jargon, no IDs inside sentences. Keep each "why" to one or two sentences and each action to one sentence."""
 
+SYSTEM_V2 = SYSTEM + """
+- Start each "why" with the strongest kind of evidence, named plainly: "DEP found…", "A FloodNet sensor measured…",
+  "Residents reported…" or "The model predicts…". Never blend kinds in one claim.
+- Start each action with a verb, and say what the crew should check or do on site."""
+PROMPTS = {"briefing-v1": SYSTEM, "briefing-v2": SYSTEM_V2}
+
 FORBIDDEN = [
     r"\bcurrently flood", r"\bis flooding\b", r"\bflooded (right )?now\b", r"\bwill flood\b", r"\bguarantee", r"\btoxic\b",
     r"\bemergency\b", r"\bdangerous\b",
@@ -99,6 +105,15 @@ def template_briefing(pack: dict[str, Any]) -> Briefing:
     )
 
 
+def normalize_ids(briefing: Briefing) -> Briefing:
+    """Models sometimes copy SurrealDB's ⟨⟩ ID delimiters as literal JSON escapes (\\u27e8 … \\u27e9); restore them."""
+    fix = lambda e: e.replace("\\u27e8", "⟨").replace("\\u27e9", "⟩").replace("\\u27E8", "⟨").replace("\\u27E9", "⟩")  # noqa: E731
+    for stop in briefing.stops:
+        stop.evidence_ids = [fix(e) for e in stop.evidence_ids]
+        stop.basin_id = fix(stop.basin_id)
+    return briefing
+
+
 def check(briefing: Briefing, pack: dict[str, Any]) -> list[str]:
     """Deterministic guardrails. An empty list means the briefing passed."""
     allowed_basins = {b["basin_id"] for b in pack["basins"]}
@@ -138,11 +153,11 @@ def llm_available() -> bool:
     return bool(env.get("AWS_BEARER_TOKEN_BEDROCK") or env.get("ANTHROPIC_AWS_API_KEY") or env.get("AWS_ACCESS_KEY_ID") or env.get("AWS_PROFILE"))
 
 
-def generate(pack: dict[str, Any], tracer: Any | None = None) -> dict[str, Any]:
+def generate(pack: dict[str, Any], tracer: Any | None = None, prompt_version: str = PROMPT_VERSION) -> dict[str, Any]:
     """Return {"briefing", "source", "model", "checks", "error", "trace_id"}; never raises for LLM problems."""
     template = template_briefing(pack)
     result: dict[str, Any] = {"briefing": template, "source": "template", "model": None, "checks": [], "error": None, "trace_id": None,
-                              "prompt_version": PROMPT_VERSION}
+                              "prompt_version": prompt_version}
     if not llm_available():
         result["error"] = "no AWS credentials configured; using the template briefing"
         return result
@@ -160,13 +175,13 @@ def generate(pack: dict[str, Any], tracer: Any | None = None) -> dict[str, Any]:
             span.set_attribute("llm.model_name", model)
             span.set_attribute("llm.provider", "aws_bedrock")
             span.set_attribute("input.value", user)
-            span.set_attribute("swale.prompt_version", PROMPT_VERSION)
+            span.set_attribute("swale.prompt_version", prompt_version)
             span.set_attribute("swale.pack_hash", pack_hash(pack))
             result["trace_id"] = format(span.get_span_context().trace_id, "032x")
         response = client.messages.parse(
             model=model,
             max_tokens=16000,
-            system=SYSTEM,
+            system=PROMPTS[prompt_version],
             messages=[{"role": "user", "content": user}],
             output_config={"effort": "medium"},
             output_format=Briefing,
@@ -176,7 +191,7 @@ def generate(pack: dict[str, Any], tracer: Any | None = None) -> dict[str, Any]:
         elif response.parsed_output is None:
             result["error"] = f"no structured output (stop_reason={response.stop_reason}); using the template briefing"
         else:
-            problems = check(response.parsed_output, pack)
+            problems = check(normalize_ids(response.parsed_output), pack)
             result["checks"] = problems
             if problems:
                 result["error"] = "LLM briefing failed the evidence checks; using the template briefing"
@@ -204,9 +219,19 @@ def tracer_from_env() -> Any | None:
         return None
     from arize.otel import register
 
+    global TRACER_PROVIDER
     provider = register(space_id=os.environ["ARIZE_SPACE_ID"], api_key=os.environ["ARIZE_API_KEY"], project_name="swale",
                         set_global_tracer_provider=False, verbose=False)
+    TRACER_PROVIDER = provider
     return provider.get_tracer("swale.ai")
+
+
+TRACER_PROVIDER: Any | None = None
+
+
+def flush_traces(timeout_ms: int = 15000) -> bool:
+    """Send buffered spans to Arize now (spans are batched; a short-lived process can exit before they are sent)."""
+    return bool(TRACER_PROVIDER and TRACER_PROVIDER.force_flush(timeout_ms))
 
 
 FALLBACK_VOICE = "XrExE9yKIg1WjnnlVkGX"  # Matilda (ElevenLabs premade; works on the free plan)

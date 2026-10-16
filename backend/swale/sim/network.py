@@ -44,6 +44,9 @@ DEFAULTS: dict[str, float] = {
     "blockage_factor": 0.5,  # share of the inlet opening lost where DEP recently found an obstruction
     "max_catchment_ft2": 250000.0,  # caps edge cells (~5.7 acres)
     "drain_hours": 2.0,
+    "gi_area_pct": 0.0,  # share of each catchment turned into bioretention / rain gardens (0 = none)
+    "gi_capture_ratio": 10.0,  # impervious ft² draining to each ft² of rain garden (typical sizing, assumption)
+    "gi_seepage_in_hr": 0.5,  # infiltration into native soil below the garden (assumption)
 }
 
 ASSUMPTIONS = {
@@ -54,6 +57,9 @@ ASSUMPTIONS = {
     "ponded_area_fraction": "Street area that ponds around each inlet; ponded depth depends directly on it.",
     "blockage_factor": "Applied only where DEP's own resolution text recorded an obstruction within the window.",
     "network": "No sewer pipes: each inlet drains to an unlimited trunk, so sewer surcharge is not represented.",
+    "gi_area_pct": "Green infrastructure is a generic SWMM bio-retention cell (6 in ponding, 18 in soil, 12 in gravel, no underdrain) "
+                   "placed in every catchment; real siting depends on space, utilities and soils.",
+    "gi_capture_ratio": "Each ft² of rain garden receives runoff from this many ft² of pavement (capped at all of it).",
 }
 
 
@@ -103,7 +109,9 @@ def build_model(
     cells = shapely.get_parts(shapely.voronoi_polygons(shapely.multipoints(points), extend_to=area, ordered=True))
     radius = (params["max_catchment_ft2"] / np.pi) ** 0.5
 
-    sub, subarea, infil, junc, orif, xsec, coords = [], [], [], [], [], [], []
+    sub, subarea, infil, junc, orif, xsec, coords, lid_use = [], [], [], [], [], [], [], []
+    gi = max(0.0, min(float(params["gi_area_pct"]), 20.0))
+    from_imp = min(100.0, gi * params["gi_capture_ratio"] / max(params["impervious_pct"], 1e-9) * 100.0)
     nodes, catchment_ac, inlet_h = {}, {}, {}
     for n, (i, cell) in enumerate(zip(unique, cells), start=1):
         b = basins[i]
@@ -125,6 +133,8 @@ def build_model(
             sub.append(f"S{n}  RG1  {name}  {ac:.4f}  {params['impervious_pct']}  {a_ft2 ** 0.5:.1f}  {params['slope_pct']}  0")
             subarea.append(f"S{n}  {params['n_imperv']}  {params['n_perv']}  {params['dstore_imperv_in']}  {params['dstore_perv_in']}  {params['pct_zero']}  OUTLET")
             infil.append(f"S{n}  {params['horton_max_in_hr']}  {params['horton_min_in_hr']}  {params['horton_decay_per_hr']}  {params['horton_dry_days']}  0")
+            if gi > 0:
+                lid_use.append(f"S{n}  RAINGARDEN  1  {gi / 100 * a_ft2:.1f}  0  0  {from_imp:.1f}  0")
 
     cx, cy = float(np.mean(xs)), float(np.mean(ys))
     storm_min = step_min * len(intensities_in_hr)
@@ -143,6 +153,12 @@ def build_model(
         "[OUTFALLS]", "SEWER  -20  FREE  NO", "",
         "[ORIFICES]", *orif, "", "[CONDUITS]", "CT  TRUNK  SEWER  50  0.013  0  0", "",
         "[XSECTIONS]", *xsec, "CT  CIRCULAR  20  0  0  0", "",
+        *(["[LID_CONTROLS]", "RAINGARDEN  BC",
+            "RAINGARDEN  SURFACE  6  0.1  0.1  1.0  5",
+            "RAINGARDEN  SOIL  18  0.5  0.2  0.1  1.0  10.0  3.5",
+            f"RAINGARDEN  STORAGE  12  0.75  {params['gi_seepage_in_hr']}  0",
+            "RAINGARDEN  DRAIN  0  0.5  0  6", "",
+            "[LID_USAGE]", *lid_use, ""] if lid_use else []),
         "[TIMESERIES]", *series, "",
         "[REPORT]", "INPUT NO", "SUBCATCHMENTS NONE", "NODES NONE", "LINKS NONE", "",
         "[COORDINATES]", *coords, f"TRUNK  {cx:.1f}  {cy:.1f}", f"SEWER  {cx:.1f}  {cy - 500:.1f}", "",

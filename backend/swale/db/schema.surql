@@ -226,6 +226,7 @@ DEFINE FIELD OVERWRITE spoken_text    ON ai_briefing TYPE string;
 DEFINE FIELD OVERWRITE audio_file     ON ai_briefing TYPE option<string>;
 DEFINE FIELD OVERWRITE audio_error    ON ai_briefing TYPE option<string>;
 DEFINE FIELD OVERWRITE knowledge_type ON ai_briefing TYPE string ASSERT $value = 'inferred';
+DEFINE FIELD OVERWRITE translations   ON ai_briefing FLEXIBLE TYPE option<object>;
 DEFINE FIELD OVERWRITE created_at     ON ai_briefing TYPE datetime;
 
 -- DEP stormwater flood maps (predicted, external model), clipped to each area -------------------
@@ -250,7 +251,7 @@ DEFINE FIELD OVERWRITE ingested_at     ON flood_map_feature TYPE datetime;
 DEFINE INDEX OVERWRITE flood_map_feature_scenario ON flood_map_feature FIELDS scenario_code;
 
 -- Field inspections entered by crews (observed: a person looked at the basin) -------------------
-DEFINE TABLE OVERWRITE inspection SCHEMAFULL;
+DEFINE TABLE OVERWRITE inspection SCHEMAFULL CHANGEFEED 3d;
 DEFINE FIELD OVERWRITE basin          ON inspection TYPE record<catch_basin>;
 DEFINE FIELD OVERWRITE basin_key      ON inspection TYPE string;
 DEFINE FIELD OVERWRITE inspected_at   ON inspection TYPE datetime;
@@ -314,3 +315,17 @@ DEFINE FIELD OVERWRITE stations       ON transit_poll FLEXIBLE TYPE array<object
 DEFINE FIELD OVERWRITE alerts         ON transit_poll FLEXIBLE TYPE array<object>;
 DEFINE FIELD OVERWRITE errors         ON transit_poll TYPE array<string>;
 DEFINE INDEX OVERWRITE transit_poll_at ON transit_poll FIELDS area_id, polled_at;
+
+-- Rain-triggered alert packs (inferred; each records its trigger, steps and outputs) -------------
+DEFINE TABLE OVERWRITE alert_pack SCHEMALESS CHANGEFEED 3d;
+DEFINE INDEX OVERWRITE alert_pack_area ON alert_pack FIELDS area_id, created_at;
+
+-- Simulation sweeps (a grid of runs started together) --------------------------------------------
+DEFINE TABLE OVERWRITE simulation_sweep SCHEMALESS;
+
+-- NWS forecasts as issued (predicted), kept so later windows can be checked against what was forecast before them
+DEFINE TABLE OVERWRITE forecast_snapshot SCHEMALESS;
+DEFINE INDEX OVERWRITE forecast_snapshot_area ON forecast_snapshot FIELDS area_id, issued_at;
+
+-- Briefing quality evaluations (one per briefing; also sent to Arize as evaluator spans) ----------
+DEFINE TABLE OVERWRITE briefing_eval SCHEMALESS;

@@ -87,6 +87,10 @@ Base: `/api/v1`. All `GET`s take `bbox` and `limit` (max 5000) unless noted.
 | Station flood exposure | `GET /subway/flood-exposure?area_id=BK0601&run_id={id}` | `inferred` station points with `score`, `tier`, `factors[]` and `live` status; `meta.rain.level` (`low`/`watch`/`warning`) |
 | Danger zones | `GET /danger-zones?area_id=BK0601&run_id={id}` | Polygons; color by `level` (`high` red, `moderate` orange); `entrances[]` inside each zone |
 | Subway stations, entrances | `GET /subway/stations?bbox=…`, `GET /subway/entrances?bbox=…` | `observed` points |
+| Station accessibility | `GET /subway/accessibility?area_id=BK0601` | Per station `lon`/`lat`, `priority` (`critical`/`warning`/`watch`/`ok`), `step_free_now`, elevators/escalators `out_now`, exposure tier. Use for the 3D station markers. |
+| Live changes | `new EventSource("/api/v1/stream/changes")` | Events `inspection` and `alert_pack`; re-fetch rankings on `inspection`. |
+| Rain alert pack | `GET /alert-packs/check`, `POST /alert-packs {"force":true}` then poll `GET /alert-packs/{id}` | Steps, `stations_at_risk`, `briefing_id` (translations and audio inside the briefing) |
+| Forecast check | `GET /weather/verification?area_id=BK0601` | Forecast vs radar vs gauges for 1/6/24/72 h |
 | Ranking validation | `GET /risk-rankings/validation?cutoff=2025-10-01` | Precision and lift of the ranking on the following year's real outcomes |
 | Status bar | `GET /health` | `sources[].stale`, `sources[].fetched_at`, and `integrations` (which keys are configured) |
 

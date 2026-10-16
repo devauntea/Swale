@@ -128,6 +128,7 @@ def weather_now(lat: float, lon: float, *, hours: int = 24, client: httpx.Client
             "note": "NWS rainfall amounts are spread evenly across each 6-hour forecast interval, so short bursts can be heavier than shown.",
         },
         "errors": errors,
+        "qpf_intervals": [{"valid_time": v["validTime"], "mm": v["value"]} for v in grid["quantitativePrecipitation"]["values"]],
         "source": {"publisher": "National Weather Service", "url": point["forecastGridData"]},
         "cached": False,
     }

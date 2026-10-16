@@ -202,3 +202,27 @@ def get_danger_zones(
                 "They are not live flood extents; meta.rain says how today's forecast compares with the storms they assume.",
     })
     return body
+
+
+@router.get("/subway/accessibility")
+def subway_accessibility(
+    area_id: str = Query("BK0601"),
+    run_id: str | None = Query(None, description="a succeeded simulation_run id; adds simulated danger zones"),
+    db: Any = Depends(get_db),
+) -> dict[str, Any]:
+    from swale.transit.accessibility import accessibility
+
+    area = _area(db, area_id)
+    box = BBox(*area["bbox"])
+    run_key, label = _run(db, run_id)
+    now = utcnow()
+    stations = q.page_in_bbox(db, "subway_station", box, limit=1000).records
+    ex = exposure.station_exposure(db, box, now=now, run_key=run_key)
+    by_stop = {it["station"]["gtfs_stop_id"]: {"score": it["score"], "tier": it["tier"]} for it in ex["items"]}
+    zones = exposure.danger_zones(db, box, now=now, run_key=run_key, run_label=label)
+    in_zone = {e["station_id"] for z in zones if z["level"] == "high" for e in z["entrances"]}
+    out = accessibility(stations, by_stop, in_zone)
+    for s in out["stations"]:
+        st = next(x for x in stations if x["gtfs_stop_id"] == s["gtfs_stop_id"])
+        s["lon"], s["lat"] = st["lon"], st["lat"]
+    return {"api_version": API_VERSION, "area_id": area_id, "fetched_at": iso_z(now), **out}

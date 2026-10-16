@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -38,6 +39,8 @@ class SimulationService:
     def __init__(self, db: Any, lock: threading.Lock, runs_dir: Path) -> None:
         self.db, self.lock, self.runs_dir = db, lock, runs_dir
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="swmm")
+        # Daytona runs each use their own sandbox, so several can run at once (SWALE_DAYTONA_CONCURRENCY, default 6).
+        self.remote_executor = ThreadPoolExecutor(max_workers=int(os.environ.get("SWALE_DAYTONA_CONCURRENCY", "6")), thread_name_prefix="daytona")
 
     def startup(self, area_ids: list[str]) -> None:
         with self.lock:
@@ -51,6 +54,7 @@ class SimulationService:
 
     def shutdown(self) -> None:
         self.executor.shutdown(wait=False, cancel_futures=True)
+        self.remote_executor.shutdown(wait=False, cancel_futures=True)
 
     def save_scenario(self, key: str, doc: dict[str, Any]) -> None:
         with self.lock:
@@ -77,7 +81,7 @@ class SimulationService:
                 "status": "queued", "params": overrides, "queued_at": now, "timeout_s": timeout_s, "code_version": code_version(),
                 "model": {"name": MODEL_NAME, "version": MODEL_VERSION},
             }})
-        self.executor.submit(self._execute, run_key, scenario_key, runner, overrides, timeout_s)
+        (self.remote_executor if runner == "daytona" else self.executor).submit(self._execute, run_key, scenario_key, runner, overrides, timeout_s)
         return run_key
 
     def _execute(self, run_key: str, scenario_key: str, runner_name: str, overrides: dict[str, float], timeout_s: int) -> None:

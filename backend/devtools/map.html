@@ -105,6 +105,8 @@
     <div class="status" id="wx-status" aria-live="polite"></div>
     <div id="wx-card"></div>
     <div class="note" id="wx-meta"></div>
+    <div class="row"><button id="wx-verify" class="secondary">Was the forecast right?</button></div>
+    <div id="wx-verify-out"></div>
   </section>
 
   <section>
@@ -114,6 +116,8 @@
     <div id="sub-list"></div>
     <div id="sub-alerts"></div>
     <div class="note" id="sub-meta"></div>
+    <div class="row"><button id="access" class="secondary">Step-free access under flood</button></div>
+    <div id="access-out"></div>
   </section>
   <section>
     <h2>Layers</h2>
@@ -146,6 +150,10 @@
       <button id="run" disabled>Run storm</button>
       <button id="compare" class="secondary" disabled title="Runs the storm twice: flagged basins half-blocked, then all clear">What if we clear them?</button>
     </div>
+    <div class="row">
+      <button id="green" class="secondary" disabled title="Runs the storm with and without rain gardens on 5% of each catchment">What if we add rain gardens?</button>
+      <button id="sweep" class="secondary" disabled title="All three DEP storms at three blockage levels, in parallel Daytona sandboxes">Sweep all storms (Daytona)</button>
+    </div>
     <div class="status" id="run-status" aria-live="polite"></div>
     <div id="run-card"></div>
   </section>
@@ -157,8 +165,19 @@
   </section>
 
   <section>
+    <h2>Rain alert pack</h2>
+    <div id="pack-level" class="note">Checking the rain level…</div>
+    <div class="row"><button id="pack">Run alert pack</button><span class="note">forecast run → re-rank → briefing → Spanish + Chinese audio</span></div>
+    <div class="status" id="pack-status" aria-live="polite"></div>
+    <div id="pack-out"></div>
+  </section>
+
+  <section>
     <h2>Crew briefing</h2>
-    <div class="row"><button id="brief">Write briefing for the top 5</button></div>
+    <div class="row"><label>Also in <select id="brief-lang" aria-label="Translation"><option value="">English only</option><option value="es">Spanish</option>
+      <option value="zh">Chinese</option><option value="ar">Arabic</option><option value="ru">Russian</option><option value="fr">French</option></select></label></div>
+    <div class="row"><button id="brief">Write briefing for the top 5</button><button id="evals" class="secondary">Briefing quality (Arize)</button></div>
+    <div id="evals-out"></div>
     <div class="status" id="brief-status" aria-live="polite"></div>
     <div id="briefing"></div>
   </section>
@@ -236,7 +255,8 @@ map.on("load", async () => {
     map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
   }
   map.on("moveend", debounce(refreshViewport, 250));
-  await Promise.all([loadHealth(), loadScenarios(), refreshViewport(), refreshRankings(), loadWeather(), refreshSubway(), refreshZones()]);
+  await Promise.all([loadHealth(), loadScenarios(), refreshViewport(), refreshRankings(), loadWeather(), refreshSubway(), refreshZones(), loadPackLevel()]);
+  listenForChanges();
   setInterval(loadWeather, 10 * 60 * 1000);
   setInterval(refreshSubway, 60 * 1000);
 });
@@ -302,7 +322,7 @@ async function loadScenarios() {
   scenarios.sort((a, b) => order.findIndex((o) => a.id.includes(o)) - order.findIndex((o) => b.id.includes(o)));
   $("scenario").innerHTML = scenarios.map((s) => `<option value="${esc(s.id)}" ${s.id.includes("dep_moderate") ? "selected" : ""}>${esc(s.name)} · ${fmt(s.total_depth_in, 2)} in total</option>`).join("")
     + `<option value="__nws">Live NWS forecast, next 48 h (fetch now)</option>`;
-  $("run").disabled = false; $("compare").disabled = false; $("wx-run").disabled = false;
+  $("run").disabled = false; $("compare").disabled = false; $("wx-run").disabled = false; $("green").disabled = false; $("sweep").disabled = false;
 }
 
 async function scenarioId() {
@@ -316,12 +336,12 @@ async function scenarioId() {
   return s.id;
 }
 
-async function runStorm(blockage, label) {
+async function runStorm(blockage, label, extra = {}) {
   const sid = await scenarioId();
   const runner = $("runner").value;
   const sc = state.scenarios?.[sid];
   if (sc && sc.kind !== "nws_forecast") { state.rainOverride = true; setRain(sc.peak_in_hr, `what-if storm: ${sc.peak_in_hr} in/hr, not the live forecast`); }
-  const run = await api("/simulation-runs", { method: "POST", body: JSON.stringify({ scenario_id: sid, runner, params: { blockage_factor: blockage } }) });
+  const run = await api("/simulation-runs", { method: "POST", body: JSON.stringify({ scenario_id: sid, runner, params: { blockage_factor: blockage, ...extra } }) });
   const t0 = performance.now();
   let r = run;
   while (r.status === "queued" || r.status === "running") {
@@ -495,9 +515,38 @@ function inspectionForm(basinId) {
   return `<div class="card" data-inspect="${esc(basinId)}"><div class="row"><span class="kt observed">observed</span><b>Log a crew inspection</b></div>
     <div class="row">${[["debris_found", "Debris found"], ["cleaned", "Cleaned"], ["clear", "Clear"], ["damaged", "Damaged"]]
       .map(([v, t]) => `<button class="secondary" data-result="${v}">${t}</button>`).join(" ")}</div>
+    <div class="row"><button class="secondary" data-voice>🎤 Hold to speak</button><span class="note">e.g. "debris found, leaves on the grate"</span></div>
     <div class="note insp-out">Feeds the ranking: debris or damage raises the basin; cleaned or clear in the last 30 days halves its score.</div></div>`;
 }
+async function recordVoice(card, button) {
+  if (!navigator.mediaDevices?.getUserMedia) { toast("This browser cannot record audio here (needs HTTPS or localhost)."); return; }
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const rec = new MediaRecorder(stream), chunks = [];
+  rec.ondataavailable = (e) => chunks.push(e.data);
+  const stop = () => { if (rec.state === "recording") rec.stop(); };
+  rec.onstop = async () => {
+    stream.getTracks().forEach((t) => t.stop());
+    button.textContent = "Transcribing…";
+    const form = new FormData();
+    form.append("audio", new Blob(chunks, { type: rec.mimeType || "audio/webm" }), "inspection.webm");
+    form.append("basin_id", card.dataset.inspect); form.append("inspector", "voice (demo console)");
+    try {
+      const res = await fetch(`${API}/inspections/voice`, { method: "POST", body: form });
+      const r = await res.json();
+      if (!res.ok) throw new Error(r.detail || r.title);
+      card.querySelector(".insp-out").textContent = r.saved
+        ? `Heard: "${r.transcript.text}" → ${r.parsed.result.replace("_", " ")}. Saved; rankings update live.`
+        : `Heard: "${r.transcript.text}". Not saved: ${r.problems.join("; ")}`;
+    } catch (err) { toast(err.message); }
+    button.textContent = "🎤 Hold to speak";
+  };
+  rec.start(); button.textContent = "● Recording… release to send";
+  button.addEventListener("pointerup", stop, { once: true }); button.addEventListener("pointerleave", stop, { once: true });
+  setTimeout(stop, 20000);
+}
 function bindInspection(root) {
+  root.querySelectorAll("[data-inspect] button[data-voice]").forEach((b) =>
+    b.addEventListener("pointerdown", () => recordVoice(b.closest("[data-inspect]"), b).catch((err) => toast(err.message))));
   root.querySelectorAll("[data-inspect]").forEach((card) => card.querySelectorAll("button[data-result]").forEach((b) => b.addEventListener("click", async () => {
     try {
       const r = await api("/inspections", { method: "POST", body: JSON.stringify({ basin_id: card.dataset.inspect, result: b.dataset.result, inspector: "demo console" }) });
@@ -583,7 +632,8 @@ function showFeature(kind, p, appended = false) {
 // ---------- briefing ----------
 $("brief").addEventListener("click", () => guard($("brief"), async () => {
   $("brief-status").textContent = state.health?.integrations?.bedrock ? "Claude (Bedrock) is writing the briefing…" : "Writing the briefing (no Bedrock key: template)…";
-  const b = await api("/briefings", { method: "POST", body: JSON.stringify({ bbox: AREA_BBOX, run_id: state.runId, top_n: 5, audio: true }) });
+  const lang = $("brief-lang").value;
+  const b = await api("/briefings", { method: "POST", body: JSON.stringify({ bbox: AREA_BBOX, run_id: state.runId, top_n: 5, audio: true, languages: lang ? [lang] : [] }) });
   $("brief-status").textContent = "";
   const who = b.source === "llm" ? `Written by ${esc(b.model)} on Amazon Bedrock · every claim checked against the evidence`
     : `Template briefing${b.error ? " · " + esc(b.error) : ""}`;
@@ -593,9 +643,121 @@ $("brief").addEventListener("click", () => guard($("brief"), async () => {
         <div>${s.evidence_ids.map((id) => `<a class="ev" data-id="${esc(id)}">${esc(id)}</a>`).join("")}</div></div>`).join("")}
       <div class="note">${esc(b.briefing.caveat)}</div>
       <div class="note">${who}${b.checks.length ? " · checks flagged: " + b.checks.map(esc).join("; ") : ""}</div>
-      ${b.links.audio ? `<audio controls src="${b.links.audio}"></audio>` : `<div class="note">${esc(b.audio_error || "")}</div>`}</div>`;
+      ${b.links.audio ? `<audio controls src="${b.links.audio}"></audio>` : `<div class="note">${esc(b.audio_error || "")}</div>`}
+      ${translationsHtml(b)}</div>`;
   bindEvidence($("briefing"));
 }));
+
+function translationsHtml(b) {
+  return Object.entries(b.translations || {}).map(([lang, t]) => t.briefing
+    ? `<div class="card"><div class="row"><span class="kt inferred">${esc(lang)}</span><b>${esc(t.briefing.headline)}</b></div>
+       ${t.briefing.stops.map((s, i) => `<div class="stop"><b>${i + 1}.</b> ${esc(s.why)} <i>${esc(s.action)}</i></div>`).join("")}
+       <div class="note">${esc(t.briefing.caveat)}</div><div class="note">Translated by Claude from the checked English briefing; basin and evidence IDs copied unchanged.</div>
+       ${t.audio ? `<audio controls src="${t.audio}"></audio>` : `<div class="note">${esc(t.audio_error || "")}</div>`}</div>`
+    : `<div class="note">${esc(t.language)}: translation failed (${esc(t.error)})</div>`).join("");
+}
+
+// ---------- briefing quality (Arize) ----------
+$("evals").addEventListener("click", () => guard($("evals"), async () => {
+  $("evals-out").innerHTML = `<div class="note">Evaluating new briefings (Claude as judge) and sending results to Arize…</div>`;
+  const r = await api("/briefings/evals", { method: "POST", body: JSON.stringify({ limit: 5, judge: true }) });
+  $("evals-out").innerHTML = `<div class="card"><b>Briefing quality by prompt version</b>
+    ${r.by_prompt_version.map((p) => `<div>${esc(p.prompt_version)}: ${p.briefings} briefings · faithfulness ${p.faithfulness == null ? "–" : fmt(p.faithfulness * 100, 0) + "%"} ·
+      evidence checks passed ${fmt(p.citation_pass_rate * 100, 0)}% · model draft used ${fmt(p.model_draft_rate * 100, 0)}% · ${fmt(p.words_per_stop, 0)} words per stop</div>`).join("")}
+    <div class="note">${r.evaluated} newly evaluated${r.arize ? " · sent to Arize as evaluator spans (project swale)" : " · Arize not configured"}. Faithfulness: a separate Claude call checks each stop against its evidence.</div></div>`;
+}));
+
+// ---------- rain alert pack ----------
+async function loadPackLevel() {
+  try {
+    const c = await api("/alert-packs/check?area_id=BK0601");
+    $("pack-level").innerHTML = `Rain level now: <span class="lvl lvl-${c.rain.level}">${esc(c.rain.level)}</span> ·
+      ${c.would_trigger ? "an alert pack would run now" : "below the trigger; running it now is labelled a drill"}${c.monitor ? " · automatic monitor on (every 10 min)" : ""}`;
+    state.packTriggers = c.would_trigger;
+  } catch (err) { $("pack-level").textContent = "Rain level: " + err.message; }
+}
+async function showPack(id) {
+  const p = await api(`/alert-packs/${encodeURIComponent(id)}`);
+  $("pack-status").textContent = p.status === "running" || p.status === "queued" ? `Alert pack ${p.status}… (${(p.steps || []).length} of 4 steps)` : "";
+  let html = `<div class="card"><div class="row"><span class="kt inferred">inferred</span><b>Alert pack · ${esc(p.status)}${p.forced ? " · drill (rain level " + esc(p.rain.level) + ")" : ""}</b></div>
+    ${(p.steps || []).map((s) => `<div>${s.status === "ok" ? "✓" : "✗"} ${esc(s.step.replace("_", " "))}: ${esc(s.detail || "")}</div>`).join("")}
+    ${p.stations_at_risk?.length ? `<div>Stations with entrances in high danger zones: <b>${p.stations_at_risk.map(esc).join(", ")}</b></div>` : ""}</div>`;
+  if (p.briefing_id) {
+    const b = await api(`/briefings/${encodeURIComponent(p.briefing_id)}`);
+    html += `<div class="card"><b>${esc(b.briefing.headline)}</b>${b.links.audio ? `<div class="note">English</div><audio controls src="${b.links.audio}"></audio>` : ""}</div>` + translationsHtml(b);
+  }
+  $("pack-out").innerHTML = html;
+  return p;
+}
+$("pack").addEventListener("click", () => guard($("pack"), async () => {
+  let p = await api("/alert-packs", { method: "POST", body: JSON.stringify({ area_id: "BK0601", force: !state.packTriggers, languages: ["es", "zh"] }) });
+  while (p.status === "queued" || p.status === "running") { await new Promise((r) => setTimeout(r, 3000)); p = await showPack(p.id); }
+  await showPack(p.id); await refreshRankings();
+}));
+
+// ---------- forecast check ----------
+$("wx-verify").addEventListener("click", () => guard($("wx-verify"), async () => {
+  const v = await api("/weather/verification?area_id=BK0601");
+  $("wx-verify-out").innerHTML = `<div class="card"><b>Forecast vs what fell</b> <span class="kt predicted">predicted</span> <span class="kt observed">observed</span>
+    ${v.windows.map((w) => `<div><b>Last ${w.window_hours} h:</b> radar ${w.observed_radar_in == null ? "–" : fmt(w.observed_radar_in, 2) + " in"} ·
+      gauges ${Object.entries(w.gauges_in).map(([k, x]) => `${k} ${x == null ? "–" : fmt(x, 2)}`).join(", ")} ·
+      forecast ${w.forecast_in == null ? "–" : fmt(w.forecast_in, 2) + " in"} → <i>${esc(w.verdict)}</i></div>`).join("")}
+    <div class="note">Forecasts are taken from before each window began. Radar: NOAA MRMS (1 km); gauges: NWS stations. ${esc(v.rule)}.</div></div>`;
+}));
+
+// ---------- station accessibility ----------
+$("access").addEventListener("click", () => guard($("access"), async () => {
+  const a = await api(`/subway/accessibility?area_id=BK0601${state.runId ? "&run_id=" + encodeURIComponent(state.runId) : ""}`);
+  const icon = { critical: "⛔", warning: "⚠️", watch: "👁", ok: "✓" };
+  $("access-out").innerHTML = `<div class="card"><b>${a.summary.step_free_now} of ${a.summary.stations} stations step-free now · ${a.summary.units_out_now} elevator/escalator units out ·
+      ${a.summary.critical} critical</b>
+    ${a.stations.filter((s) => s.priority !== "ok").map((s) => `<div>${icon[s.priority]} ${s.routes.map(bullet).join("")} <b>${esc(s.name)}</b> (${esc(s.ada)}, ${esc(s.exposure.tier || "–")} exposure)
+      ${s.flags.length ? "· " + s.flags.map(esc).join("; ") : ""}${s.out_now.length ? ` · out: ${s.equipment.filter((u) => u.out_now).map((u) => esc(u.type + " " + u.equipment + (u.reason ? " (" + u.reason + ")" : ""))).join(", ")}` : ""}</div>`).join("")}
+    <div class="note">Equipment status: MTA elevator and escalator feeds (observed). Exposure: station-exposure-v1 (inferred).</div></div>`;
+}));
+
+// ---------- green infrastructure and sweeps ----------
+$("green").addEventListener("click", () => guard($("green"), async () => {
+  const blocked = $("blocked").checked ? 0.5 : 0;
+  const base = await runStorm(blocked, "Run 1 of 2 (today's streets)");
+  const green = await runStorm(blocked, "Run 2 of 2 (rain gardens on 5% of each catchment)", { gi_area_pct: 5 });
+  $("run-status").textContent = "";
+  const a = base.summary, g = green.summary;
+  $("run-card").innerHTML = `<div class="card"><div class="row"><span class="kt predicted">predicted</span><b>What rain gardens on 5% of each block are worth</b></div>
+      <div class="big">${fmt(a.deep - g.deep)} fewer deep-flooding basins · ${fmt(a.total_flood_volume_ft3 - g.total_flood_volume_ft3)} ft³ less street flooding</div>
+      <div class="note">${fmt(a.deep)} → ${fmt(g.deep)} deep basins, same storm and model. Generic SWMM bio-retention cells, each taking runoff from 10× its area of pavement;
+      real siting depends on space, utilities and soils.</div></div>` + runCard(base, "Run 1: today's streets") + runCard(green, "Run 2: with rain gardens");
+  await useRun(green);
+}));
+$("sweep").addEventListener("click", () => guard($("sweep"), async () => {
+  let s = await api("/simulation-sweeps", { method: "POST", body: JSON.stringify({ area_id: "BK0601", runner: "daytona" }) });
+  while (s.status !== "finished") {
+    $("run-status").textContent = `Sweep on Daytona: ${s.progress.finished} of ${s.progress.total} runs done…`;
+    await new Promise((r) => setTimeout(r, 2500)); s = await api(`/simulation-sweeps/${encodeURIComponent(s.id)}`);
+  }
+  $("run-status").textContent = "";
+  const presets = [...new Set(s.runs.map((r) => r.preset))], blocks = [...new Set(s.runs.map((r) => r.blockage_factor))];
+  const cell = (p, b) => s.runs.find((r) => r.preset === p && r.blockage_factor === b);
+  $("run-card").innerHTML = `<div class="card"><div class="row"><span class="kt predicted">predicted</span><b>Deep-flooding basins: every storm × blockage</b></div>
+    <table style="width:100%;font-size:12px"><tr><th></th>${blocks.map((b) => `<th>${b * 100}% blocked</th>`).join("")}</tr>
+    ${presets.map((p) => `<tr><td>${esc(cell(p, blocks[0]).scenario.replace("DEP ", ""))}</td>${blocks.map((b) => { const c = cell(p, b);
+      return `<td style="text-align:center">${c.status === "succeeded" ? fmt(c.deep) : esc(c.status)}</td>`; }).join("")}</tr>`).join("")}</table>
+    <div class="note">${s.progress.succeeded} of ${s.progress.total} runs on Daytona · up to ${s.concurrency.peak_overlap} at once ·
+      ${fmt(s.concurrency.elapsed_s, 1)} s elapsed for ${fmt(s.concurrency.sum_of_run_s, 0)} s of runs (${fmt(s.concurrency.speedup, 1)}× faster)
+      ${s.concurrency.limit_errors.length ? " · limit errors: " + s.concurrency.limit_errors.map(esc).join("; ") : " · no Daytona limit errors"}</div></div>`;
+}));
+
+// ---------- live updates (SurrealDB change feed → server-sent events) ----------
+function listenForChanges() {
+  if (!window.EventSource) return;
+  const es = new EventSource(`${API}/stream/changes`);
+  es.addEventListener("inspection", (e) => {
+    const c = JSON.parse(e.data).record;
+    toast(`Live: ${c.basin_key} inspected (${String(c.result).replace("_", " ")}) by ${c.inspector || "a crew"}. Rankings updated.`);
+    refreshRankings();
+  });
+  es.addEventListener("alert_pack", () => loadPackLevel());
+}
 
 // ---------- live weather ----------
 const tfmt = (iso) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: iso.slice(14, 16) === "00" ? undefined : "2-digit" });

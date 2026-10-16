@@ -183,3 +183,33 @@ def run_logs(run_id: str, db: Any = Depends(get_db)) -> str:
     if not parts:
         raise Problem(404, "not-found", "Not found", f"no logs for {run_id}")
     return "\n\n".join(parts)
+
+
+class SweepCreate(BaseModel):
+    area_id: str = "BK0601"
+    presets: list[Literal["dep_limited_1_77", "dep_moderate_2_13", "dep_extreme_3_66"]] | None = None
+    blockage_factors: list[float] = Field(default_factory=lambda: [0.0, 0.5, 0.9], min_length=1, max_length=5)
+    runner: Literal["local", "daytona"] = "daytona"
+
+
+@router.post("/simulation-sweeps", status_code=202)
+def create_sweep(body: SweepCreate, request: Request) -> dict[str, Any]:
+    from swale.sim import sweep
+
+    if any(not 0 <= b <= 0.95 for b in body.blockage_factors):
+        raise Problem(422, "invalid-parameter", "Invalid parameter", "blockage factors must be between 0 and 0.95")
+    try:
+        key = sweep.start(request.app.state.sim, body.area_id, presets=body.presets, blockage=body.blockage_factors, runner=body.runner)
+    except SimulationError as exc:
+        raise _sim_error(exc) from None
+    return sweep.summarise(request.app.state.sim, key)
+
+
+@router.get("/simulation-sweeps/{sweep_id}")
+def get_sweep(sweep_id: str, request: Request) -> dict[str, Any]:
+    from swale.sim import sweep
+
+    out = sweep.summarise(request.app.state.sim, feature_key(sweep_id, "simulation_sweep"))
+    if out is None:
+        raise Problem(404, "not-found", "Not found", f"no sweep {sweep_id}")
+    return out
