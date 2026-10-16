@@ -5,6 +5,9 @@
   isolation: isolate;
   --line: var(--border);
 }
+.mobile-controls-toggle {
+  display: none;
+}
 .map-stage,
 .map-canvas {
   position: absolute;
@@ -2351,8 +2354,62 @@
   .workspace-footer > span {
     font-size: 9px;
   }
+  .inspector-position.has-selection {
+    display: block;
+    top: 74px;
+    bottom: 140px;
+  }
 }
 @media (max-width: 620px) {
+  .mobile-controls-toggle {
+    position: absolute;
+    top: 14px;
+    left: 10px;
+    z-index: 6;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 10px;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-small);
+    font-size: 11px;
+  }
+  .control-sidebar {
+    display: none;
+    top: 64px;
+    bottom: 100px;
+    left: 10px;
+    width: min(294px, calc(100% - 20px));
+  }
+  .controls-are-open .control-sidebar {
+    display: flex;
+  }
+  .workspace-topbar {
+    left: auto;
+    right: 10px;
+  }
+  .workspace-readiness {
+    display: none;
+  }
+  .inspector-position.has-selection {
+    top: auto;
+    bottom: 114px;
+    left: 10px;
+    right: 58px;
+    width: auto;
+    height: 42%;
+  }
+  .controls-are-open .inspector-position {
+    visibility: hidden;
+  }
+  .workspace-banner {
+    left: 10px;
+    right: 10px;
+  }
   .assistant-launcher {
     width: 68px;
     height: 74px;
@@ -2361,6 +2418,7 @@
   .assistant-is-open .map-controls {
     right: 10px;
     z-index: 11;
+    top: auto;
     bottom: 170px;
   }
 }

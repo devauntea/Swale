@@ -26,6 +26,7 @@ import {
   type MascotExpression,
 } from "../components/assistant/SwaleMascot";
 import { useTheme } from "./useTheme";
+import { MapErrorBoundary } from "./MapErrorBoundary";
 
 const SwaleMap = lazy(() => import("../map/SwaleMap"));
 
@@ -126,9 +127,20 @@ function Workspace({
     assistantTrigger.current?.focus({ preventScroll: true });
   }, []);
   const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const controlsTrigger = useRef<HTMLButtonElement>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [mapFailed, setMapFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState("");
+  const refreshGeneration = useRef(0);
+  useEffect(() => {
+    setRefreshing(false);
+    setRefreshMessage("");
+    return () => {
+      refreshGeneration.current += 1;
+    };
+  }, [provider]);
   const [complaintId, setComplaintId] = useState<string | null>(null);
   useEffect(() => {
     dispatch({ type: "replace_snapshot", snapshot });
@@ -138,23 +150,29 @@ function Workspace({
   }, []);
   const onQueueSelect = (id: string) => {
     selectBasin(id);
+    setControlsOpen(false);
+    if (controlsOpen) controlsTrigger.current?.focus({ preventScroll: true });
     dispatch({ type: "fly_to", targetId: id });
   };
   const basin = snapshot.basins.find((b) => b.id === state.selectedBasinId);
   const complaint = snapshot.complaints.find((c) => c.id === complaintId);
   const refresh = async () => {
+    if (refreshing || loading) return;
+    const generation = ++refreshGeneration.current;
     setRefreshing(true);
     setRefreshMessage("Reloading local examples…");
     try {
       const result = await provider.refresh();
+      if (generation !== refreshGeneration.current) return;
       onSnapshot(result.snapshot);
       setRefreshMessage(result.message);
     } catch {
+      if (generation !== refreshGeneration.current) return;
       setRefreshMessage(
         "Local example reload failed. Last valid workspace retained; no live request was made.",
       );
     } finally {
-      setRefreshing(false);
+      if (generation === refreshGeneration.current) setRefreshing(false);
     }
   };
   const runAssistant = (text: string): DemoAssistantReply => {
@@ -188,28 +206,60 @@ function Workspace({
     return reply;
   };
   return (
-    <main className={`workspace ${assistantOpen ? "assistant-is-open" : ""}`}>
-      <Suspense
-        fallback={
-          <div className="map-status" role="status">
-            <span className="loading-orbit" />
-            <strong>Preparing the city model</strong>
-          </div>
+    // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape is delegated from descendant controls; the landmark has no activation behavior.
+    <main
+      className={`workspace ${assistantOpen ? "assistant-is-open" : ""} ${controlsOpen ? "controls-are-open" : ""}`}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && controlsOpen) {
+          setControlsOpen(false);
+          controlsTrigger.current?.focus({ preventScroll: true });
         }
+      }}
+    >
+      <MapErrorBoundary
+        onFailure={() => {
+          setMapFailed(true);
+          setMapReady(false);
+        }}
       >
-        <SwaleMap
-          theme={theme}
-          snapshot={snapshot}
-          scenarioId={state.scenarioId}
-          layers={state.layers}
-          selectedBasinId={state.selectedBasinId}
-          highlightedIds={state.highlightedIds}
-          cameraRequest={state.cameraRequest}
-          onSelectBasin={selectBasin}
-          onSelectComplaint={setComplaintId}
-          onReady={setMapReady}
-        />
-      </Suspense>
+        <Suspense
+          fallback={
+            <div className="map-status" role="status">
+              <span className="loading-orbit" />
+              <strong>Preparing the city model</strong>
+            </div>
+          }
+        >
+          <SwaleMap
+            theme={theme}
+            snapshot={snapshot}
+            scenarioId={state.scenarioId}
+            layers={state.layers}
+            selectedBasinId={state.selectedBasinId}
+            highlightedIds={state.highlightedIds}
+            cameraRequest={state.cameraRequest}
+            onSelectBasin={selectBasin}
+            onSelectComplaint={setComplaintId}
+            onReady={setMapReady}
+          />
+        </Suspense>
+      </MapErrorBoundary>
+      <button
+        className="mobile-controls-toggle"
+        ref={controlsTrigger}
+        aria-expanded={controlsOpen}
+        aria-controls="planning-controls"
+        onClick={() => {
+          if (!controlsOpen) {
+            setAssistantOpen(false);
+            setSourcesOpen(false);
+          }
+          setControlsOpen((value) => !value);
+        }}
+      >
+        <Icon name={controlsOpen ? "close" : "layers"} size={17} />
+        Planning controls
+      </button>
       <div className="workspace-topbar">
         <div className="workspace-breadcrumb">
           <Icon name="pin" size={15} />
@@ -220,7 +270,11 @@ function Workspace({
         <div className="workspace-actions">
           <span className="workspace-readiness" role="status">
             <i className={mapReady ? "ready" : ""} />
-            {mapReady ? "BASEMAP READY" : "LOADING BASEMAP"}
+            {mapFailed
+              ? "MAP UNAVAILABLE"
+              : mapReady
+                ? "BASEMAP READY"
+                : "LOADING BASEMAP"}
           </span>
           <button
             className="theme-toggle"
@@ -258,7 +312,7 @@ function Workspace({
         onRefresh={() => void refresh()}
         onSources={() => setSourcesOpen((v) => !v)}
       />
-      <div className="inspector-position">
+      <div className={`inspector-position ${basin ? "has-selection" : ""}`}>
         <BasinInspector
           basin={basin}
           snapshot={snapshot}
@@ -337,14 +391,22 @@ function Workspace({
         onClose={closeAssistant}
         onExpressionChange={setMascotExpression}
         onSubmit={runAssistant}
-        onSelect={onQueueSelect}
+        onSelect={(id) => {
+          closeAssistant();
+          onQueueSelect(id);
+        }}
       />
       <button
         className={`assistant-launcher ${assistantOpen ? "is-open" : ""}`}
         ref={assistantTrigger}
-        onClick={() =>
-          assistantOpen ? closeAssistant() : setAssistantOpen(true)
-        }
+        onClick={() => {
+          if (assistantOpen) closeAssistant();
+          else {
+            setControlsOpen(false);
+            setSourcesOpen(false);
+            setAssistantOpen(true);
+          }
+        }}
         aria-expanded={assistantOpen}
         aria-controls="swale-assistant-panel"
         aria-label={

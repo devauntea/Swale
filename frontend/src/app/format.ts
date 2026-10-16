@@ -7,6 +7,9 @@ export function formatTime(
   if (!value) return fallback;
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "Unknown time";
+  // A floating source time is not a known instant in the browser's time zone.
+  if (!/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value.trim()))
+    return "Time zone unknown";
   return new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
     month: "short",

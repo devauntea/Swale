@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type {
   AssistantMessage,
   DemoAssistantReply,
@@ -28,6 +28,7 @@ const initialMessage: AssistantMessage = {
   text: "Explore the local demonstration. I can switch scenarios, highlight example basins, and show complaint examples. Responses are scripted; no live AI or backend is connected.",
 };
 export function AssistantPanel(p: Props) {
+  const { open, onSubmit, onExpressionChange } = p;
   const [messages, setMessages] = useState<AssistantMessage[]>([
     initialMessage,
   ]);
@@ -35,12 +36,14 @@ export function AssistantPanel(p: Props) {
   const [pending, setPending] = useState(false);
   const [formError, setFormError] = useState("");
   const [expression, setExpression] = useState<MascotExpression>("idle");
-  const onSubmitRef = useRef(p.onSubmit);
-  onSubmitRef.current = p.onSubmit;
-  const openRef = useRef(p.open);
-  openRef.current = p.open;
+  const onSubmitRef = useRef(onSubmit);
+  const openRef = useRef(open);
   const pendingRef = useRef(pending);
-  pendingRef.current = pending;
+  useLayoutEffect(() => {
+    onSubmitRef.current = onSubmit;
+    openRef.current = open;
+    pendingRef.current = pending;
+  }, [onSubmit, open, pending]);
   const sequence = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const motionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -57,7 +60,7 @@ export function AssistantPanel(p: Props) {
   );
   useEffect(() => {
     if (motionTimer.current) clearTimeout(motionTimer.current);
-    if (p.open) {
+    if (open) {
       setExpression(pendingRef.current ? "processing" : "opening");
       // The panel is immediately interactive; only decorative motion settles later.
       motionTimer.current = setTimeout(() => {
@@ -70,14 +73,14 @@ export function AssistantPanel(p: Props) {
       setExpression("closing");
       motionTimer.current = setTimeout(() => setExpression("idle"), 180);
     }
-    previousOpen.current = p.open;
+    previousOpen.current = open;
     return () => {
       if (motionTimer.current) clearTimeout(motionTimer.current);
     };
-  }, [p.open]);
+  }, [open]);
   useEffect(() => {
-    p.onExpressionChange?.(expression);
-  }, [expression, p.onExpressionChange]);
+    onExpressionChange?.(expression);
+  }, [expression, onExpressionChange]);
   useEffect(() => {
     log.current?.scrollTo({ top: log.current.scrollHeight, behavior: "auto" });
   }, [messages, pending, p.open]);
@@ -160,6 +163,7 @@ export function AssistantPanel(p: Props) {
     ["Is this drain blocked?", "Is this drain blocked?"],
   ];
   return (
+    // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape closes the region from its descendant controls; the region itself is not interactive.
     <section
       className="assistant-panel"
       id="swale-assistant-panel"

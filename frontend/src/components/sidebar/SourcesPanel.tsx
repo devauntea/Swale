@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react";
 import type { DemoSnapshot } from "../../types";
 import type { LocalFixtureOptions } from "../../data/providers/LocalFixtureProvider";
 import { fixtureTime, formatTime } from "../../app/format";
@@ -14,8 +15,35 @@ export function SourcesPanel({
   onSettings: (settings: Required<LocalFixtureOptions>) => void;
   onClose: () => void;
 }) {
+  const panel = useRef<HTMLElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(() => {
+    const trigger = document.activeElement;
+    const element = panel.current;
+    closeButton.current?.focus({ preventScroll: true });
+    return () => {
+      // Do not steal focus if the user moved to another workspace control.
+      if (
+        element?.contains(document.activeElement) &&
+        trigger instanceof HTMLElement &&
+        trigger.isConnected
+      )
+        trigger.focus({ preventScroll: true });
+    };
+  }, []);
   return (
-    <aside className="sources-panel" aria-labelledby="sources-title">
+    // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape is delegated from descendant controls, not a landmark activation key.
+    <aside
+      className="sources-panel"
+      ref={panel}
+      aria-labelledby="sources-title"
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.stopPropagation();
+          onClose();
+        }
+      }}
+    >
       <header>
         <div>
           <span className="eyebrow">WORKSPACE TRANSPARENCY</span>
@@ -23,6 +51,7 @@ export function SourcesPanel({
         </div>
         <button
           className="icon-button"
+          ref={closeButton}
           aria-label="Close data sources"
           onClick={onClose}
         >

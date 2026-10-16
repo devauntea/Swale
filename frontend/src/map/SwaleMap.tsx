@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Map, AttributionControl, setWorkerUrl } from "maplibre-gl";
 import type { ErrorEvent as MapErrorEvent } from "maplibre-gl";
 import { MapLibreOverlay } from "@deck.gl/maplibre";
@@ -103,7 +103,18 @@ export function SwaleMap(props: SwaleMapProps) {
   const [tooltip, setTooltip] = useState<Tooltip | null>(null);
   const [pitched, setPitched] = useState(true);
   const [retry, setRetry] = useState(0);
-  propsRef.current = props;
+  const {
+    snapshot,
+    scenarioId,
+    layers,
+    selectedBasinId,
+    highlightedIds,
+    theme,
+  } = props;
+  useLayoutEffect(() => {
+    // Map callbacks must observe the latest committed UI, never a pending render.
+    propsRef.current = props;
+  }, [props]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -282,14 +293,6 @@ export function SwaleMap(props: SwaleMapProps) {
     const overlay = overlayRef.current;
     if (!ready || !map || !overlay) return;
 
-    const {
-      snapshot,
-      scenarioId,
-      layers,
-      selectedBasinId,
-      highlightedIds,
-      theme,
-    } = props;
     const colors = MAP_THEMES[theme];
     const knownIds = new Set(snapshot.basins.map((basin) => basin.id));
     const highlighted = new Set(
@@ -489,12 +492,12 @@ export function SwaleMap(props: SwaleMapProps) {
       performance.mark(`swale-scenario-${scenarioId}-submitted`);
   }, [
     ready,
-    props.snapshot,
-    props.scenarioId,
-    props.layers,
-    props.selectedBasinId,
-    props.highlightedIds,
-    props.theme,
+    snapshot,
+    scenarioId,
+    layers,
+    selectedBasinId,
+    highlightedIds,
+    theme,
   ]);
 
   useEffect(() => {
@@ -636,10 +639,7 @@ export function SwaleMap(props: SwaleMapProps) {
           className="map-tooltip"
           role="tooltip"
           style={{
-            left: Math.min(
-              tooltip.x + 16,
-              (containerRef.current?.clientWidth ?? window.innerWidth) - 265,
-            ),
+            left: `clamp(0px, ${tooltip.x + 16}px, calc(100% - 265px))`,
             top: Math.max(80, tooltip.y - 88),
           }}
         >

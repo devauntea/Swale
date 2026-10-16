@@ -6,7 +6,138 @@ production-data coverage. Infrastructure records, overlays, scores, forecast and
 assistant responses are local synthetic examples. The basemap/building tiles are
 the permitted OpenFreeMap resources.
 
-## October 16 redesign — latest evidence
+## October 16 remediation after pushed aa08a17 — latest evidence
+
+Current work recorded from approximately **02:57–03:08 EDT**
+(06:57–07:08 UTC), October 16, 2026. This is the current session's elapsed
+interval, not a measurement of historical active work or a restarted time budget.
+The original total eight-hour target and 6:45 feature freeze remain unchanged;
+earlier exact active duration is unknown. Only bounded remediation and verification
+were performed in this interval.
+
+### Repository reconciliation
+
+- Repository `/Users/kerwynjean/Swale`, branch `main`, starting HEAD
+  `aa08a17d166cbf0f23281627a74289fe8f7efe43`.
+- `git fetch origin` independently confirmed `origin/main` at exactly that SHA.
+  `git rev-list --left-right --count main...origin/main` returned `0 0` before
+  corrections. This is the implementation baseline; the earlier redesign was
+  audited, not repeated.
+- Remote is `https://github.com/devauntea/Swale.git`. Only unrelated `.vscode/`
+  was initially untracked; it was preserved and excluded from staging.
+- Required instructions, plan, Phase 0 notes, proposed contract and this report
+  were read. Root files, backend-owned files, fixtures, provider and proposed
+  transport/types were not modified.
+- Read-only GitHub inspection found no Actions workflows, deployments, repository
+  rulesets or GitHub Pages site; `main` was not protected. No tracked hosting or
+  deployment configuration was found. External webhook enumeration was unavailable
+  without administrative privileges (404); external push side effects cannot be
+  certified absent. No privileges or repository settings were changed.
+
+### Confirmed defects and corrections
+
+| Severity | Demonstrated problem | Correction / evidence |
+| --- | --- | --- |
+| P1 | CSS hid the basin inspector at every width below 900 px, without another details view. The fixed phone sidebar also covered most of the map and crowded the theme control. | Selected inspector remains available on tablets; phone details have a bounded scroll area. Added a collapsed-by-default phone sidebar with an expanded-state control, coordinated panel closing and focus return. DOM state tested; actual layout/touch acceptance remains BLOCKED. |
+| P1 | A refresh finishing after a new provider/settings load could overwrite the new snapshot with older examples. | Invalidate outstanding refresh generations when provider changes/unmounts; ignore stale success/error/finally callbacks. A deferred-promise DOM regression confirms a stale forecast selection survives an older refresh. |
+| P1 | Rejected lazy map loading or a render exception had no error boundary and could unmount the whole workspace. | Map-only error boundary displays an honest failure and retains controls/assistant. Errors remain logged. DOM regression throws from the map double and verifies recovery UI and usable assistant; no WebGL fault injection claimed. |
+| P1 | Sparse highlight arrays passed `Array.every`, allowing a missing ID through the command schema. | Validate a dense copy; malformed highlights are rejected atomically by schema and reducer regressions. |
+| P2 | Opening sources left keyboard focus outside; Escape did not close it. | Focus close control on opening, handle descendant Escape and restore the connected trigger during layout cleanup, without stealing focus from another control. DOM regression passes. |
+| P2 | Assistant result selection changed selection while the assistant continued hiding the inspector. | Close assistant on explicit result selection and reveal the selected basin details; history remains mounted. DOM regression passes. |
+| P2 | Render-time callback-ref writes could expose uncommitted props to map events or pending assistant callbacks. Tooltip positioning read DOM width during render and could become negative in narrow containers. | Update callback refs in layout effects; keep explicit overlay dependencies; use CSS clamp for resize-aware tooltip positioning. Hooks/ref lint passes; no map recreation or animation engine introduced. |
+| P2 | Floating/date-only timestamps were assigned an inferred instant by the host date parser. | Show `Time zone unknown`; preserve formatting for explicit UTC/offset instants. Regression passes. |
+| P2 | Explicit switch roles omitted their checked ARIA state. | Basin/layer switches expose `aria-checked` alongside native checked state. Accessibility lint passes; screen-reader/browser acceptance remains BLOCKED. |
+
+No additional source-demonstrated P0/P1 defect remains from this review. This is
+not a claim that unexecuted runtime checks have no defects. No accepted cosmetic
+P2 waiver was needed; observed issues above were corrected within frontend scope.
+
+### Current automated and static verification
+
+Node **22.20.0**. Final application check sequence started **03:06:18 EDT**;
+all commands below exited zero. npm commands ran with `frontend/` as their working
+directory; Git commands ran at the repository root. The build reported 970 modules
+and 289 ms.
+
+| Exact command / check | Outcome |
+| --- | --- |
+| `npm run typecheck` | PASS — strict TypeScript 7.0.2, no emit. |
+| `npm test` | PASS — **93 tests / 7 files**, reported 1.36 s. Original 84 retained; two pure schema/time regressions and seven DOM behavior regressions added. |
+| `npm run build` | PASS — Vite 8.3.4 production build, no reported warning/error. |
+| `npm run lint` | PASS — Oxlint 1.88.0 with warnings denied; correctness, TypeScript, React hooks/refs and accessibility rules. |
+| `npm run format:check` | PASS — pinned Prettier 3.8.3 checks index/source/config plus SVG with HTML parser. |
+| Existing theme/design tests in `npm test` | PASS — startup VM, persistence, owned palette and map color contracts; 11 numerical contrast pairs per theme, minima light **4.896:1**, dark **5.169:1**. Not a rendered accessibility audit. |
+| `npm audit --json` | PASS — zero reported vulnerabilities. Dependency audit is not a complete security assessment. |
+| `npm ls --depth=0` | PASS — no invalid/missing top-level dependency reported. Production dependencies and compiler versions unchanged. |
+| `git diff --check` and final staged diff check | PASS — no whitespace errors. |
+| `git check-ignore .env frontend/.env frontend/.env.local frontend/node_modules frontend/dist frontend/verification-artifacts` | PASS — all listed paths ignored. |
+| Source/network scope and final staged credential-pattern review | PASS — 16 frontend files staged; zero credential-pattern matches across 51 indexed UTF-8 files; no production data/AI clients found. Only approved basemap/provenance URLs in application source. Static evidence, not a browser network capture. |
+| Built local asset inspection | PASS — 13 files / **2,831,229 disk bytes**, all three built HTML local asset references exist; no test-DOM/linter identifiers found in built JS/HTML. Disk size is not transferred bytes. |
+
+The isolated jsdom tests never open a browser, access a preview URL, create WebGL,
+or load basemap resources. Their map component is explicitly replaced. They test
+actual React DOM behavior, including StrictMode setup/cleanup, focus, pending
+messages, history and state propagation; they do not substitute for browser
+acceptance. New test/format/lint packages are development-only.
+
+Lint configuration has two explicit, documented scope choices: the stylistic
+`prefer-tag-over-role` rule is disabled because valid existing status/group roles
+do not require element replacement; `set-state-in-effect` is disabled because
+these provider/map/animation effects intentionally synchronize external/transient
+state and the rule is an optimization advisory. Hook dependency/ref rules remain
+enabled and their findings were fixed. Three local documented exceptions permit
+Escape delegation from descendant controls on noninteractive landmarks/regions;
+they do not add pointer activation or pretend those containers are buttons.
+No existing test assertion was removed, weakened or skipped.
+
+### Requirements and push gates
+
+The owner's attached remediation brief explicitly keeps the saved browser denial
+binding until the owner confirms the restriction changed and authorizes a new
+attempt. **No browser attempt was made in this session**, through any surface.
+There was no fresh automatic rejection; this is the existing authorization gate.
+The preserved preview/dev listeners remain PIDs 61855/58514 on 127.0.0.1 ports
+4173/5173, checked with `lsof` only. No server restart or preview HTTP probe occurred.
+
+| Required experience | Current acceptance | Available evidence / remaining gate |
+| --- | --- | --- |
+| 3D Brooklyn map | BLOCKED | Source lifecycle and nine map/sprite contracts pass; current 3D rendering/camera/attribution need browser. |
+| Catch basin interactions | BLOCKED | Fixture IDs/reducer/DOM result selection pass; map picking and final inspector layout need browser. |
+| Stormwater scenarios | BLOCKED | Both exact scenario contracts and DOM state preservation pass; rendered geometry/overlay transitions need browser. |
+| Drainage complaints | BLOCKED | Fixture/presentation review passes; actual point/density picking/visibility needs browser. |
+| Rainfall presentation | BLOCKED | Accumulation, null/zero/time/stale contracts pass; rendered states need browser. |
+| Floating sidebar | BLOCKED | Controls/expanded state implemented and DOM-tested; desktop/phone composition needs browser. |
+| Light mode | BLOCKED | Tokens, contrast/startup tests pass; current rendered UI/map need browser. |
+| Dark mode | BLOCKED | Tokens/in-place styling contracts and DOM toggle pass; current rendered UI/map need browser. |
+| Theme persistence | BLOCKED | Storage/startup VM and DOM write pass; actual reload/startup flash remains unobserved. |
+| Swale mascot | BLOCKED | Existing original SVG identity/palette isolation retained; current rendered comparison with reference D pending. |
+| Assistant animation | BLOCKED | Existing 650 ms/reduced-motion styles retained; timing, smoothness, repeat opening and clipping require browser. |
+| Accessibility | BLOCKED | Lint, names/states, numerical contrast and DOM focus/Escape checks pass; real keyboard, screen reader, focus visibility and reduced motion pending. |
+| Responsive layout | BLOCKED | Demonstrated CSS omissions corrected; desktop/tablet/phone/touch and clipping require browser. |
+| Sprite corrections | BLOCKED | All seven exact historical glyph IDs remain covered by baseline resolver and tests. No blanket fallback. Historical warnings remain historical failures; current console/resource behavior unobserved. |
+| Performance | NOT VERIFIED | Browser FPS, app/basemap transferred bytes, scenario/assistant/theme latency all **NOT MEASURED**. No 20 MB or 30 FPS pass inferred. |
+
+Reference A/B/C/D fidelity cannot be newly established: no current browser view
+exists, and the original reference images were not newly attached to this request.
+The retained screenshot predates aa08a17 and is historical only. The existing
+three-minute walkthrough remains in DEMO.md; actual rehearsal/recording is BLOCKED.
+
+**Acceptance recommendation: BLOCK.** Required browser, runtime-sprite and
+performance gates remain incomplete. Local verified corrections may be committed;
+the one authorized normal push is **not attempted** while these gates are blocked.
+Remote main was last fetched at aa08a17 before the remediation commit, so the local
+correction is expected to be one commit ahead, with no divergence. No new CI run
+was triggered or observed. The local commit's SHA is reported after committing;
+this report is part of that commit.
+
+To unblock: the owner must resolve the effective saved-site permission, explicitly
+confirm it changed and authorize one normal retry on the preserved Chrome/local
+preview. Then complete the pending browser/reference/resource/performance matrix,
+fix any resulting defects, check external push-triggered deployment side effects,
+refetch and recheck fast-forward status before using the authorized non-force push.
+No backend work, integration, production AI, deployment or remote write occurred.
+
+## Historical October 16 redesign evidence
 
 Updated at 02:45 EDT (06:45 UTC), after the owner's new frontend redesign brief.
 Baseline: `25a44f5` on `main`. The current implementation uses the new blue/navy/

@@ -59,7 +59,9 @@ const validVisibility = (value: unknown): value is Partial<LayerVisibility> =>
 const validIds = (value: unknown, known: string[]): value is string[] =>
   Array.isArray(value) &&
   value.length <= MAX_HIGHLIGHTS &&
-  value.every((id) => typeof id === "string" && known.includes(id)) &&
+  Array.from(value).every(
+    (id) => typeof id === "string" && known.includes(id),
+  ) &&
   new Set(value).size === value.length;
 
 export function isValidDisplayCoordinate(

@@ -56,7 +56,11 @@ export function ControlSidebar(p: Props) {
     .filter((b) => b !== undefined)
     .slice(0, 4);
   return (
-    <aside className="control-sidebar" aria-label="Planning controls">
+    <aside
+      className="control-sidebar"
+      id="planning-controls"
+      aria-label="Planning controls"
+    >
       <header className="brand-header">
         <div className="brand-mark">
           <svg viewBox="0 0 36 36" aria-hidden="true">
@@ -175,6 +179,7 @@ export function ControlSidebar(p: Props) {
                   role="switch"
                   aria-label={item.name}
                   checked={p.layers[item.key]}
+                  aria-checked={p.layers[item.key]}
                   onChange={() => p.onLayer(item.key)}
                 />
                 <span className="switch-track" aria-hidden="true" />

@@ -53,6 +53,7 @@ describe("four frontend commands fail closed", () => {
     { name: "highlight", arguments: { ids: [id, id] } },
     { name: "highlight", arguments: { ids: Array(21).fill(id) } },
     { name: "highlight", arguments: { ids: [42] } },
+    { name: "highlight", arguments: { ids: new Array(1) } },
     { name: "fly_to", arguments: { target: "unverified_neighborhood" } },
     { name: "fly_to", arguments: { target: [-74, 40.68] } },
     {
@@ -146,6 +147,9 @@ describe("coordinated frontend state and regressions", () => {
     );
     expect(
       appReducer(initial, { type: "highlight", ids: [id, "unknown"] }),
+    ).toBe(initial);
+    expect(
+      appReducer(initial, { type: "highlight", ids: new Array<string>(1) }),
     ).toBe(initial);
     expect(appReducer(initial, { type: "fly_to", targetId: "unknown" })).toBe(
       initial,
