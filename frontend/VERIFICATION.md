@@ -9,7 +9,8 @@ the permitted OpenFreeMap resources.
 ## October 16 final browser remediation — latest acceptance
 
 Session began approximately **04:45 EDT / 08:45 UTC**; browser evidence and final
-checks below were captured through **05:08 EDT / 09:08 UTC**. This is this session's
+checks below were captured through **05:08 EDT / 09:08 UTC**; the final remote
+side-effect audit at **05:12 EDT / 09:12 UTC** changed the push decision to BLOCK. This is this session's
 elapsed window, not an invented historical active-work total. The original roughly
 eight-hour budget and 6:45 feature freeze remain unchanged. Work stayed within
 bounded remediation and verification of the standalone DEMO frontend.
@@ -202,7 +203,7 @@ below exited **0**. npm commands ran in `frontend/`, Git commands at repo root.
 | Known sprites / unknown diagnostics | PASS — actual controlled pipeline check |
 | Rendered FPS; application transfer; interaction timings | PASS / MEASURED as above; basemap separate |
 | Automated tests; themes/palette/contrast; frontend-only scope/security | PASS |
-| Remote fast-forward / known deployment effects | PASS before commit — fetched remote is an ancestor; no known deployment trigger found |
+| Remote fast-forward / deployment effects | Fast-forward PASS; **push BLOCKED** by newly observed production-deployment integration below |
 
 No backend implementation/integration, new data clients, live AI, paid usage,
 credential access, deployment, destructive Git operation or unrelated file change.
@@ -215,21 +216,43 @@ timed three-minute rehearsal was collected.
 
 ### Commit, authorized push and recommendation
 
-**Frontend acceptance recommendation: APPROVE within the verified standalone scope.**
-All required remediation, browser, sprite, performance and automated gates above
-pass; no unresolved confirmed defect requires an owner waiver. The final commit
-is the commit containing this report. Its exact SHA, normal push result and fetched
-remote confirmation are recorded after Git execution in
-[Git outcome](verification-artifacts/final/git-outcome.txt) and the final handoff.
-The file is local ignored evidence, not another source change.
+**Final acceptance recommendation: BLOCK — production-deployment side-effect gate.**
+Frontend remediation, browser, sprite, performance and automated checks pass; no
+unresolved confirmed frontend defect needs an owner waiver. Corrections were
+committed as **6f33d405c7bd382b8ecda55c07e148aacbaf8c92**. A final refetch still found
+remote aa08a17, local ahead 2 / behind 0 and fast-forward eligible. **No push was
+attempted.** This subsequent documentation-only commit records the newly discovered
+blocker without amending or rewriting history. Exact final HEAD and remote state:
+[Git outcome](verification-artifacts/final/git-outcome.txt).
 
-Read-only GitHub inspection found zero Actions workflows, deployments or rulesets,
-no Pages site and no tracked hosting/deployment configuration. Webhook enumeration
-returned 404 without administrative scope; absence of every external hook cannot
-be certified. No known prohibited deployment side effect was found; no privileges
-or settings were changed. Only the already authorized single normal non-force push
-is eligible after final staged review and refetch. Any divergence stops that push.
-Frontend approval does not establish backend integration or production readiness.
+The initial read-only audit found zero deployments. A fresh pre-push audit found
+**one new production deployment attempt**, created during this session at
+**04:58:54 EDT / 08:58:54 UTC** by `fly-io[bot]`, for remote commit aa08a17 and app
+`swale-sw9tdw`. [GitHub deployment 7115068856](https://api.github.com/repos/devauntea/Swale/deployments/7115068856)
+reports task `deploy`, environment `production`; its status changed to `failure`
+at 04:59:18 EDT. The associated `fly-io` check suite completed with failure.
+[Fly deployment record](https://fly.io/apps/swale-sw9tdw/deployments/2177241).
+This establishes an active deployment integration, not a successful deployment or
+proof of its exact future trigger. Queued `vercel`, `supabase` and `claude` app
+check suites also exist for aa08a17; their trigger/execution settings are unverified.
+No account settings, deployment, billing or integration were changed by this task.
+
+The fresh audit still reports zero Actions workflows and rulesets, no Pages site
+(404), no tracked hosting configuration and no local pre-push hook. Those checks do
+not establish that external GitHub Apps will ignore a main push. Webhook settings
+remain unavailable without administrative scope. Because the owner's authorization
+explicitly excludes push-triggered deployment, a safe push condition can no longer
+be established from the evidence. **The single conditional push remains unused.**
+
+To unblock, the owner must establish that the connected Fly.io production app and
+other deployment integrations will not auto-deploy or perform a prohibited action
+on this main push (for example, disable their automatic main-branch deployment),
+or give separate explicit authorization changing the no-deployment constraint.
+Do not modify those services/settings under this frontend task. Then refetch,
+verify ancestry/settings and use the already authorized normal non-force push.
+No source reimplementation or repeated browser measurements are needed unless the
+source, environment or acceptance requirements change. Frontend verification does
+not establish backend integration or production readiness.
 
 ## Historical October 16 remediation after pushed aa08a17
 
