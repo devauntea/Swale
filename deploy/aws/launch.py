@@ -1,6 +1,6 @@
 """Launch Swale on AWS: one EC2 instance (nginx + FastAPI + embedded SurrealDB) behind a CloudFront HTTPS URL.
 
-Run from backend/:  uv run python ../deploy/aws/launch.py [launch|secrets|status|teardown]
+Run from backend/:  uv run python ../deploy/aws/launch.py [launch|secrets|update|status|teardown]
 Credentials come from backend/.env (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN, AWS_DEFAULT_REGION).
 The app's own keys are sent to the instance with SSM after boot; they are never put in user data.
 """
@@ -156,12 +156,29 @@ def secrets() -> None:
     e = env()
     s = session(e)
     iid = load_state()["instance_id"]
-    body = "\n".join([f"{k}={e[k]}" for k in APP_KEYS if e.get(k)] + ["AWS_REGION=us-east-1", "SWALE_DEV_MAP=1"])
+    body = "\n".join([f"{k}={e[k]}" for k in APP_KEYS if e.get(k)] + ["AWS_REGION=us-east-1", "SWALE_DEV_MAP=1", "SWALE_ALERT_MONITOR=1"])
     b64 = base64.b64encode(body.encode()).decode()
     r = ssm_run(s, iid, [f"echo {b64} | base64 -d > /opt/swale/backend/.env", "chown swale:swale /opt/swale/backend/.env",
                          "chmod 600 /opt/swale/backend/.env", "systemctl restart swale", "sleep 4", "systemctl is-active swale"],
                 "swale: write app keys")
     print("secrets:", r["Status"], r.get("StandardOutputContent", "").strip()[-200:], r.get("StandardErrorContent", "").strip()[-300:])
+
+
+def update() -> None:
+    """Pull the latest main onto the running instance, rebuild, refresh nginx and restart the API (data is kept)."""
+    e = env()
+    s = session(e)
+    iid = load_state()["instance_id"]
+    r = ssm_run(s, iid, [
+        "set -e",
+        "cd /opt/swale && sudo -u swale git fetch --depth 1 origin main && sudo -u swale git reset --hard origin/main",
+        "sudo -u swale bash -lc 'cd /opt/swale/frontend && npm ci --no-audit --no-fund && npm run build' > /tmp/swale-update.log 2>&1",
+        "sudo -u swale bash -lc 'cd /opt/swale/backend && uv sync --frozen' >> /tmp/swale-update.log 2>&1",
+        "cp /opt/swale/deploy/aws/nginx.conf /etc/nginx/conf.d/swale.conf && nginx -t && systemctl reload nginx",
+        "cd /opt/swale && git log -1 --format='deployed %h %s'",
+    ], "swale: update")
+    print("update:", r["Status"], r.get("StandardOutputContent", "").strip()[-400:], r.get("StandardErrorContent", "").strip()[-600:])
+    secrets()
 
 
 def status() -> None:
@@ -190,4 +207,4 @@ def teardown() -> None:
 
 
 if __name__ == "__main__":
-    {"launch": launch, "secrets": secrets, "status": status, "teardown": teardown}[sys.argv[1] if len(sys.argv) > 1 else "launch"]()
+    {"launch": launch, "secrets": secrets, "update": update, "status": status, "teardown": teardown}[sys.argv[1] if len(sys.argv) > 1 else "launch"]()
