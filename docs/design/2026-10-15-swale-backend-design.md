@@ -164,8 +164,8 @@ Each incident has a `verification` object:
 
 | Field | Holds |
 |---|---|
-| `status` | `agency_found_obstruction`, `agency_cleaned`, `agency_not_found`, `agency_functioning`, `capacity_surcharge`, `duplicate`, `referred`, `pending`, `none` (no resolution text yet), `unknown` (text matched no rule), or `unverified` (the agency has no rule set yet, e.g. DOT potholes in M1; the raw text is still kept) |
-| `knowledge_type` | `observed` for the four `agency_*` statuses and `capacity_surcharge`, because those are DEP field findings. `reported` for everything else. |
+| `status` | `agency_found_obstruction`, `agency_found_defect`, `agency_cleaned`, `agency_not_found`, `agency_functioning`, `capacity_surcharge`, `duplicate`, `referred`, `pending`, `no_inspection` (resolved by phone), `none` (no resolution text yet), `unknown` (text matched no rule), or `unverified` (the agency has no rule set yet, e.g. DOT potholes in M1; the raw text is still kept) |
+| `knowledge_type` | `observed` for the five `agency_*` statuses and `capacity_surcharge`, because those are DEP field findings. `reported` for everything else. |
 | `basis` | `dep_311_resolution`, or `null` when no rule set applies |
 | `rule` | e.g. `dep-res-obstruction-v1` |
 | `text` | The raw resolution text |

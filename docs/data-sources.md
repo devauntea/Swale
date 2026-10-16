@@ -83,21 +83,27 @@
   | `pothole` | Street Condition / Pothole |
   | `cave_in` | Street Condition / Cave-in |
 
-- **DEP resolution outcomes, version 1.** These strings are DEP's templated resolutions for Brooklyn catch-basin-clogged complaints since 2024-01-01; counts are in parentheses. The rules match a distinctive phrase, not the agency name. The real data contains both "Department of Environmental Protection" and the typo "Department of Environment Protection".
+- **DEP resolution outcomes, version 1** (`swale/ingest/resolutions_311.py`, rules `dep-res-*-v1`). Each rule matches the full distinguishing clause of a DEP template, ignoring case and whitespace. Counts are Brooklyn DEP complaints since 2024 for the clogged-basin, street-flooding and sewer-backup descriptors.
 
-  | `verification.status` | Matching phrase (count) |
-  |---|---|
-  | `agency_found_obstruction` | "found that debris was obstructing the catch basin" (1,947) |
-  | `agency_cleaned` | "inspected your complaint and cleaned the catch basin or inlet" (2,062) |
-  | `agency_not_found` | "could not find the problem you reported" (1,244) |
-  | `agency_functioning` | "determined that the catch basin is now functioning properly" (58) |
-  | `capacity_surcharge` | "Surcharge conditions have been confirmed due to rain intensity or volume" (17). Sewer capacity was exceeded; this is **not** a blockage. |
-  | `duplicate` | "previously reported by another customer" (596 + 49, two variants) |
-  | `referred` | "referred it to the Department of Transportation" (153); "referred it to another agency or utility" (28); "outside its jurisdiction" (16) |
-  | `pending` | "further investigation is required" (109) |
-  | `none` | no resolution text (106) |
-  | `unknown` | any other text. Kept raw and flagged for review. |
+  | `verification.status` | Rule | Matching phrase (count) |
+  |---|---|---|
+  | `agency_found_obstruction` | `obstruction` | "found that debris was obstructing the catch basin" (2,483) |
+  | `agency_found_obstruction` | `surcharge-grease` | "surcharge conditions have been confirmed and attributed to grease" (747): a **sewer blockage**, cleared by DEP |
+  | `agency_found_defect` | `surcharge-defect` | "…and is attributed to a defective sewer" (45) |
+  | `capacity_surcharge` | `surcharge-rain` | "…due to rain intensity or volume" (578): sewer capacity was exceeded; **not** a blockage |
+  | `agency_cleaned` | `cleaned` | "cleaned the catch basin or inlet" (2,227) |
+  | `agency_functioning` | `functioning` | "the catch basin is now functioning properly" (58) |
+  | `agency_not_found` | `not-found` | "could not find the problem you reported" (2,445) |
+  | `agency_not_found` | `no-city-backup` | "found there was no sewer back up in the city system" (3,157) |
+  | `agency_not_found` | `private-plumbing` | "there was no indication of a city sewer issue" (2,577): suspected private plumbing |
+  | `duplicate` | `duplicate` | "previously reported by another customer" (two template variants) |
+  | `referred` | `referred-dot`, `referred-other`, `jurisdiction` | referred to DOT, to another agency, or outside DEP's jurisdiction |
+  | `pending` | `pending` | "further investigation is required" |
+  | `no_inspection` | `phone` | "resolved this complaint by speaking to the complainant on the phone" (69) |
+  | `none` | none | no resolution text |
+  | `unknown` | none | any other text, or text matching rules that disagree; kept raw and counted in the ingest report |
 
+  The three "surcharge confirmed" templates mean different things, which is why no rule matches on "surcharge" alone.
 - **Status values** (Brooklyn `Sewer` and `Sewer Maintenance` since 2024): Closed 23,233; In Progress 516; Open 444; Started 351; Assigned 30.
 - **Missing coordinates:** 266 of 24,574 Brooklyn sewer complaints since 2024 (about 1.1%) have no latitude or longitude. They're stored but kept off map layers, and the ingest report counts them.
 - **Demo area, since 2020** (BK0601 bounding box, top descriptors):
