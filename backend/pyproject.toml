@@ -1,0 +1,38 @@
+[project]
+name = "swale"
+version = "0.1.0"
+description = "Swale backend: Brooklyn flood-intelligence data pipelines, simulation and API"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "anthropic[bedrock]>=1.15.0",
+    "arize-otel>=0.14.1",
+    "daytona>=0.224.1",
+    "fastapi>=0.143.2",
+    "httpx>=0.28.1",
+    "pyogrio>=0.13.0",
+    "pyproj>=3.8.0",
+    "shapely>=2.2.0",
+    "surrealdb==2.0.0",
+    "swmm-toolkit==0.17.0",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+swale = "swale.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["swale"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -m 'not live'"
+markers = ["live: calls real external APIs; run with -m live"]

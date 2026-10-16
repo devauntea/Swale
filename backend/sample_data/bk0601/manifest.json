@@ -1,0 +1,65 @@
+{
+  "area_code": "BK0601",
+  "fetched_at": "2026-10-16T05:30:00Z",
+  "since": "2020-01-01",
+  "bbox": [
+    -74.01995197798658,
+    40.66456833578927,
+    -73.97961680019212,
+    40.692549071104274
+  ],
+  "note": "Rows exactly as served by NYC Open Data (Socrata), unmodified.",
+  "sources": {
+    "nyc_nta_2020": {
+      "dataset": "9nt8-h7nd",
+      "file": "area.json.gz",
+      "rows": 1,
+      "dataset_updated_at": "2026-05-28T15:11:19Z",
+      "requests": [
+        "https://data.cityofnewyork.us/resource/9nt8-h7nd.json?%24limit=5000&%24offset=0&%24order=%3Aid&%24where=nta2020+%3D+%27BK0601%27",
+        "https://data.cityofnewyork.us/api/views/9nt8-h7nd.json"
+      ]
+    },
+    "nyc_catch_basins": {
+      "dataset": "2w2g-fk3i",
+      "file": "catch_basins.json.gz",
+      "rows": 2093,
+      "dataset_updated_at": "2025-12-18T16:29:33Z",
+      "requests": [
+        "https://data.cityofnewyork.us/resource/2w2g-fk3i.json?%24limit=5000&%24offset=0&%24order=%3Aid&%24where=within_box%28the_geom%2C+40.692549071104274%2C+-74.01995197798658%2C+40.66456833578927%2C+-73.97961680019212%29",
+        "https://data.cityofnewyork.us/api/views/2w2g-fk3i.json"
+      ]
+    },
+    "nyc311": {
+      "dataset": "erm2-nwe9",
+      "file": "nyc311.json.gz",
+      "rows": 7472,
+      "dataset_updated_at": "2026-10-16T01:37:53Z",
+      "requests": [
+        "https://data.cityofnewyork.us/resource/erm2-nwe9.json?%24limit=5000&%24offset=0&%24order=%3Aid&%24where=within_box%28location%2C+40.692549071104274%2C+-74.01995197798658%2C+40.66456833578927%2C+-73.97961680019212%29+AND+created_date+%3E%3D+%272020-01-01T00%3A00%3A00%27+AND+%28complaint_type+in%28%27Sewer%27%2C%27Sewer+Maintenance%27%29+OR+%28complaint_type+%3D+%27Industrial+Waste%27+AND+descriptor+in%28%27Concrete+In+Catch+Basin+%28IEA%29%27%2C%27Wastewater+Into+Catch+Basin+%28IEB%29%27%2C%27Grease+In+Sewer%2FCatch+Basin+%28IDG%29%27%29%29+OR+%28complaint_type+%3D+%27Street+Condition%27+AND+descriptor+in%28%27Pothole%27%2C%27Cave-in%27%29%29%29",
+        "https://data.cityofnewyork.us/resource/erm2-nwe9.json?%24limit=5000&%24offset=5000&%24order=%3Aid&%24where=within_box%28location%2C+40.692549071104274%2C+-74.01995197798658%2C+40.66456833578927%2C+-73.97961680019212%29+AND+created_date+%3E%3D+%272020-01-01T00%3A00%3A00%27+AND+%28complaint_type+in%28%27Sewer%27%2C%27Sewer+Maintenance%27%29+OR+%28complaint_type+%3D+%27Industrial+Waste%27+AND+descriptor+in%28%27Concrete+In+Catch+Basin+%28IEA%29%27%2C%27Wastewater+Into+Catch+Basin+%28IEB%29%27%2C%27Grease+In+Sewer%2FCatch+Basin+%28IDG%29%27%29%29+OR+%28complaint_type+%3D+%27Street+Condition%27+AND+descriptor+in%28%27Pothole%27%2C%27Cave-in%27%29%29%29",
+        "https://data.cityofnewyork.us/api/views/erm2-nwe9.json"
+      ]
+    },
+    "floodnet_sensors": {
+      "dataset": "kb2e-tjy3",
+      "file": "floodnet_sensors.json.gz",
+      "rows": 17,
+      "dataset_updated_at": "2026-10-15T13:00:37Z",
+      "requests": [
+        "https://data.cityofnewyork.us/resource/kb2e-tjy3.json?%24limit=5000&%24offset=0&%24order=%3Aid&%24where=within_box%28location%2C+40.692549071104274%2C+-74.01995197798658%2C+40.66456833578927%2C+-73.97961680019212%29",
+        "https://data.cityofnewyork.us/api/views/kb2e-tjy3.json"
+      ]
+    },
+    "floodnet_events": {
+      "dataset": "aq7i-eu5q",
+      "file": "floodnet_events.json.gz",
+      "rows": 83,
+      "dataset_updated_at": "2026-10-15T13:00:23Z",
+      "requests": [
+        "https://data.cityofnewyork.us/resource/aq7i-eu5q.json?%24limit=5000&%24offset=0&%24order=%3Aid&%24where=sensor_id+in%28%27BK-3rd-ave-bergen-st-2jg440%27%2C%27BK-4th-av-garfield-pl-0erv80%27%2C%27BK-9th-st-smith-st-0etvg0%27%2C%27BK-9th-st-smith-st-0mlfc0%27%2C%27BK-carroll-st-4th-av-0ery00%27%2C%27BK-columbia-st-bay-st-0pzkk0%27%2C%27BK-dwight-st-king-st-0pznc0%27%2C%27BK-fulton-st-dekalb-ave-1zmfzc%27%2C%27BK-henry-st-mill-st-0pzq40%27%2C%27BK-hoyt-st-5th-st-007sk0%27%2C%27BK-lorraine-st-henry-st-0pzsw0%27%2C%27BK-pioneer-st-conover-st-0pzvo0%27%2C%27BK-pioneer-st-richards-st-2zae5o%27%2C%27BK-richards-st-coffey-st-2zaee0%27%2C%27BK-union-st-3rd-ave-2zadgo%27%2C%27BK-van-brunt-st-reed-st-0pzyg0%27%2C%27BK-van-brunt-st-reed-st-2zaf4o%27%29",
+        "https://data.cityofnewyork.us/api/views/aq7i-eu5q.json"
+      ]
+    }
+  }
+}

@@ -1,11 +1,33 @@
-node_modules/
-dist/
+# Credentials: only nonsecret examples may be tracked.
 .env
 .env.*
 !.env.example
 *.local
+
+# Frontend dependencies, builds and generated verification evidence.
+node_modules/
+dist/
 coverage/
 .vite/
-.DS_Store
 frontend/verification-artifacts/
 data/raw/
+
+# Python environments, caches and generated package metadata.
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/
+
+# Local databases, runtime artifacts and logs.
+backend/var/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.log
+
+# Unrelated editor and local tooling state.
+.vscode/
+.claude/
+.DS_Store
