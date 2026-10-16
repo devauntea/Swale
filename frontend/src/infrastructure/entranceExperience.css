@@ -1,0 +1,166 @@
+.entrance-experience {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 9px;
+  padding: 13px;
+  margin-bottom: 14px;
+  font-size: 11px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.entrance-experience h3 {
+  margin: 7px 0;
+  font-size: 18px;
+  letter-spacing: -0.03em;
+}
+.entrance-experience label {
+  display: block;
+  font-weight: 650;
+  margin: 9px 0 4px;
+}
+.entrance-experience select,
+.entrance-experience input[type="number"] {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 8px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+}
+.entrance-experience button {
+  cursor: pointer;
+  min-height: 34px;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  background: var(--surface);
+  font: inherit;
+  line-height: 1.35;
+}
+.entrance-experience button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.entrance-experience button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.entrance-experience :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.entrance-source-id {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+.entrance-journey,
+.entrance-tabs,
+.what-if-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 10px 0;
+}
+.entrance-journey button {
+  flex: 1 1 40%;
+}
+.entrance-tabs {
+  border-top: 1px solid var(--border);
+  padding-top: 11px;
+}
+.entrance-tabs button {
+  flex: 1 1 40%;
+}
+.entrance-tabs button:last-child {
+  flex-basis: 100%;
+  font-weight: 700;
+}
+.entrance-experience details {
+  margin: 10px 0;
+}
+.entrance-experience summary {
+  cursor: pointer;
+  font-weight: 650;
+}
+.entrance-experience ul {
+  padding-left: 17px;
+}
+.what-if-panel {
+  border-left: 3px solid var(--accent);
+  padding-left: 10px;
+}
+.what-if-panel > strong {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+.what-if-inputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px 8px;
+}
+.what-if-inputs label {
+  font-size: 10px;
+}
+.what-if-panel input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.what-if-results {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.what-if-results caption {
+  text-align: left;
+  margin: 9px 0 4px;
+}
+.what-if-results th,
+.what-if-results td {
+  text-align: right;
+  padding: 5px 3px;
+  border-bottom: 1px solid var(--border);
+}
+.what-if-results th:first-child {
+  text-align: left;
+}
+[data-evidence-view="current"] .station-evidence-history,
+[data-evidence-view="history"] .station-evidence-current {
+  display: none;
+}
+@media (max-width: 640px) {
+  .what-if-inputs {
+    grid-template-columns: 1fr;
+  }
+}
+
+.entrance-map-badge {
+  position: absolute;
+  left: 50%;
+  bottom: 65px;
+  transform: translateX(-50%);
+  width: min(430px, calc(100% - 30px));
+  box-sizing: border-box;
+  padding: 10px 13px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  box-shadow: var(--shadow-small);
+  pointer-events: none;
+  font-size: 11px;
+  line-height: 1.5;
+  z-index: 2;
+}
+.entrance-map-badge strong,
+.entrance-map-badge span {
+  display: block;
+}
+.entrance-map-badge strong {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}

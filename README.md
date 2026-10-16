@@ -10,6 +10,49 @@ Read the [current runbook](docs/LOCAL_INTEGRATION.md),
 [next-feature handoff](docs/NEXT_FEATURE_HANDOFF.md). Publishing source and
 successfully deploying a hosted app are separate outcomes.
 
+This feature branch adds [schematic subway infrastructure exploration](docs/SUBWAY_INFRASTRUCTURE.md).
+The current feature handoff takes precedence for its build and verification state.
+It is a local candidate, separate from published main; backend code and the
+operational database remain owned by the existing main runtime.
+
+## Subway infrastructure candidate
+
+From this worktree, keep the existing main backend/broker running, then start:
+
+```sh
+cd frontend
+npm run dev -- --port 5183
+```
+
+Open **http://127.0.0.1:5183/**. Choose Backend / snapshot + transit → Subway
+monitoring. Explore infrastructure from a station inspector, or browse the static
+station index. X-ray reveals assumed underground geometry; Surface view restores
+ordinary occlusion. Static geometry does not enlarge the backend’s live coverage.
+Pause any other live board tab before activating this one.
+
+The source builder, pinned isolated geospatial requirements, offline-cache workflow,
+model QA and supplementary viewer are documented in
+[tools/mta-model](tools/mta-model/README.md). Full GLB/raw data are local ignored
+outputs; generated bounded map assets are distributed under
+`frontend/public/infrastructure/`. No GIS acquisition occurs in the browser.
+Do not run the geometry builder against the application database.
+
+The supplementary export viewer uses pinned Three.js0.186.1, solely to inspect the
+full local GLB. Its official Khronos glTF validator is pinned2.0.0-dev.3.10.
+Neither package enters the main frontend or backend dependency environment.
+Package lifecycle scripts were reviewed and disabled during installation.
+
+```sh
+cd tools/mta-model/viewer
+npm ci --ignore-scripts
+node ../../../frontend/node_modules/vite/bin/vite.js build --config vite.config.js
+node validate.mjs ../output/brooklyn_mta.glb ../output/gltf_validation.json
+```
+
+Serve `tools/mta-model/output/` using an ordinary loopback-only static HTTP server
+to open its `index.html`; the model must be built first. The independent viewer is
+an export/debugging tool; the primary journey is inside Swale’s existing map.
+
 ## Run locally
 
 The tested platform is macOS with `sandbox-exec`, Python 3.12, Node >=22.12.0,

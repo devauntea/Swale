@@ -1,0 +1,115 @@
+.infrastructure-controls select,
+.infrastructure-controls input[type="search"] {
+  width: 100%;
+  min-width: 0;
+  margin: 5px 0 10px;
+  padding: 9px 8px;
+  color: var(--sidebar-text);
+  background: var(--sidebar-elevated);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 5px;
+  font: inherit;
+  font-size: 11px;
+}
+.infrastructure-controls select option {
+  color: var(--sidebar-text);
+  background: var(--sidebar-elevated);
+}
+.infrastructure-tag {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.infrastructure-controls .section-heading {
+  flex-wrap: wrap;
+}
+.infrastructure-mode {
+  display: flex;
+  gap: 6px;
+  margin: 9px 0;
+}
+.infrastructure-mode button {
+  flex: 1;
+}
+.infrastructure-mode button[aria-pressed="true"] {
+  border-color: var(--sidebar-accent);
+  background: var(--sidebar-selected);
+}
+.infrastructure-explore {
+  width: 100%;
+}
+.infrastructure-visibility {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px 5px;
+  margin: 14px 0;
+  font-size: 11px;
+}
+.infrastructure-visibility label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.infrastructure-controls input[type="range"] {
+  width: 100%;
+  accent-color: var(--sidebar-accent);
+  margin: 10px 0;
+}
+.infrastructure-controls input[type="checkbox"] {
+  accent-color: var(--sidebar-accent);
+}
+.infrastructure-inspection {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  margin-bottom: 16px;
+  overflow-wrap: anywhere;
+}
+.infrastructure-inspection h3 {
+  margin: 9px 0;
+  font-size: 16px;
+}
+.infrastructure-inspection h4 {
+  text-transform: capitalize;
+}
+.infrastructure-geometry-inspector {
+  overflow: auto;
+  max-height: calc(100dvh - 140px);
+  padding: 16px;
+}
+.infrastructure-geometry-inspector .infrastructure-inspection {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.infrastructure-controls :focus-visible {
+  outline: 2px solid var(--sidebar-accent);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .infrastructure-controls *,
+  .infrastructure-inspection * {
+    transition: none;
+    animation: none;
+  }
+}
+.infrastructure-controls button,
+.infrastructure-entry button {
+  min-height: 32px;
+  padding: 8px 9px;
+  color: var(--sidebar-text);
+  background: var(--sidebar-elevated);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 5px;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.infrastructure-entry .infrastructure-explore {
+  margin-top: 10px;
+}
+.infrastructure-controls a {
+  color: var(--sidebar-accent);
+  text-underline-offset: 3px;
+}

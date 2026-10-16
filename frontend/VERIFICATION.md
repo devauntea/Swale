@@ -1,3 +1,121 @@
+# Detailed entrance and local what-if verification — October 16, 2026
+
+**Latest local frontend increment; inherited model/source limitations remain.**
+Source-linked entrance inspection, individual schematic stairs, separated evidence,
+and the explicit local storage-balance what-if are implemented in the existing
+map/overlay. This does not measure current interior water, predict actual station
+flooding, or run backend SWMM. The detailed E1–E12 matrix, runtime identities, final
+code SHA and local handoff are in
+[SUBWAY_INFRASTRUCTURE.md](../docs/SUBWAY_INFRASTRUCTURE.md); equations, geometry,
+source-versus-assumption boundaries and reproduction commands are in
+[STATION_FLOOD_WHAT_IF.md](../docs/STATION_FLOOD_WHAT_IF.md).
+
+Fresh final checks: **245 frontend tests / 26 files**, strict TypeScript, production
+build, lint and formatting passed. **19 offline model/publication tests** and the
+cached entrance-catalog check passed. No frontend dependency, lockfile, guarded
+proxy, backend source/schema, main branch or database-ownership change is part of
+this increment. The canonical GLB/index and inherited I1–I14 findings remain
+separate; I4/I7 failures, uncalibrated anchors, missing ground references and three
+unmatched entrances are not repaired or relabelled by this feature.
+
+Browser evidence includes the F21 source-linked street entrance and individually
+visible stairs/rails/landings; explicitly hypothetical water, comparison/reset;
+and the distinct upward F22 Station House control case. Both themes and persisted
+preferences were observed. Source-selector focus/scroll behavior was corrected
+after actual browser observation, with A → B → A reset/focus regression coverage.
+Fresh-storage first-visit appearance is **NOT_RUN** for this increment. Keyboard,
+reduced-motion and narrow-view observations, and their exact limits, belong to the
+E-series report; automated presentation/lifecycle tests do not substitute for
+visual acceptance. There is no full continuous walkthrough recording.
+
+The final optimized production capture measured **35 unique native compositor
+DrawFrame sequences / 650 ms = 53.8462 frames/s** during the requested stairwell
+camera transition with detailed entrance and hypothetical water active. Gap median
+was **15.740 ms**, p95 **33.0577 ms**, maximum **81.406 ms**, with one gap over 50 ms.
+Handler-end window sensitivity was **52.3077 frames/s**. This representative sample
+passes the >=30 target while retaining the observed stutter; it is not physical
+display cadence or GPU-completion proof. Native EventTiming to subsequent
+presentation measured Run **48.388 ms**, stairwell camera **46.365 ms**, theme
+**124.727 ms**, and assistant opening **39.614 ms**. These are single interaction
+samples, not animation durations or universal latency guarantees.
+
+The prior `b0ac196` production sample remains a recorded **FAIL** against the
+>=30 target: **29.2308 frames/s**, maximum gap **126.358 ms**. Reusing one Intl
+formatter and caching immutable static entrance layer data preceded the new
+capture. Older passing traces also remain historical; none substitutes for the
+optimized candidate's result. Small geometry/model/control modules are initial
+application code, while generated detail assets and renderer remain on demand.
+
+Fresh production initial application traffic was **835,899 transferred bytes**,
+**832,299 encoded body bytes**, **3,047,379 decoded body bytes**, across **12
+requests including navigation and the worker**; **0 initial infrastructure asset
+requests**. API and basemap traffic are separate. Seven basemap requests exposed
+zero ResourceTiming sizes without transfer visibility, so their wire bytes are
+**UNKNOWN**, not zero traffic. The separate resource observation was CSS
+**1636 × 896**, DPR **2.2**; no contemporaneous native compositor viewport proof is
+claimed from that DOM sample. The static cache is JavaScript ownership evidence,
+not measured GPU memory.
+
+Exact ignored evidence under `frontend/verification-artifacts/entrance/`:
+`optimized-native-trace.json`, `optimized-native-trace-analysis.json`, and
+`optimized-initial-resource-timing.json`, alongside retained earlier traces and
+before/after screenshots. Final console query returned `[]`; capture completeness
+is not established. A newly encountered owned font warning was corrected and
+rechecked. Historical Liberty sprite/filter diagnostics remain preserved: this is
+not a fresh all-basemap-resource pass. Same-tab backend outage recovery and actual
+GPU memory remain **NOT_RUN**. Unchanged backend/helper historical test results are
+retained rather than reported as freshly rerun.
+
+Three final assistant open/Escape cycles each retained exactly one canvas, selected
+entrance `row-y4aj-tepy-nbif`, paused600 s scenario and launcher focus return;
+`repeated-assistant-checks.json` records these observations. Quantitative repeated
+explorer open/close resource-growth measurement remains **NOT_RUN**.
+
+---
+
+# Historical subway infrastructure candidate verification — October 16, 2026
+
+**CONDITIONAL — actual in-map exploration verified; model/source gaps remain.**
+Feature implementation `6b6265e`, isolated from unchanged published main `4db8f26`.
+Full current I1–I14 table, limitations, artifacts, runtime and handoff are in
+[SUBWAY_INFRASTRUCTURE.md](../docs/SUBWAY_INFRASTRUCTURE.md). Historical evidence
+below remains historical and is not relabeled as a fresh feature measurement.
+
+Fresh final checks: **188 frontend tests /20 files**, **16 model tests**, strict
+TypeScript/build/lint/format pass. All 169 actual generated chunks pass frontend
+schemas/budgets. Two cached full GLB/index builds and all final chunks reproduce.
+Official Khronos validator: 0 errors / 0 warnings; browser GLTFLoader: 6,345 meshes.
+I4 remains FAIL (614 gradient diagnostics), I7 FAIL (79 eligible associations with gaps),
+A1/A2 and absolute-ground completeness NOT_RUN. No surveyed-depth claim.
+
+Original Chrome verified ordinary station pointer → Explore → F21 underground
+X-ray/individual picking → matching live board → Return, plus F22 platform/deck/piers,
+source entrances, geometry-only D43, in-place themes and keyboard/reduced motion.
+One canvas remained. Real same-tab index 404→Retry recovered without reload; this
+is static-asset recovery, not new same-tab backend outage evidence. Context-loss
+Retry/cancellation/stale selection/cache caps have meaningful isolated tests.
+
+Native final production initial application: **822,113 transferred bytes /12 requests**,
+0 initial model requests; on-demand index+renderer+F21: 20,973 transferred bytes,
+106.9 ms network span (not click-to-visible). Separate API sample 25 requests / 697,535 bytes.
+Basemap wire bytes and actual GPU memory are NOT_RUN. Final native renderer Compositor
+DrawFrame: 45 unique sequences / 650 ms = **69.2308 frames/s**; gap median 13.202 ms,
+p95 19.1092 ms, max 67.845 ms (one >50 ms). Actual viewport 2038×1972 native; exact concurrent
+CSS/DPR unknown. EventTiming theme 94.890 ms, assistant 64.788 ms; no physical-display or
+GPU-completion certification. Fresh scenario latency and Escape next-paint NOT_RUN.
+Earlier slice capture lacks literal DrawFrame and does not substitute for this pass.
+
+Ignored local evidence lives in `verification-artifacts/subway/`, including native
+trace/analysis, transfer summaries, screenshots and a final console API query with
+no entries (capture completeness unestablished). Historical Liberty diagnostics
+remain below; no universal clean-console/resource claim. Existing main backend/helper
+suites are unchanged retained baselines, not rerun. Frontend manifest/lock, Vite
+proxy/envDir, backend source, runtime helpers and database ownership are preserved.
+Temporary 4183/8783 servers are stopped; final feature preview stays on loopback5183.
+No remote write, credential access, merge or deployment occurred.
+
+---
+
 # Final integration publication candidate — October 16, 2026
 
 **Latest additive checkpoint: main-backed localhost verified; final publication
