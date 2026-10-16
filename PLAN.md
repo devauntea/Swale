@@ -159,3 +159,16 @@ The historical FastAPI/DuckDB/GIS/scoring/OpenAI requirements are future partner
 responsibilities, not removed product goals. Agreement on schema/API/auth/error
 semantics, verified data, accurate unit/CRS/time handling and separate owner approval
 precede integration. No such code/service is created in this phase.
+
+## Implementation outcome
+
+The standalone frontend modules and fixture-driven UI are implemented. Strict
+TypeScript, production build and 59 local tests pass. Actual Chrome observations
+verified the basemap, architectural 3D view, scenario metadata/predefined-value
+changes and independent building visibility. The captured screenshot is retained
+as `frontend/docs/swale-demo.png`. Browser access was then declined and all
+subsequent browser activity stopped. Remaining UI flows, final camera/readability
+changes and performance targets have not been browser-verified. See
+`frontend/VERIFICATION.md` for exact tested scope, warnings and blocked checks.
+No claim of complete end-to-end frontend acceptance or integrated-app completion
+is made. Demo walkthrough prepared in `frontend/DEMO.md`; recording/rehearsal pending.

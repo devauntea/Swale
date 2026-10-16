@@ -27,7 +27,7 @@ last valid UI snapshot or reset camera/selection unexpectedly.
 | FloodZoneFeature | GeoJSON Polygon/MultiPolygon, scenario ID, supported class/category, provenance and demo indicator |
 | DrainageComplaint | Stable ID, raw category pair, valid WGS84 position or explicit missing-location exclusion, created time with known offset semantics, recent/historical window, provenance |
 | ComplaintDensityCell | Precomputed hexagonal GeoJSON Polygon, count/category/window, source and geometry semantics; not measured physical blockage |
-| BuildingFeature | Polygon/MultiPolygon with finite positive height/base in meters, provenance, coverage and excluded-value explanation |
+| BuildingFeature | Polygon/MultiPolygon with finite positive height and nonnegative base in meters, provenance, coverage and excluded-value explanation |
 | RainfallForecast | Nullable accumulated amount/unit, explicit start/end, issue/retrieval times, availability and freshness; never substitute probability for depth |
 | DataProvenance | Source ID/name/link if applicable, approved data type, demo flag, source update/issue and retrieval times kept separately, coverage/uncertainty |
 | DataFreshness | Availability/status, applicable period, nullable timestamps, staleness/error reason; absent source time is unknown |
@@ -43,7 +43,7 @@ results; frontend only formats and presents them. No production scoring here.
 
 - Geographic positions: WGS84 [longitude, latitude] degrees, GeoJSON order. Never
   treat degrees as meters. No invented administrative neighborhood boundaries.
-- Heights/base heights: meters above local ground after partner verification and
+- Heights/base heights: meters above local ground, finite height > 0 and 0 <= base <= height, after partner verification and
   conversion. NYC height_roof already means relative above-ground height; do not
   subtract ground_elevation. Invalid/missing/implausible heights are excluded or
   flagged, never replaced silently. Current frontend uses basemap building data.
@@ -111,3 +111,13 @@ refresh semantics, source coverage, scenario identity and authenticated transpor
 if required. Then validate actual partner outputs with contract tests, verify
 source metadata/IDs and repeat visual/security/performance checks. Do not assume
 that a working local frontend establishes the future system's scientific validity.
+
+## Current demo types versus future extensions
+
+The current `FloodZoneFeature` intentionally accepts only `demo-zone` geometry.
+Production category 1/2 and verified source metadata must be agreed in a versioned
+contract extension; category 3 remains excluded from stormwater. `ScoreFactor`
+currently carries the normalized value, weight, score-point contribution and
+provenance/explanation. Production physical units, normalization references and
+source validity windows are proposed future fields requiring partner agreement,
+not implemented transport fields. No production adapter is supplied.

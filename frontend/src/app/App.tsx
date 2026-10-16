@@ -1,0 +1,341 @@
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useState,
+} from "react";
+import {
+  LocalFixtureProvider,
+  type LocalFixtureOptions,
+} from "../data/providers/LocalFixtureProvider";
+import type { DemoAssistantReply, DemoSnapshot, ScenarioId } from "../types";
+import { appReducer, createInitialState, validateUIAction } from "./state";
+import { runDemoAssistant } from "./demoAssistant";
+import { ControlSidebar } from "../components/sidebar/ControlSidebar";
+import { SourcesPanel } from "../components/sidebar/SourcesPanel";
+import { BasinInspector } from "../components/inspector/BasinInspector";
+import { AssistantPanel } from "../components/assistant/AssistantPanel";
+import { MapLegend } from "../components/controls/MapLegend";
+import { Icon } from "../components/controls/Icon";
+
+const SwaleMap = lazy(() => import("../map/SwaleMap"));
+
+const DEFAULT_SETTINGS: Required<LocalFixtureOptions> = {
+  mode: "ready",
+  forecastState: "available",
+};
+export function App() {
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const provider = useMemo(
+    () => new LocalFixtureProvider(settings),
+    [settings],
+  );
+  const [snapshot, setSnapshot] = useState<DemoSnapshot | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    provider
+      .load()
+      .then((data) => {
+        if (active) setSnapshot(data);
+      })
+      .catch((cause) => {
+        if (active)
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "Local examples could not load.",
+          );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [provider]);
+  if (!snapshot)
+    return (
+      <main className="initial-loading">
+        <img src="/swale.svg" alt="" />
+        <h1>Swale</h1>
+        <p role="status">
+          {error || "Opening the Brooklyn demonstration workspace…"}
+        </p>
+        {error && (
+          <button onClick={() => setSettings({ ...DEFAULT_SETTINGS })}>
+            Reload local examples
+          </button>
+        )}
+        <span>STANDALONE FRONTEND · SYNTHETIC EXAMPLES</span>
+      </main>
+    );
+  return (
+    <Workspace
+      snapshot={snapshot}
+      onSnapshot={setSnapshot}
+      provider={provider}
+      loading={loading}
+      error={error}
+      settings={settings}
+      onSettings={setSettings}
+    />
+  );
+}
+function Workspace({
+  snapshot,
+  onSnapshot,
+  provider,
+  loading,
+  error,
+  settings,
+  onSettings,
+}: {
+  snapshot: DemoSnapshot;
+  onSnapshot: (snapshot: DemoSnapshot) => void;
+  provider: LocalFixtureProvider;
+  loading: boolean;
+  error: string;
+  settings: Required<LocalFixtureOptions>;
+  onSettings: (settings: Required<LocalFixtureOptions>) => void;
+}) {
+  const [state, dispatch] = useReducer(
+    appReducer,
+    snapshot,
+    createInitialState,
+  );
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState("");
+  const [complaintId, setComplaintId] = useState<string | null>(null);
+  useEffect(() => {
+    dispatch({ type: "replace_snapshot", snapshot });
+  }, [snapshot]);
+  const selectBasin = useCallback((id: string) => {
+    dispatch({ type: "select_basin", id });
+  }, []);
+  const onQueueSelect = (id: string) => {
+    selectBasin(id);
+    dispatch({ type: "fly_to", targetId: id });
+  };
+  const basin = snapshot.basins.find((b) => b.id === state.selectedBasinId);
+  const complaint = snapshot.complaints.find((c) => c.id === complaintId);
+  const refresh = async () => {
+    setRefreshing(true);
+    setRefreshMessage("Reloading local examples…");
+    try {
+      const result = await provider.refresh();
+      onSnapshot(result.snapshot);
+      setRefreshMessage(result.message);
+    } catch {
+      setRefreshMessage(
+        "Local example reload failed. Last valid workspace retained; no live request was made.",
+      );
+    } finally {
+      setRefreshing(false);
+    }
+  };
+  const runAssistant = (text: string): DemoAssistantReply => {
+    const reply = runDemoAssistant(text, snapshot, state);
+    const checked = reply.actions.map((action) =>
+      validateUIAction(action, snapshot),
+    );
+    if (checked.some((result) => !result.valid))
+      throw new Error("Invalid local map command.");
+    for (const result of checked) {
+      if (!result.valid) continue;
+      const action = result.action;
+      switch (action.name) {
+        case "set_scenario":
+          dispatch({ type: "set_scenario", scenarioId: action.arguments.name });
+          break;
+        case "set_layers":
+          dispatch({
+            type: "set_layers",
+            visibility: action.arguments.visibility,
+          });
+          break;
+        case "highlight":
+          dispatch({ type: "highlight", ids: action.arguments.ids });
+          break;
+        case "fly_to":
+          dispatch({ type: "fly_to", targetId: action.arguments.target });
+          break;
+      }
+    }
+    return reply;
+  };
+  return (
+    <main className={`workspace ${assistantOpen ? "assistant-is-open" : ""}`}>
+      <Suspense
+        fallback={
+          <div className="map-status" role="status">
+            <span className="loading-orbit" />
+            <strong>Preparing the city model</strong>
+          </div>
+        }
+      >
+        <SwaleMap
+          snapshot={snapshot}
+          scenarioId={state.scenarioId}
+          layers={state.layers}
+          selectedBasinId={state.selectedBasinId}
+          highlightedIds={state.highlightedIds}
+          cameraRequest={state.cameraRequest}
+          onSelectBasin={selectBasin}
+          onSelectComplaint={setComplaintId}
+          onReady={setMapReady}
+        />
+      </Suspense>
+      <div className="workspace-topbar">
+        <div className="workspace-breadcrumb">
+          <Icon name="pin" size={15} />
+          <strong>Brooklyn, New York</strong>
+          <span>/</span>
+          <span>Stormwater planning</span>
+        </div>
+        <span className="workspace-readiness">
+          <i className={mapReady ? "ready" : ""} />
+          {mapReady ? "BASEMAP READY" : "LOADING BASEMAP"}
+        </span>
+      </div>
+      <ControlSidebar
+        snapshot={snapshot}
+        scenarioId={state.scenarioId}
+        layers={state.layers}
+        selectedBasinId={state.selectedBasinId}
+        navigationTargetId={state.cameraRequest.targetId}
+        refreshing={refreshing || loading}
+        refreshMessage={refreshMessage}
+        onScenario={(scenarioId: ScenarioId) =>
+          dispatch({ type: "set_scenario", scenarioId })
+        }
+        onLayer={(key) =>
+          dispatch({
+            type: "set_layers",
+            visibility: { [key]: !state.layers[key] },
+          })
+        }
+        onNavigate={(targetId) => dispatch({ type: "fly_to", targetId })}
+        onSelect={onQueueSelect}
+        onRefresh={() => void refresh()}
+        onSources={() => setSourcesOpen((v) => !v)}
+      />
+      <div className="inspector-position">
+        <BasinInspector
+          basin={basin}
+          snapshot={snapshot}
+          scenarioId={state.scenarioId}
+          hiddenLayer={!state.layers.basins}
+          onFocus={() =>
+            basin && dispatch({ type: "fly_to", targetId: basin.id })
+          }
+          onClose={() => dispatch({ type: "select_basin", id: null })}
+        />
+      </div>
+      <div className="map-context-heading">
+        <span className="eyebrow">BROOKLYN / FOCUS AREA</span>
+        <h2>
+          Understand the landscape.
+          <br />
+          <span>Inspect with context.</span>
+        </h2>
+        <p>Explore illustrative infrastructure priorities.</p>
+      </div>
+      <MapLegend
+        snapshot={snapshot}
+        layers={state.layers}
+        scenarioId={state.scenarioId}
+      />
+      {snapshot.basins.length === 0 && (
+        <div className="workspace-banner" role="status">
+          <Icon name="info" />
+          <span>
+            No infrastructure examples loaded. The basemap remains available.
+          </span>
+          <button onClick={() => onSettings({ ...settings, mode: "ready" })}>
+            Restore examples
+          </button>
+        </div>
+      )}
+      {error && (
+        <div className="workspace-banner workspace-error" role="alert">
+          <Icon name="info" />
+          <span>{error} Last valid workspace retained.</span>
+          <button onClick={() => onSettings({ ...settings, mode: "ready" })}>
+            Restore examples
+          </button>
+        </div>
+      )}
+      {complaint && (
+        <div className="complaint-detail" role="status">
+          <button
+            className="icon-button"
+            aria-label="Close complaint example"
+            onClick={() => setComplaintId(null)}
+          >
+            <Icon name="close" size={14} />
+          </button>
+          <span className="demo-label">DEMO / HISTORICAL</span>
+          <strong>{complaint.descriptor}</strong>
+          <p>
+            {complaint.complaintType} · {complaint.id}
+          </p>
+          <small>{complaint.createdAt} · Local synthetic fixture</small>
+        </div>
+      )}
+      {sourcesOpen && (
+        <SourcesPanel
+          snapshot={snapshot}
+          settings={settings}
+          onSettings={onSettings}
+          onClose={() => setSourcesOpen(false)}
+        />
+      )}
+      <AssistantPanel
+        open={assistantOpen}
+        snapshot={snapshot}
+        scenarioId={state.scenarioId}
+        selectedBasinId={state.selectedBasinId}
+        onClose={() => setAssistantOpen(false)}
+        onSubmit={runAssistant}
+        onSelect={onQueueSelect}
+      />
+      <button
+        className={`assistant-launcher ${assistantOpen ? "is-open" : ""}`}
+        onClick={() => setAssistantOpen((v) => !v)}
+        aria-expanded={assistantOpen}
+        aria-label={
+          assistantOpen ? "Close Swale assistant" : "Open Swale assistant"
+        }
+      >
+        <span className="launcher-symbol">
+          <Icon name="sparkle" size={20} />
+        </span>
+        <span>
+          <strong>Ask Swale</strong>
+          <small>Scripted demonstration</small>
+        </span>
+        <span className="demo-label">DEMO</span>
+        <Icon name={assistantOpen ? "close" : "arrow"} size={16} />
+      </button>
+      <footer className="workspace-footer">
+        <span>
+          <i />
+          SYNTHETIC DEMONSTRATION · NO LIVE INFRASTRUCTURE DATA
+        </span>
+        <button onClick={() => setSourcesOpen((v) => !v)}>
+          Data provenance <Icon name="info" size={11} />
+        </button>
+      </footer>
+    </main>
+  );
+}
