@@ -12,7 +12,7 @@ from surrealdb import RecordID
 from swale.core.geo import BBox
 from swale.db.connection import run, run_one
 
-MAP_TABLES = frozenset({"catch_basin", "incident", "sensor", "flood_event", "flood_result"})
+MAP_TABLES = frozenset({"catch_basin", "incident", "sensor", "flood_event", "flood_result", "subway_station", "subway_entrance"})
 CHUNK = 2000
 LINKS = ", ->near_basin.* AS links"
 

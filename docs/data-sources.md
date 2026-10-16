@@ -263,3 +263,28 @@ Anchor Browser is only for public pages that have no API and whose terms allow a
 - System Python is 3.9.6, which is too old; `uv` 0.11.29 will manage Python 3.12.
 - **Docker Desktop fails to start.**
 - `gh` is authenticated as `devauntea`.
+
+## `mta_subway_stations`: MTA Subway Stations (`39hk-dx4f`, data.ny.gov)
+
+- **Use:** station points, daytime routes, direction labels, ADA flag. One row per station per line, so complexes such as Jay St-MetroTech have several rows. BK0601 has 15 rows.
+- **Knowledge type:** observed (MTA inventory).
+
+## `mta_subway_entrances`: MTA Subway Entrances and Exits: 2024 (`i9wp-a4ja`, data.ny.gov)
+
+- **Use:** street entrances per station (73 for the BK0601 stations). Flood exposure is measured at entrances, where water gets in.
+- **Limits:** points only; no entrance height or flood-barrier data.
+- **Ingest:** `swale transit-data` fetches both datasets, keeps stations with an entrance in the area, writes `sample_data/bk0601/subway_stations.json.gz`; `swale ingest --from-snapshot` loads it.
+
+## MTA GTFS-realtime and service alerts (keyless, `api-endpoint.mta.info`)
+
+- **Feeds used:** `nyct/gtfs` (1-7), `gtfs-ace`, `gtfs-bdfm`, `gtfs-g`, `gtfs-nqrw` (protobuf, parsed with `gtfs-realtime-bindings`), and `camsys/subway-alerts.json`.
+- **Checked 2026-10-16:** all returned 200 without a key; feed headers were 0-8 minutes old.
+- **Knowledge types:** arrival predictions are predicted; train positions and alerts are observed (MTA's own systems and statements).
+- **Realtime trip IDs** (`030100_G..S`) are the tail of static IDs (`…_030100_G..S14R`): origin time in hundredths of a minute, route, direction.
+
+## MTA static subway schedule (GTFS supplemented, `rrgtfsfeeds.s3.amazonaws.com/gtfs_supplemented.zip`)
+
+- **Use:** scheduled arrivals, to compute delays (predicted minus scheduled) and scheduled-versus-predicted train counts.
+- **Size:** 20.6 MB zip, 2.4 M stop times citywide; the BK0601 extract is 71,504 stop times over 8 days (434 KB gzipped, `sample_data/bk0601/subway_schedule.json.gz`).
+- **Freshness:** the supplemented feed includes the next week's service changes and is regenerated often. The committed extract covers 2026-10-16 to 2026-10-23; after that, delays read `null` until `swale transit-data` is re-run.
+

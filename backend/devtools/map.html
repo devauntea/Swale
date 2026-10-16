@@ -67,6 +67,13 @@
   .hours div { background: var(--observed); border-radius: 2px 2px 0 0; min-height: 2px; }
   .hours-axis { display: flex; justify-content: space-between; color: var(--muted); font-size: 10.5px; }
   .wx-big { font-size: 15px; font-weight: 650; }
+  .st { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 6px 4px; border-radius: 6px; cursor: pointer; }
+  .st:hover { background: var(--chip); }
+  .st .trains { grid-column: 1 / -1; color: var(--muted); font-size: 11.5px; }
+  .bullet { display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; color: #fff; font: 700 10px system-ui; margin-right: 2px; }
+  .s-normal { color: var(--inferred); } .s-alert { color: var(--warn); } .s-delayed { color: var(--nuisance); } .s-flooding_reported { color: var(--deep); } .s-no_service { color: var(--muted); }
+  .lvl { font-weight: 700; text-transform: uppercase; font-size: 11px; padding: 1px 6px; border-radius: 4px; border: 1px solid currentColor; }
+  .lvl-low { color: var(--inferred); } .lvl-watch { color: var(--warn); } .lvl-warning { color: var(--deep); } .lvl-unknown { color: var(--muted); }
   .alert { border: 1px solid var(--deep); color: var(--deep); border-radius: 6px; padding: 5px 8px; margin-top: 6px; }
   @media (max-width: 760px) {
     #rain { left: 0; width: 100%; height: 55vh; }
@@ -101,6 +108,14 @@
   </section>
 
   <section>
+    <h2>Subway · live from the MTA</h2>
+    <div id="sub-summary" aria-live="polite">Loading trains…</div>
+    <div id="sub-rain"></div>
+    <div id="sub-list"></div>
+    <div id="sub-alerts"></div>
+    <div class="note" id="sub-meta"></div>
+  </section>
+  <section>
     <h2>Layers</h2>
     <div class="row"><span class="sw" style="background:var(--observed)"></span><label><input type="checkbox" id="lyr-basins" checked> Catch basins <span class="kt observed">observed</span></label></div>
     <div class="row"><span class="sw" style="border:2px solid var(--reported)"></span><label><input type="checkbox" id="lyr-incidents" checked> 311 reports <span class="kt reported">reported</span></label></div>
@@ -115,7 +130,10 @@
     <div class="row"><span class="sw" style="border:3px solid var(--finding)"></span><label class="note">Red ring = DEP's own resolution recorded a field finding <span class="kt observed">observed</span></label></div>
     <div class="row"><span class="sw" style="background:var(--sensor)"></span><label><input type="checkbox" id="lyr-sensors" checked> FloodNet sensors (measured floods) <span class="kt observed">observed</span></label></div>
     <div class="row"><span class="sw" style="background:var(--nuisance);opacity:.6"></span><label><input type="checkbox" id="lyr-results" checked> Simulated ponding <span class="kt predicted">predicted</span></label></div>
-    <div class="row"><span class="sw" style="background:#1d5fb8;opacity:.45"></span><label><input type="checkbox" id="lyr-depmap" checked> DEP flood map, 2.13 in/hr storm <span class="kt predicted">predicted</span></label></div>
+    <div class="row"><span class="sw" style="background:#d1242f;opacity:.45;border-radius:3px"></span><label><input type="checkbox" id="lyr-zones" checked> Flood danger zones <span class="kt predicted">predicted</span> <span class="kt observed">observed</span></label></div>
+    <div class="row"><span class="sw" style="background:#fff;border:3px solid #1a7f37"></span><label><input type="checkbox" id="lyr-stations" checked> Subway stations (live status) <span class="kt observed">observed</span> <span class="kt inferred">inferred</span></label></div>
+    <div class="row"><span class="sw" style="background:#fff;border:2px solid #444;width:9px;height:9px"></span><label><input type="checkbox" id="lyr-entrances" checked> Subway entrances <span class="kt observed">observed</span></label></div>
+    <div class="row"><span class="sw" style="background:#1d5fb8;opacity:.45"></span><label><input type="checkbox" id="lyr-depmap"> DEP flood map, 2.13 in/hr storm <span class="kt predicted">predicted</span></label></div>
     <div class="row"><span class="sw" style="border:2px dashed var(--inferred)"></span><label><input type="checkbox" id="lyr-ranks" checked> Inspection priorities <span class="kt inferred">inferred</span></label></div>
   </section>
 
@@ -187,7 +205,10 @@ const map = new maplibregl.Map({
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
 
 map.on("load", async () => {
-  for (const id of ["depmap", "basins", "incidents", "sensors", "results"]) map.addSource(id, { type: "geojson", data: EMPTY });
+  for (const id of ["zones", "depmap", "basins", "incidents", "sensors", "results", "entrances", "stations"]) map.addSource(id, { type: "geojson", data: EMPTY });
+  map.addLayer({ id: "zones", type: "fill", source: "zones", paint: {
+    "fill-color": ["case", ["==", ["get", "level"], "high"], "#d1242f", "#f0883e"],
+    "fill-opacity": ["case", ["==", ["get", "zone_type"], "measured"], 0.22, 0.3], "fill-outline-color": "#82071e" } });
   map.addLayer({ id: "depmap", type: "fill", source: "depmap", paint: {
     "fill-color": ["match", ["get", "depth_class"], "deep", "#0b3d91", "#4c8fe0"], "fill-opacity": 0.32, "fill-outline-color": "#0b3d91" } });
   map.addLayer({ id: "results", type: "circle", source: "results", paint: {
@@ -199,18 +220,25 @@ map.on("load", async () => {
     "circle-radius": ["case", ["==", ["get", "finding"], "observed"], 6.5, 5.5], "circle-color": "rgba(0,0,0,0)",
     "circle-stroke-color": ["case", ["==", ["get", "finding"], "observed"], "#b42318", "#d4631a"],
     "circle-stroke-width": ["case", ["==", ["get", "finding"], "observed"], 2.6, 1.6] } });
+  map.addLayer({ id: "entrances", type: "circle", source: "entrances", paint: {
+    "circle-radius": 3.5, "circle-color": "#ffffff", "circle-stroke-color": "#24292f", "circle-stroke-width": 1.6 } });
+  map.addLayer({ id: "stations", type: "circle", source: "stations", paint: {
+    "circle-radius": ["match", ["get", "tier"], "high", 11, "medium", 9, 8], "circle-color": "#ffffff",
+    "circle-stroke-color": ["match", ["get", "status"], "flooding_reported", "#a40e26", "delayed", "#e16f24", "alert", "#9a6700", "no_service", "#8b949e", "#1a7f37"],
+    "circle-stroke-width": ["match", ["get", "tier"], "high", 5, "medium", 4, 3] } });
   map.addLayer({ id: "sensors", type: "circle", source: "sensors", paint: {
     "circle-radius": ["interpolate", ["linear"], ["coalesce", ["get", "max_depth_in"], 0], 0, 6, 12, 10, 36, 15],
     "circle-color": ["case", ["==", ["get", "tidal"], true], "#8b949e", "#8250df"], "circle-opacity": 0.85,
     "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } });
-  for (const layer of ["depmap", "results", "basins", "incidents", "sensors"]) {
+  for (const layer of ["zones", "depmap", "results", "basins", "incidents", "sensors", "entrances", "stations"]) {
     map.on("click", layer, (e) => showFeature(layer, JSON.parse(e.features[0].properties.raw)));
     map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
     map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
   }
   map.on("moveend", debounce(refreshViewport, 250));
-  await Promise.all([loadHealth(), loadScenarios(), refreshViewport(), refreshRankings(), loadWeather()]);
+  await Promise.all([loadHealth(), loadScenarios(), refreshViewport(), refreshRankings(), loadWeather(), refreshSubway(), refreshZones()]);
   setInterval(loadWeather, 10 * 60 * 1000);
+  setInterval(refreshSubway, 60 * 1000);
 });
 
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
@@ -238,6 +266,7 @@ async function refreshViewport() {
   }
   jobs.push($("lyr-sensors").checked ? api(`/sensors?bbox=${bb}&limit=500`).then((fc) =>
     map.getSource("sensors").setData(flatten(fc, (p) => ({ max_depth_in: p.max_depth_in ?? 0, tidal: !!p.tidally_influenced })))) : null);
+  jobs.push($("lyr-entrances").checked ? api(`/subway/entrances?bbox=${bb}`).then((fc) => map.getSource("entrances").setData(flatten(fc, () => ({})))) : null);
   jobs.push($("lyr-depmap").checked ? api(`/flood-maps?bbox=${bb}&scenario=dep_moderate_current`).then((fc) =>
     map.getSource("depmap").setData(flatten(fc, (p) => ({ depth_class: p.depth_class })))) : null);
   jobs.push(state.runId && $("lyr-results").checked ? api(`/simulation-runs/${encodeURIComponent(state.runId)}/results?bbox=${bb}&limit=5000`)
@@ -245,7 +274,7 @@ async function refreshViewport() {
   try { await Promise.all(jobs.filter(Boolean)); } catch (err) { toast(String(err.message || err)); }
 }
 
-for (const [box, layer] of [["lyr-depmap", "depmap"], ["lyr-basins", "basins"], ["lyr-incidents", "incidents"], ["lyr-sensors", "sensors"], ["lyr-results", "results"]]) {
+for (const [box, layer] of [["lyr-zones", "zones"], ["lyr-stations", "stations"], ["lyr-entrances", "entrances"], ["lyr-depmap", "depmap"], ["lyr-basins", "basins"], ["lyr-incidents", "incidents"], ["lyr-sensors", "sensors"], ["lyr-results", "results"]]) {
   $(box).addEventListener("change", () => { setVisible(layer, $(box).checked); if ($(box).checked) refreshViewport(); });
 }
 $("lyr-ranks").addEventListener("change", () => state.rankMarkers.forEach((m) => (m.getElement().style.display = $("lyr-ranks").checked ? "" : "none")));
@@ -318,7 +347,7 @@ function runCard(r, title) {
 async function useRun(r) {
   state.runId = r.id; state.runLabel = $("scenario").selectedOptions[0]?.textContent || r.scenario_id;
   $("lyr-results").checked = true; setVisible("results", true);
-  await Promise.all([refreshViewport(), refreshRankings(), compareDep(r)]);
+  await Promise.all([refreshViewport(), refreshRankings(), compareDep(r), refreshSubway(), refreshZones()]);
 }
 
 async function compareDep(r) {
@@ -361,6 +390,60 @@ $("compare").addEventListener("click", () => guard($("compare"), async () => {
     + runCard(blocked, "Run 1: flagged basins half-blocked") + runCard(clear, "Run 2: all basins clear");
   await useRun(blocked);
 }));
+
+// ---------- subway ----------
+const LINE_COLORS = { A: "#0039a6", C: "#0039a6", E: "#0039a6", B: "#ff6319", D: "#ff6319", F: "#ff6319", M: "#ff6319", G: "#6cbe45",
+  N: "#fccc0a", Q: "#fccc0a", R: "#fccc0a", W: "#fccc0a", 1: "#ee352e", 2: "#ee352e", 3: "#ee352e", 4: "#00933c", 5: "#00933c", 6: "#00933c", 7: "#b933ad", J: "#996633", Z: "#996633", L: "#a7a9ac" };
+const bullet = (r) => `<span class="bullet" style="background:${LINE_COLORS[r] || "#555"};${"NQRW".includes(r) ? "color:#000" : ""}">${esc(r)}</span>`;
+const STATUS_TEXT = { normal: "Normal", alert: "MTA alert", delayed: "Delayed", flooding_reported: "Flooding reported", no_service: "No service" };
+function trainsText(next, labels) {
+  return ["N", "S"].map((d) => { const n = next[d] || []; if (!n.length) return "";
+    return `${esc(labels[d] || d)}: ${n.slice(0, 3).map((a) => `${a.route} ${Math.max(0, Math.round(a.minutes_away))}m${a.delay_min != null && a.delay_min >= 2 ? ` (+${fmt(a.delay_min, 0)})` : ""}`).join(", ")}`; })
+    .filter(Boolean).join(" · ");
+}
+function rainLine(rain) {
+  if (!rain || rain.level === "unknown") return "";
+  return `<div class="card"><div class="row"><span class="lvl lvl-${rain.level}">${esc(rain.level)}</span><b>Flood danger from rain now</b></div>
+    <div>Forecast peak ${fmt(rain.forecast_peak_in_hr, 2)} in/hr${rain.peak_at ? " around " + new Date(rain.peak_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : ""}
+      · zones assume up to 2.13 in/hr · sewers built for about ${rain.sewer_design_in_hr} in/hr${rain.flood_alerts.length ? " · NWS: " + esc(rain.flood_alerts.join(", ")) : ""}</div>
+    <div class="note">${esc(rain.rule)} Swale rule.</div></div>`;
+}
+async function refreshSubway() {
+  try {
+    const [fc, lb] = await Promise.all([api(`/subway/flood-exposure?area_id=BK0601${state.runId ? "&run_id=" + encodeURIComponent(state.runId) : ""}`),
+                                        api("/subway/live?area_id=BK0601")]);
+    state.stations = fc.features;
+    state.board = Object.fromEntries(lb.stations.map((s) => [s.station_id, s]));
+    map.getSource("stations").setData(flatten(fc, (p) => ({ tier: p.tier, status: p.live?.status || "normal" })));
+    const live = fc.features.map((f) => f.properties.live).filter(Boolean);
+    const delayed = live.filter((l) => l.status === "delayed").length, alerts = live.filter((l) => l.status === "alert").length;
+    const flooding = live.filter((l) => l.status === "flooding_reported").length;
+    const trains = live.reduce((n, l) => n + l.trains_next_30_min.predicted, 0);
+    $("sub-summary").innerHTML = `<div class="big">${fmt(trains)} train arrivals due at ${fc.features.length} stations in the next 30 min</div>
+      <div>${flooding ? `<b class="s-flooding_reported">${flooding} with flooding reported by MTA</b> · ` : ""}${delayed} delayed · ${alerts} under an MTA alert ·
+        ${fc.features.filter((f) => f.properties.tier === "high").length} with high flood exposure</div>`;
+    $("sub-rain").innerHTML = rainLine(fc.meta.rain);
+    $("sub-list").innerHTML = fc.features.map((f, i) => { const p = f.properties, l = p.live, b = state.board[p.station_id];
+      return `<div class="st" data-i="${i}" tabindex="0" role="button">
+        <div>${p.routes.map(bullet).join("")} <b>${esc(p.name)}</b></div>
+        <div><span class="s-${l?.status || "no_service"}">${esc(STATUS_TEXT[l?.status] || "No live data")}</span> · <span class="tier-${p.tier}">${p.tier} exposure</span></div>
+        <div class="trains">${b ? trainsText(b.next, b.direction_labels) || "No trains due in 30 min" : ""}</div></div>`; }).join("");
+    document.querySelectorAll(".st").forEach((row) => row.addEventListener("click", () => {
+      const f = state.stations[Number(row.dataset.i)]; map.flyTo({ center: f.geometry.coordinates, zoom: Math.max(map.getZoom(), 16.5) });
+      showFeature("stations", { id: f.id, ...f.properties }); }));
+    $("sub-alerts").innerHTML = lb.alerts.slice(0, 4).map((a) => `<div class="card"><div class="row"><span class="kt observed">observed</span>
+      <b>${a.routes.map(bullet).join("")} ${esc(a.alert_type || "Alert")}</b></div><div>${esc(a.header)}</div>
+      <div class="note">MTA service alert${a.station_specific ? " for a station here" : " on a line serving this area"}${a.mentions_flooding ? " · mentions flooding" : ""}</div></div>`).join("");
+    $("sub-meta").textContent = `MTA feeds as of ${new Date(Object.values(lb.feed_times)[0] || lb.fetched_at).toLocaleTimeString()} · arrivals are MTA predictions; delay = predicted minus scheduled arrival`
+      + (lb.errors.length ? " · " + lb.errors.join("; ") : "");
+  } catch (err) { $("sub-summary").textContent = "Subway: " + err.message; }
+}
+async function refreshZones() {
+  try {
+    const fc = await api(`/danger-zones?area_id=BK0601${state.runId ? "&run_id=" + encodeURIComponent(state.runId) : ""}`);
+    map.getSource("zones").setData(flatten(fc, (p) => ({ level: p.level, zone_type: p.zone_type })));
+  } catch (err) { toast("Danger zones: " + err.message); }
+}
 
 // ---------- rankings ----------
 async function refreshRankings() {
@@ -453,6 +536,30 @@ function showFeature(kind, p, appended = false) {
     html = `<div class="row"><span class="kt observed">observed</span><b>Catch basin ${esc(p.unitid)}</b></div>
       <div class="note">DEP inventory record · dataset updated ${esc(day(p.source.updated_at))} · no condition data in the source</div>
       <a class="ev" href="${esc(p.source.url)}" target="_blank" rel="noopener">source record</a>` + inspectionForm(p.id);
+  } else if (kind === "stations") {
+    const l = p.live, b = state.board?.[p.station_id];
+    html = `<div class="row"><span class="kt inferred">inferred</span><b>${p.routes.map(bullet).join("")} ${esc(p.name)} · flood exposure ${fmt(p.score, 1)} (${p.tier})</b></div>
+      ${l ? `<div class="card"><div class="row"><span class="kt observed">live</span><b class="s-${l.status}">${esc(STATUS_TEXT[l.status])}</b></div>
+        ${l.reasons.length ? `<div>${l.reasons.map(esc).join("; ")}</div>` : ""}
+        <div>${l.trains_next_30_min.predicted} trains in the next 30 min${l.trains_next_30_min.scheduled != null ? ` (${l.trains_next_30_min.scheduled} scheduled)` : ""}
+          ${l.delay_min.median != null ? ` · median delay ${fmt(l.delay_min.median, 1)} min, worst ${fmt(l.delay_min.max, 1)} min` : ""}</div>
+        ${b ? `<div class="note">${trainsText(b.next, b.direction_labels)}</div>` : ""}
+        <div class="note">Arrivals: MTA predictions · delays: predicted minus scheduled arrival (negative = early)</div></div>` : ""}`
+      + p.factors.map((x) => `<div class="factor"><b>${esc(x.label)}</b> <span class="kt ${x.knowledge_type}">${x.knowledge_type}</span>
+        <div>${esc(x.explanation)}</div><div class="note">value ${fmt(x.value, 2)} × weight ${x.weight} → +${fmt(x.contribution, 1)}</div>
+        <div>${x.evidence_ids.map((id) => `<a class="ev" data-id="${esc(id)}">${esc(id)}</a>`).join("")}</div></div>`).join("")
+      + (p.missing_factors.length ? `<div class="note">Not counted: ${p.missing_factors.map((m) => esc(m.reason)).join("; ")}</div>` : "")
+      + `<div class="note">${p.caveats.map(esc).join(" ")}</div>`;
+  } else if (kind === "zones") {
+    const kt = p.knowledge_type;
+    html = `<div class="row"><span class="kt ${kt}">${kt}</span><b>Danger zone · ${esc(p.level)} · ${esc({ dep_mapped: "NYC DEP flood map", swale_simulated: "Swale simulation", measured: "FloodNet measured" }[p.zone_type])}</b></div>
+      <div>${esc(p.explanation)}</div><div class="note">Assumes ${esc(p.assumes)}</div>
+      ${p.entrances.length ? `<div class="card"><b>${p.entrances.length} subway entrance(s) inside</b><div>${[...new Set(p.entrances.map((e) => e.station_name))].map(esc).join(", ")}</div></div>` : `<div class="note">No subway entrances inside.</div>`}
+      <div>${p.evidence_ids.slice(0, 5).map((id) => `<a class="ev" data-id="${esc(id)}">${esc(id)}</a>`).join("")}</div>`;
+  } else if (kind === "entrances") {
+    html = `<div class="row"><span class="kt observed">observed</span><b>${p.routes.map(bullet).join("")} ${esc(p.station_name)} entrance</b></div>
+      <div>${esc(p.entrance_type || "Entrance")} · ${p.entry_allowed ? "entry" : "no entry"} / ${p.exit_allowed ? "exit" : "no exit"}</div>
+      <div class="note">MTA entrance inventory (2024). No height or flood-barrier data is public.</div>`;
   } else if (kind === "depmap") {
     html = `<div class="row"><span class="kt predicted">predicted</span><b>DEP flood map: ${esc(p.depth_class === "deep" ? "deep and contiguous (1 ft or more)" : "nuisance (4 in to 1 ft)")}</b></div>
       <div>${esc(p.scenario_label)} · ${fmt(p.area_ft2)} ft² in view</div>

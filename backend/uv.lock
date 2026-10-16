@@ -503,6 +503,18 @@ wheels = [
 ]
 
 [[package]]
+name = "gtfs-realtime-bindings"
+version = "3.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/17/5e/910d71a3902aa1746ca330cb4256d4afd4adf2c4951aeca840ae4973e465/gtfs_realtime_bindings-3.0.0.tar.gz", hash = "sha256:bfa7426ed537b374bbfe410a99e788cdef1b7009fe1e5aae2e3e0bc9fdca7d73", size = 12776, upload-time = "2026-09-17T17:57:39.263Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/76/49/91d41718731b8c4d8d60bad8c69fc3f7626068b7b137819b389d187101e1/gtfs_realtime_bindings-3.0.0-py3-none-any.whl", hash = "sha256:a270f236e92c13dd1d633492bcee397dcc2361d83cdcc19f9c94fb7c0082ed8b", size = 11875, upload-time = "2026-09-17T17:57:38.114Z" },
+]
+
+[[package]]
 name = "h11"
 version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1278,6 +1290,7 @@ dependencies = [
     { name = "arize-otel" },
     { name = "daytona" },
     { name = "fastapi" },
+    { name = "gtfs-realtime-bindings" },
     { name = "httpx" },
     { name = "pyogrio" },
     { name = "pyproj" },
@@ -1298,6 +1311,7 @@ requires-dist = [
     { name = "arize-otel", specifier = ">=0.14.1" },
     { name = "daytona", specifier = ">=0.224.1" },
     { name = "fastapi", specifier = ">=0.143.2" },
+    { name = "gtfs-realtime-bindings", specifier = ">=3.0.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pyogrio", specifier = ">=0.13.0" },
     { name = "pyproj", specifier = ">=3.8.0" },

@@ -262,3 +262,55 @@ DEFINE FIELD OVERWRITE knowledge_type ON inspection TYPE string ASSERT $value = 
 DEFINE FIELD OVERWRITE source         ON inspection TYPE string ASSERT $value = 'swale_field_entry';
 DEFINE INDEX OVERWRITE inspection_basin_key ON inspection FIELDS basin_key;
 DEFINE INDEX OVERWRITE inspection_at        ON inspection FIELDS inspected_at;
+
+-- MTA subway stations and street entrances (observed inventory) --------------------------------
+DEFINE TABLE OVERWRITE subway_station SCHEMAFULL;
+DEFINE FIELD OVERWRITE gtfs_stop_id   ON subway_station TYPE string;
+DEFINE FIELD OVERWRITE station_id     ON subway_station TYPE option<string>;
+DEFINE FIELD OVERWRITE complex_id     ON subway_station TYPE option<string>;
+DEFINE FIELD OVERWRITE name           ON subway_station TYPE string;
+DEFINE FIELD OVERWRITE line           ON subway_station TYPE option<string>;
+DEFINE FIELD OVERWRITE division       ON subway_station TYPE option<string>;
+DEFINE FIELD OVERWRITE routes         ON subway_station TYPE array<string>;
+DEFINE FIELD OVERWRITE structure      ON subway_station TYPE option<string>;
+DEFINE FIELD OVERWRITE ada            ON subway_station TYPE int;
+DEFINE FIELD OVERWRITE north_label    ON subway_station TYPE option<string>;
+DEFINE FIELD OVERWRITE south_label    ON subway_station TYPE option<string>;
+DEFINE FIELD OVERWRITE geom           ON subway_station TYPE geometry<point>;
+DEFINE FIELD OVERWRITE lon            ON subway_station TYPE float;
+DEFINE FIELD OVERWRITE lat            ON subway_station TYPE float;
+DEFINE FIELD OVERWRITE area_ids       ON subway_station TYPE array<string>;
+DEFINE FIELD OVERWRITE knowledge_type ON subway_station TYPE string ASSERT $value = 'observed';
+DEFINE FIELD OVERWRITE source         ON subway_station TYPE record<data_source>;
+DEFINE FIELD OVERWRITE source_url     ON subway_station TYPE string;
+DEFINE FIELD OVERWRITE ingested_at    ON subway_station TYPE datetime;
+DEFINE INDEX OVERWRITE subway_station_lat ON subway_station FIELDS lat;
+
+DEFINE TABLE OVERWRITE subway_entrance SCHEMAFULL;
+DEFINE FIELD OVERWRITE station        ON subway_entrance TYPE record<subway_station>;
+DEFINE FIELD OVERWRITE gtfs_stop_id   ON subway_entrance TYPE string;
+DEFINE FIELD OVERWRITE complex_id     ON subway_entrance TYPE option<string>;
+DEFINE FIELD OVERWRITE station_name   ON subway_entrance TYPE string;
+DEFINE FIELD OVERWRITE entrance_type  ON subway_entrance TYPE option<string>;
+DEFINE FIELD OVERWRITE entry_allowed  ON subway_entrance TYPE bool;
+DEFINE FIELD OVERWRITE exit_allowed   ON subway_entrance TYPE bool;
+DEFINE FIELD OVERWRITE routes         ON subway_entrance TYPE array<string>;
+DEFINE FIELD OVERWRITE geom           ON subway_entrance TYPE geometry<point>;
+DEFINE FIELD OVERWRITE lon            ON subway_entrance TYPE float;
+DEFINE FIELD OVERWRITE lat            ON subway_entrance TYPE float;
+DEFINE FIELD OVERWRITE area_ids       ON subway_entrance TYPE array<string>;
+DEFINE FIELD OVERWRITE knowledge_type ON subway_entrance TYPE string ASSERT $value = 'observed';
+DEFINE FIELD OVERWRITE source         ON subway_entrance TYPE record<data_source>;
+DEFINE FIELD OVERWRITE source_url     ON subway_entrance TYPE string;
+DEFINE FIELD OVERWRITE ingested_at    ON subway_entrance TYPE datetime;
+DEFINE INDEX OVERWRITE subway_entrance_lat ON subway_entrance FIELDS lat;
+
+-- Live subway polls (one row per poll: what the MTA feeds said, kept for history) ---------------
+DEFINE TABLE OVERWRITE transit_poll SCHEMAFULL;
+DEFINE FIELD OVERWRITE area_id        ON transit_poll TYPE string;
+DEFINE FIELD OVERWRITE polled_at      ON transit_poll TYPE datetime;
+DEFINE FIELD OVERWRITE feed_times     ON transit_poll FLEXIBLE TYPE object;
+DEFINE FIELD OVERWRITE stations       ON transit_poll FLEXIBLE TYPE array<object>;
+DEFINE FIELD OVERWRITE alerts         ON transit_poll FLEXIBLE TYPE array<object>;
+DEFINE FIELD OVERWRITE errors         ON transit_poll TYPE array<string>;
+DEFINE INDEX OVERWRITE transit_poll_at ON transit_poll FIELDS area_id, polled_at;
