@@ -1,3 +1,12 @@
+> **Phase 1 scope annotation — October 16, 2026:** The following Phase 0 evidence
+> is preserved as historical research. Current authorized work is frontend-only
+> with labeled local demonstration fixtures. No new ingestion/preprocessing,
+> production scoring, live NYC/NWS clients or backend integration is authorized.
+> The co-founder owns those future systems. Static source types are now approved;
+> future high-tide category 3 is excluded from stormwater scoring and hazard overlays.
+> Historical unverified findings remain unverified; these source responses are not
+> loaded as current application infrastructure data.
+
 # Swale Phase 0 data evidence
 
 Status: **investigation complete enough for an approval handoff; implementation
