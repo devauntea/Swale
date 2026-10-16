@@ -2,8 +2,10 @@ import type { DemoSnapshot, ScenarioId, LayerVisibility } from "../../types";
 import { bandLabel, fixtureTime } from "../../app/format";
 import { Icon, type IconName } from "../controls/Icon";
 import { ForecastCard } from "./ForecastCard";
+import type { ReactNode } from "react";
 
 interface Props {
+  modeSelector?: ReactNode;
   snapshot: DemoSnapshot;
   scenarioId: ScenarioId;
   layers: LayerVisibility;
@@ -87,6 +89,7 @@ export function ControlSidebar(p: Props) {
           <Icon name="info" size={16} />
         </button>
       </div>
+      {p.modeSelector}
       <div className="sidebar-scroll">
         <section className="scenario-section" aria-labelledby="scenario-title">
           <div className="section-heading">

@@ -29,10 +29,21 @@ import {
 
 import type { Theme } from "../app/theme";
 import { installLocalBasemapGlyphs } from "./spriteFallbacks";
+import type {
+  BackendBbox,
+  BackendData,
+  BackendFeature,
+  BackendKind,
+} from "../backend/contracts";
 
 setWorkerUrl(workerUrl);
 
 export interface SwaleMapProps {
+  backend?: BackendData | null;
+  backendSelectedId?: string | null;
+  backendFocus?: { position: Coordinate; nonce: number } | null;
+  onSelectBackend?: (kind: BackendKind, id: string) => void;
+  onViewportChange?: (bbox: BackendBbox) => void;
   theme: Theme;
   snapshot: DemoSnapshot;
   scenarioId: ScenarioId;
@@ -97,6 +108,7 @@ export function SwaleMap(props: SwaleMapProps) {
   const buildingLayerRef = useRef<string | undefined>(undefined);
   const labelLayerRef = useRef<string | undefined>(undefined);
   const lastCameraRequestRef = useRef(0);
+  const lastBackendFocusRef = useRef(0);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -115,6 +127,13 @@ export function SwaleMap(props: SwaleMapProps) {
     // Map callbacks must observe the latest committed UI, never a pending render.
     propsRef.current = props;
   }, [props]);
+  const backendMode = !!props.backend;
+  useLayoutEffect(() => {
+    // A mode transition cannot finish a navigation started in the other mode.
+    // stop() retains the current camera; it neither resets nor reconstructs it.
+    mapRef.current?.stop();
+    setTooltip(null);
+  }, [backendMode]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -236,6 +255,13 @@ export function SwaleMap(props: SwaleMapProps) {
           setError(null);
           setReady(true);
           propsRef.current.onReady?.(true);
+          const bounds = map.getBounds();
+          propsRef.current.onViewportChange?.([
+            bounds.getWest(),
+            bounds.getSouth(),
+            bounds.getEast(),
+            bounds.getNorth(),
+          ]);
           if (import.meta.env.DEV) performance.mark("swale-map-ready");
         } catch (cause) {
           setError(
@@ -247,7 +273,16 @@ export function SwaleMap(props: SwaleMapProps) {
       });
 
       map.on("moveend", () => {
-        if (!disposed) setPitched(map.getPitch() > 10);
+        if (!disposed) {
+          setPitched(map.getPitch() > 10);
+          const bounds = map.getBounds();
+          propsRef.current.onViewportChange?.([
+            bounds.getWest(),
+            bounds.getSouth(),
+            bounds.getEast(),
+            bounds.getNorth(),
+          ]);
+        }
       });
       map.on("mouseout", () => setTooltip(null));
       resizeObserver = new ResizeObserver(() => {
@@ -294,6 +329,91 @@ export function SwaleMap(props: SwaleMapProps) {
     if (!ready || !map || !overlay) return;
 
     const colors = MAP_THEMES[theme];
+    if (props.backend) {
+      const data = props.backend;
+      const selectedId = props.backendSelectedId;
+      const backendLayers: Layer[] = [];
+      for (const [kind, collection, visible] of [
+        ["basin", data.basins, layers.basins],
+        ["incident", data.incidents, layers.complaints],
+      ] as const) {
+        const features: BackendFeature[] = collection.features.filter(
+          (feature) => feature.geometry !== null,
+        );
+        backendLayers.push(
+          new ScatterplotLayer<BackendFeature, InterleavedLayerProps>({
+            id: `swale-backend-${kind}`,
+            data: features,
+            beforeId: labelLayerRef.current,
+            visible,
+            pickable: true,
+            getPosition: (feature) =>
+              feature.geometry!.coordinates as Coordinate,
+            radiusUnits: "pixels",
+            getRadius: (feature) =>
+              feature.id === selectedId ? 7 : kind === "basin" ? 3.8 : 5.2,
+            filled: kind === "basin",
+            stroked: true,
+            opacity: collection.stale ? 0.55 : 1,
+            getFillColor: collection.stale
+              ? colors.priority.unavailable
+              : colors.highlightOutline,
+            getLineColor: (feature) =>
+              feature.id === selectedId
+                ? colors.selectedOutline
+                : kind === "basin"
+                  ? colors.markerOutline
+                  : collection.stale
+                    ? colors.priority.unavailable
+                    : colors.complaint,
+            getLineWidth: (feature) =>
+              feature.id === selectedId ? 2.8 : kind === "basin" ? 1 : 2,
+            lineWidthUnits: "pixels",
+            parameters: { depthCompare: "always", depthWriteEnabled: false },
+            updateTriggers: {
+              getLineColor: [theme, selectedId, collection.stale],
+              getLineWidth: [selectedId],
+              getRadius: [selectedId],
+            },
+            onHover: (info) => {
+              if (!propsRef.current.backend) return;
+              const feature = info.object;
+              const fetched = collection.sources.find(
+                (source) => source.id === feature?.properties.source.id,
+              )?.fetched_at;
+              setTooltip(
+                feature
+                  ? {
+                      x: info.x,
+                      y: info.y,
+                      title: feature.id,
+                      detail:
+                        feature.properties.layer === "catch_basins"
+                          ? "Observed inventory · condition unavailable"
+                          : `${feature.properties.category_label} · reported ${feature.properties.reported_at}`,
+                      context: `${collection.stale ? "STALE / " : ""}LOCAL SNAPSHOT · ${feature.properties.source.id} · fetched ${fetched ?? "unknown"}`,
+                    }
+                  : null,
+              );
+            },
+            onClick: (info) => {
+              if (!propsRef.current.backend || !info.object) return false;
+              propsRef.current.onSelectBackend?.(kind, info.object.id);
+              return true;
+            },
+          }),
+        );
+      }
+      if (buildingLayerRef.current)
+        map.setLayoutProperty(
+          buildingLayerRef.current,
+          "visibility",
+          layers.buildings ? "visible" : "none",
+        );
+      overlay.setProps({ layers: backendLayers });
+      setTooltip(null);
+      return;
+    }
     const knownIds = new Set(snapshot.basins.map((basin) => basin.id));
     const highlighted = new Set(
       highlightedIds.filter((id) => knownIds.has(id)),
@@ -387,6 +507,7 @@ export function SwaleMap(props: SwaleMapProps) {
           })),
         onClick: (info) => {
           if (
+            !propsRef.current.backend &&
             info.object &&
             snapshot.complaints.some(
               (complaint) => complaint.id === info.object?.id,
@@ -469,7 +590,11 @@ export function SwaleMap(props: SwaleMapProps) {
             };
           }),
         onClick: (info) => {
-          if (info.object && knownIds.has(info.object.id)) {
+          if (
+            !propsRef.current.backend &&
+            info.object &&
+            knownIds.has(info.object.id)
+          ) {
             propsRef.current.onSelectBasin(info.object.id);
             return true;
           }
@@ -498,6 +623,8 @@ export function SwaleMap(props: SwaleMapProps) {
     selectedBasinId,
     highlightedIds,
     theme,
+    props.backend,
+    props.backendSelectedId,
   ]);
 
   useEffect(() => {
@@ -536,6 +663,27 @@ export function SwaleMap(props: SwaleMapProps) {
     });
     setTooltip(null);
   }, [ready, props.cameraRequest, props.snapshot]);
+
+  useEffect(() => {
+    const request = props.backendFocus;
+    const map = mapRef.current;
+    if (
+      !ready ||
+      !map ||
+      !props.backend ||
+      !request ||
+      request.nonce === lastBackendFocusRef.current
+    )
+      return;
+    lastBackendFocusRef.current = request.nonce;
+    map.flyTo({
+      center: request.position,
+      zoom: 16.2,
+      duration: prefersReducedMotion() ? 0 : 900,
+      essential: false,
+    });
+    setTooltip(null);
+  }, [ready, props.backend, props.backendFocus]);
 
   const animate = (operation: (map: Map, duration: number) => void) => {
     if (mapRef.current && ready)

@@ -3,6 +3,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
@@ -31,6 +32,14 @@ import {
 } from "../components/assistant/SwaleMascot";
 import { useTheme } from "./useTheme";
 import { MapErrorBoundary } from "./MapErrorBoundary";
+import { useBackendData } from "../backend/useBackendData";
+import type { BackendBbox } from "../backend/contracts";
+import {
+  BackendSidebar,
+  BackendInspector,
+  BackendSourcesPanel,
+  BackendLegend,
+} from "../components/backend/BackendPanels";
 
 const SwaleMap = lazy(() => import("../map/SwaleMap"));
 
@@ -122,6 +131,30 @@ function Workspace({
     snapshot,
     createInitialState,
   );
+  const [sourceMode, setSourceMode] = useState<"fixture" | "backend">(
+    "fixture",
+  );
+  const [bounds, setBounds] = useState<BackendBbox | null>(null);
+  const backend = useBackendData(sourceMode === "backend", bounds);
+  const [backendLayers, setBackendLayers] = useState({
+    basins: true,
+    complaints: true,
+    floodZones: false,
+    buildings: true,
+  });
+  const [backendFocus, setBackendFocus] = useState<{
+    position: [number, number];
+    nonce: number;
+  } | null>(null);
+  const backendFocusSequence = useRef(0);
+  const modeSelect = useRef<HTMLSelectElement>(null);
+  const refocusMode = useRef(false);
+  useLayoutEffect(() => {
+    if (refocusMode.current) {
+      modeSelect.current?.focus({ preventScroll: true });
+      refocusMode.current = false;
+    }
+  }, [sourceMode]);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [mascotExpression, setMascotExpression] =
     useState<MascotExpression>("idle");
@@ -190,6 +223,8 @@ function Workspace({
     }
   };
   const runAssistant = (text: string): DemoAssistantReply => {
+    if (sourceMode !== "fixture")
+      throw new Error("Fixture actions are unavailable in backend mode.");
     const reply = runDemoAssistant(text, snapshot, state);
     const checked = reply.actions.map((action) =>
       validateUIAction(action, snapshot),
@@ -219,9 +254,42 @@ function Workspace({
     }
     return reply;
   };
+  const modeSelector = (
+    <label className="source-mode-select">
+      <span>DATA MODE</span>
+      <select
+        aria-label="Data mode"
+        ref={modeSelect}
+        value={sourceMode}
+        onChange={(event) => {
+          if (
+            event.target.value !== "fixture" &&
+            event.target.value !== "backend"
+          )
+            return;
+          refocusMode.current = true;
+          setSourceMode(event.target.value);
+          setSourcesOpen(false);
+          setBackendFocus(null);
+        }}
+      >
+        <option value="fixture">Fixture / demo</option>
+        <option value="backend">Backend / local snapshot</option>
+      </select>
+    </label>
+  );
+  const selectBackend = (kind: "basin" | "incident", id: string) => {
+    if (sourceMode !== "backend") return;
+    backend.select(kind, id);
+    if (controlsOpen) {
+      setControlsOpen(false);
+      controlsTrigger.current?.focus({ preventScroll: true });
+    }
+  };
   return (
     // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape is delegated from descendant controls; the landmark has no activation behavior.
     <main
+      data-source-mode={sourceMode}
       className={`workspace ${assistantOpen ? "assistant-is-open" : ""} ${controlsOpen ? "controls-are-open" : ""}`}
       onKeyDown={(event) => {
         if (event.key === "Escape" && controlsOpen) {
@@ -248,10 +316,23 @@ function Workspace({
             theme={theme}
             snapshot={snapshot}
             scenarioId={state.scenarioId}
-            layers={state.layers}
-            selectedBasinId={state.selectedBasinId}
-            highlightedIds={state.highlightedIds}
-            cameraRequest={state.cameraRequest}
+            layers={sourceMode === "backend" ? backendLayers : state.layers}
+            selectedBasinId={
+              sourceMode === "fixture" ? state.selectedBasinId : null
+            }
+            highlightedIds={
+              sourceMode === "fixture" ? state.highlightedIds : []
+            }
+            cameraRequest={
+              sourceMode === "fixture" ? state.cameraRequest : null
+            }
+            backend={sourceMode === "backend" ? backend.data : null}
+            backendSelectedId={
+              sourceMode === "backend" ? backend.detail.id : null
+            }
+            backendFocus={sourceMode === "backend" ? backendFocus : null}
+            onSelectBackend={selectBackend}
+            onViewportChange={setBounds}
             onSelectBasin={selectBasin}
             onSelectComplaint={setComplaintId}
             onReady={setMapReady}
@@ -304,39 +385,76 @@ function Workspace({
           </button>
         </div>
       </div>
-      <ControlSidebar
-        snapshot={snapshot}
-        scenarioId={state.scenarioId}
-        layers={state.layers}
-        selectedBasinId={state.selectedBasinId}
-        navigationTargetId={state.cameraRequest.targetId}
-        refreshing={refreshing || loading}
-        refreshMessage={refreshMessage}
-        onScenario={(scenarioId: ScenarioId) =>
-          dispatch({ type: "set_scenario", scenarioId })
-        }
-        onLayer={(key) =>
-          dispatch({
-            type: "set_layers",
-            visibility: { [key]: !state.layers[key] },
-          })
-        }
-        onNavigate={(targetId) => dispatch({ type: "fly_to", targetId })}
-        onSelect={onQueueSelect}
-        onRefresh={() => void refresh()}
-        onSources={() => setSourcesOpen((v) => !v)}
-      />
-      <div className={`inspector-position ${basin ? "has-selection" : ""}`}>
-        <BasinInspector
-          basin={basin}
+      {sourceMode === "backend" ? (
+        <BackendSidebar
+          modeSelector={modeSelector}
+          data={backend.data}
+          layers={backendLayers}
+          onLayer={(key) =>
+            setBackendLayers((current) => ({
+              ...current,
+              [key]: !current[key],
+            }))
+          }
+          onSelect={selectBackend}
+          onRefresh={backend.refresh}
+          onSources={() => setSourcesOpen((value) => !value)}
+        />
+      ) : (
+        <ControlSidebar
+          modeSelector={modeSelector}
           snapshot={snapshot}
           scenarioId={state.scenarioId}
-          hiddenLayer={!state.layers.basins}
-          onFocus={() =>
-            basin && dispatch({ type: "fly_to", targetId: basin.id })
+          layers={state.layers}
+          selectedBasinId={state.selectedBasinId}
+          navigationTargetId={state.cameraRequest.targetId}
+          refreshing={refreshing || loading}
+          refreshMessage={refreshMessage}
+          onScenario={(scenarioId: ScenarioId) =>
+            dispatch({ type: "set_scenario", scenarioId })
           }
-          onClose={() => dispatch({ type: "select_basin", id: null })}
+          onLayer={(key) =>
+            dispatch({
+              type: "set_layers",
+              visibility: { [key]: !state.layers[key] },
+            })
+          }
+          onNavigate={(targetId) => dispatch({ type: "fly_to", targetId })}
+          onSelect={onQueueSelect}
+          onRefresh={() => void refresh()}
+          onSources={() => setSourcesOpen((v) => !v)}
         />
+      )}
+      <div
+        className={`inspector-position ${(sourceMode === "backend" ? backend.detail.id : basin) ? "has-selection" : ""}`}
+      >
+        {sourceMode === "backend" ? (
+          <BackendInspector
+            data={backend.data}
+            detail={backend.detail}
+            onRetryDetail={backend.retryDetail}
+            onClose={backend.clearSelection}
+            onFocus={() => {
+              const geometry = backend.detail.feature?.geometry;
+              if (geometry?.type === "Point")
+                setBackendFocus({
+                  position: [geometry.coordinates[0], geometry.coordinates[1]],
+                  nonce: ++backendFocusSequence.current,
+                });
+            }}
+          />
+        ) : (
+          <BasinInspector
+            basin={basin}
+            snapshot={snapshot}
+            scenarioId={state.scenarioId}
+            hiddenLayer={!state.layers.basins}
+            onFocus={() =>
+              basin && dispatch({ type: "fly_to", targetId: basin.id })
+            }
+            onClose={() => dispatch({ type: "select_basin", id: null })}
+          />
+        )}
       </div>
       <div className="map-context-heading">
         <span className="eyebrow">BROOKLYN / FOCUS AREA</span>
@@ -345,17 +463,25 @@ function Workspace({
           <br />
           <span>Inspect with context.</span>
         </h2>
-        <p>Explore illustrative infrastructure priorities.</p>
+        <p>
+          {sourceMode === "fixture"
+            ? "Explore illustrative infrastructure priorities."
+            : "Explore snapshot inventory and reported incidents."}
+        </p>
       </div>
-      <MapLegend
-        snapshot={snapshot}
-        layers={state.layers}
-        scenarioId={state.scenarioId}
-      />
-      {workspaceNotice && !sourcesOpen && (
+      {sourceMode === "backend" ? (
+        <BackendLegend data={backend.data} layers={backendLayers} />
+      ) : (
+        <MapLegend
+          snapshot={snapshot}
+          layers={state.layers}
+          scenarioId={state.scenarioId}
+        />
+      )}
+      {sourceMode === "fixture" && workspaceNotice && !sourcesOpen && (
         <WorkspaceNotice notice={workspaceNotice} onRestore={restoreExamples} />
       )}
-      {complaint && (
+      {sourceMode === "fixture" && complaint && (
         <div className="complaint-detail" role="status">
           <button
             className="icon-button"
@@ -372,18 +498,26 @@ function Workspace({
           <small>{complaint.createdAt} · Local synthetic fixture</small>
         </div>
       )}
-      {sourcesOpen && (
-        <SourcesPanel
-          snapshot={snapshot}
-          settings={settings}
-          onSettings={onSettings}
-          onClose={() => setSourcesOpen(false)}
-          notice={workspaceNotice}
-          onRestore={restoreExamples}
-        />
-      )}
+      {sourcesOpen &&
+        (sourceMode === "backend" ? (
+          <BackendSourcesPanel
+            data={backend.data}
+            onRefresh={backend.refresh}
+            onClose={() => setSourcesOpen(false)}
+          />
+        ) : (
+          <SourcesPanel
+            snapshot={snapshot}
+            settings={settings}
+            onSettings={onSettings}
+            onClose={() => setSourcesOpen(false)}
+            notice={workspaceNotice}
+            onRestore={restoreExamples}
+          />
+        ))}
       <AssistantPanel
         open={assistantOpen}
+        dataMode={sourceMode}
         snapshot={snapshot}
         scenarioId={state.scenarioId}
         selectedBasinId={state.selectedBasinId}
@@ -391,6 +525,7 @@ function Workspace({
         onExpressionChange={setMascotExpression}
         onSubmit={runAssistant}
         onSelect={(id) => {
+          if (sourceMode !== "fixture") return;
           closeAssistant();
           onQueueSelect(id);
         }}
@@ -417,7 +552,11 @@ function Workspace({
         </span>
         <span>
           <strong>Swale Assistant</strong>
-          <small>Scripted demonstration</small>
+          <small>
+            {sourceMode === "fixture"
+              ? "Scripted demonstration"
+              : "Fixture actions unavailable"}
+          </small>
         </span>
         <span className="demo-label">DEMO</span>
         <Icon name={assistantOpen ? "close" : "arrow"} size={16} />
@@ -425,7 +564,9 @@ function Workspace({
       <footer className="workspace-footer">
         <span>
           <i />
-          SYNTHETIC DEMONSTRATION · NO LIVE INFRASTRUCTURE DATA
+          {sourceMode === "fixture"
+            ? "SYNTHETIC DEMONSTRATION · NO LIVE INFRASTRUCTURE DATA"
+            : "LOCAL SNAPSHOT · BK0601 COVERAGE · NOT A LIVE FEED"}
         </span>
         <button onClick={() => setSourcesOpen((v) => !v)}>
           Data provenance <Icon name="info" size={11} />

@@ -11,6 +11,7 @@ import { SwaleMascot, type MascotExpression } from "./SwaleMascot";
 import "./assistant.css";
 
 interface Props {
+  dataMode?: "fixture" | "backend";
   open: boolean;
   snapshot: DemoSnapshot;
   scenarioId: ScenarioId;
@@ -25,10 +26,12 @@ const initialMessage: AssistantMessage = {
   role: "assistant",
   demo: true,
   status: "complete",
-  text: "Explore the local demonstration. I can switch scenarios, highlight example basins, and show complaint examples. Responses are scripted; no live AI or backend is connected.",
+  text: "Explore the local demonstration. I can switch scenarios, highlight example basins, and show complaint examples. Responses use local fixtures; no AI query is sent.",
 };
 export function AssistantPanel(p: Props) {
   const { open, onSubmit, onExpressionChange } = p;
+  const dataMode = p.dataMode ?? "fixture";
+  const dataModeRef = useRef(dataMode);
   const [messages, setMessages] = useState<AssistantMessage[]>([
     initialMessage,
   ]);
@@ -51,6 +54,16 @@ export function AssistantPanel(p: Props) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const log = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (dataModeRef.current !== dataMode) {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = null;
+      setPending(false);
+      setFormError("");
+      setExpression(open ? "information" : "idle");
+    }
+    dataModeRef.current = dataMode;
+  }, [dataMode, open]);
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
@@ -85,7 +98,7 @@ export function AssistantPanel(p: Props) {
     log.current?.scrollTo({ top: log.current.scrollHeight, behavior: "auto" });
   }, [messages, pending, p.open]);
   const send = (text: string) => {
-    if (pending) return;
+    if (pending || dataModeRef.current !== "fixture") return;
     const value = text.trim();
     if (!value) {
       setFormError("Enter a question or choose a demonstration prompt.");
@@ -113,6 +126,10 @@ export function AssistantPanel(p: Props) {
       },
     ]);
     timer.current = setTimeout(() => {
+      if (dataModeRef.current !== "fixture") {
+        setPending(false);
+        return;
+      }
       try {
         const reply = onSubmitRef.current(value);
         setExpression(
@@ -195,7 +212,11 @@ export function AssistantPanel(p: Props) {
       </header>
       <div className="assistant-notice">
         <span className="demo-label">DEMO</span>
-        <p>Local fixture responses. Real AI integration is pending.</p>
+        <p>
+          {dataMode === "fixture"
+            ? "Local fixture responses. Real AI integration is pending."
+            : "Fixture history only. Backend data actions are unavailable; switch to Fixture / demo to use scripts."}
+        </p>
       </div>
       <div
         className="chat-log"
@@ -229,7 +250,13 @@ export function AssistantPanel(p: Props) {
                   .map((id) => {
                     const basin = p.snapshot.basins.find((b) => b.id === id)!;
                     return (
-                      <button key={id} onClick={() => p.onSelect(id)}>
+                      <button
+                        key={id}
+                        disabled={dataMode !== "fixture"}
+                        onClick={() =>
+                          dataModeRef.current === "fixture" && p.onSelect(id)
+                        }
+                      >
                         <Icon name="basin" size={13} />
                         <span>
                           {id}
@@ -262,12 +289,16 @@ export function AssistantPanel(p: Props) {
         aria-label="Suggested demonstration prompts"
       >
         {suggestions.map(([label, prompt]) => (
-          <button key={label} disabled={pending} onClick={() => send(prompt)}>
+          <button
+            key={label}
+            disabled={pending || dataMode !== "fixture"}
+            onClick={() => send(prompt)}
+          >
             {label}
             <Icon name="arrow" size={11} />
           </button>
         ))}
-        {p.selectedBasinId && (
+        {dataMode === "fixture" && p.selectedBasinId && (
           <button
             disabled={pending}
             onClick={() =>
@@ -292,11 +323,15 @@ export function AssistantPanel(p: Props) {
         <textarea
           ref={inputRef}
           id="assistant-input"
-          placeholder="Ask about the example workspace…"
+          placeholder={
+            dataMode === "fixture"
+              ? "Ask about the example workspace…"
+              : "Fixture actions unavailable in backend mode"
+          }
           rows={2}
           maxLength={600}
           value={input}
-          readOnly={pending}
+          readOnly={pending || dataMode !== "fixture"}
           aria-invalid={!!formError}
           aria-describedby={formError ? "composer-error" : "composer-note"}
           onChange={(e) => {
@@ -317,7 +352,7 @@ export function AssistantPanel(p: Props) {
         <button
           type="submit"
           aria-label="Send demonstration message"
-          disabled={pending || !input.trim()}
+          disabled={pending || dataMode !== "fixture" || !input.trim()}
         >
           <Icon name="send" size={17} />
         </button>
@@ -328,7 +363,9 @@ export function AssistantPanel(p: Props) {
         </p>
       )}
       <p className="composer-note" id="composer-note">
-        DEMO · No LLM, live queries, or verified blockage detection.
+        {dataMode === "fixture"
+          ? "DEMO · No LLM, live queries, or verified blockage detection."
+          : "DEMO HISTORY · No connection between these scripts and backend records."}
       </p>
     </section>
   );
