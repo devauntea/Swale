@@ -215,7 +215,7 @@ def synthesize_speech(text: str) -> bytes | None:
         return None
     import httpx
 
-    voice = os.environ.get("ELEVENLABS_VOICE_ID") or "21m00Tcm4TlvDq8ikWAM"
+    voice = os.environ.get("ELEVENLABS_VOICE_ID") or "XrExE9yKIg1WjnnlVkGX"  # Matilda (ElevenLabs premade)
     response = httpx.post(
         f"https://api.elevenlabs.io/v1/text-to-speech/{voice}",
         headers={"xi-api-key": key, "accept": "audio/mpeg"},
