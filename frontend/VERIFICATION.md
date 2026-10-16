@@ -1,3 +1,170 @@
+# Final integration publication candidate — October 16, 2026
+
+**Latest additive checkpoint: candidate verification in progress. Main-backed
+acceptance and GitHub publication are pending.** The owner's final-publication
+instruction authorizes the bounded parser repair, verified local main promotion,
+normal publication and existing push-triggered automation. Older authorization
+restrictions below are historical records, preserved verbatim; they do not override
+that instruction. Source publication and hosted deployment are separate outcomes.
+
+The verified frontend correction is **`70da447`**, following the bounded backend
+parser repair **`1e94a56`** and imported backend **`c65f03b`**. Frontend test/build
+logs were captured while these changes were uncommitted over `2652893`; the logged
+file hashes identify the exact changes subsequently committed as `70da447`.
+No independent dependency upgrade or UI feature was added. Vite now uses
+`envDir: false`; current Vite documentation and installed types confirm this disables
+automatic dotenv loading. Existing credential files were not read or modified.
+
+All preceding standalone/integration/transit evidence remains below as historical
+context. The current application distinguishes Fixture/DEMO from Backend snapshot
+and foreground transit updates; this checkpoint does not establish scientific
+validity, official station safety, whole-product completeness or hosted readiness.
+Historical cumulative active-work duration remains unmeasured; the original budget
+has not been reset.
+
+## Fresh candidate automated checks
+
+At **15:24:13–15:24:17 UTC / 11:24 EDT**, installed locked tooling ran with an
+isolated home, explicit empty npm user/global configurations and a clean environment:
+
+- **165 frontend tests across 14 files: PASS** (Vitest duration **2.69 seconds**).
+- Strict TypeScript, production build, lint and formatting: **PASS**. Lint reported
+  **0 errors / 0 warnings across 51 files**; frontend `git diff --check` passed.
+- New regressions retain the full encoded Unicode/colon/delimiter ID, paired profile
+  samples and original source/event/ingest timestamps. They reject unequal profile
+  lengths and mismatched response IDs; verify recovery from an unavailable detail;
+  and verify the matching historical event/source details render without the former
+  error. These are isolated mock-transport/DOM tests, separate from actual API and
+  browser observations below. Existing unavailable-detail behavior remains covered.
+- Fresh official npm registry vulnerability metadata: **0 vulnerabilities**;
+  package manifest and lockfile hashes unchanged. No install/fix, lifecycle script,
+  inherited npm credential configuration or independent upgrade was used.
+- Static palette/contrast audit: **PASS** for **42 owned TS/TSX/CSS non-test files**,
+  **123 hex literals** and **30 centralized map RGB arrays**. Yellow outside mascot
+  **0**; mascot yellow literals **7**. Sixteen enabled-text token pairs per theme
+  meet 4.5:1, minimum **4.8962 light / 5.3408 dark**. This is a source calculation,
+  not rendered WCAG certification; external basemap artwork is excluded.
+
+Sanitized task-owned evidence lives under
+`/Users/kerwynjean/.local/share/swale-local/logs/`:
+`publication-frontend-20261016T152413Z.json` plus its per-check text logs,
+`publication-npm-audit-20261016T1524.json`, and
+`publication-style-audit-20261016T1524.json`.
+The installed uv0.13.1 built-in audit subsequently checked **97 backend packages**:
+**0 vulnerabilities / 0 adverse statuses**, exit0. No tool was installed. It ran
+in a separate clean, credential-restricted tooling environment with checkout
+write denial; public lock/pyproject remained unchanged. Experimental audit/schema
+warnings and the first DNS-failed attempt are retained. This is point-in-time
+known-vulnerability evidence, not universal security certification.
+
+## Fresh actual API and browser observations before main promotion
+
+The root operator's bounded actual loopback API sequence records **23 expected
+outcomes / 23 PASS**, including the repaired collection-to-detail round trip.
+The exact original failing ID (`BK-3rd-ave-bergen-st-2jg440_20260807T205455Z`)
+now returns matching detail and **68 paired profile samples** in that sequence.
+The separate browser-selected full ID is
+`flood_event:⟨BK-carroll-st-4th-av-0ery00_20260520T231358Z⟩`.
+Its additional actual detail check returns **137 paired profile samples**;
+the existing browser cited-evidence panel now shows **observed**, maximum
+**15.35 inches**, event start **2026-05-20T23:13:58Z**, end
+**2026-05-21T01:31:58Z**, and original ingest **2026-10-16T14:02:12Z**.
+This fixes the previously demonstrated 404; the full opaque frontend ID is not
+rewritten. The API/profile result and visible event details are distinct evidence;
+no new profile chart was added. These are street-sensor historical measurements,
+not a current station sensor, confirmed station event or station-safety finding.
+
+After the map settled, a genuine station pointer at **432,454** selected
+**Carroll Street / F21** with its matching inspector. **Fit entrances** and selection
+of entrance **`F21_33`** showed the correct station/entrance relationship. One map
+canvas was observed. A genuine basin pointer at621,507 opened
+`catch_basin:CB305011`; layer changes retained selection. Source-panel Escape
+returned focus. Normal wave/umbrella transforms changed during computed0.65s
+animations; reduced-motion children used animation none/0s. Keyboard opening
+focused the composer, Escape returned launcher focus, and the scripted blockage
+response retained DEMO/uncertainty. Dark preference survived reload before map
+readiness. Actual698×931/354×767 CSS viewports had no horizontal overflow; mobile
+light/dark panels, composer and Planning/Escape focus were observed. Viewport and
+media overrides were restored. These are candidate observations. Final
+main-backed startup, live state and publication still require later closeout.
+
+Screenshots and raw browser evidence remain ignored local files under
+`frontend/verification-artifacts/integration/publication*`.
+Fresh native console observation retained **three Liberty warnings** and two
+`Unchecked runtime.lastError: Receiving end does not exist` messages. The latter
+are extension-API-shaped messages, but their source attribution is uncertain.
+No missing-sprite message was captured in this fresh sample. No universal clean
+console, universal resource success or warning suppression is claimed.
+
+## Fresh initial application bytes
+
+The root operator saved a native, cache-disabled production-preview initial HAR.
+Offline analysis found **27 GET requests, all HTTP 200**, with no unexpected origin
+or failed resource in that captured interval:
+
+| Captured group | Requests | HAR transferred bytes | Decoded body bytes |
+| --- | ---: | ---: | ---: |
+| Application, including main document | 12 | 670,473 | 2,974,102 |
+| OpenFreeMap basemap | 15 | 2,436,042 | 4,133,019 |
+
+Basemap encoded-body sizes are unknown for all 15 requests; they are not zero.
+No API or extension request appears in this particular initial HAR; it does not
+establish zero activity outside that interval. The document itself is included
+(**945 bytes HAR transfer / 1,359 decoded**).
+
+**Canonical native ResourceTiming application total: 814,189 transferred bytes /
+810,589 encoded / 2,974,102 decoded, 12 requests including navigation. Initial
+application <=20 MB target: PASS.** Native worker timing reports **144,914 transfer /
+144,614 encoded / 507,714 decoded bytes**, while HAR reports **303 transfer / 0
+encoded / 507,714 decoded**. The **144,611-byte worker discrepancy** is retained;
+no adjusted HAR total silently replaces the canonical native total. Basemap HAR
+bytes remain a separate measured category.
+
+A separate post-Subway-toggle API sample recorded **15 requests / 353,291 transferred
+bytes / 349,991 decoded**, paused early with an aborted board. It is not the same
+initial-load interval, and no combined initial application+API total is claimed.
+Evidence: [fresh initial-load summary](verification-artifacts/integration/publication-initial-20261016T1528.summary.json),
+with its ignored native HAR. The HAR filename's `1528` token is an operator label,
+not a replacement for actual capture/report timestamps.
+
+## Fresh native compositor and interaction timing
+
+A saved native Chrome Performance recording contains **457 renderer Compositor
+`DrawFrame` events / 457 unique frame sequence IDs**, layer-tree ID 2, renderer
+PID **95245**, compositor thread **4246596**. The approximately **18.808-second**
+recording used Backend → Subway, paused with **10 loaded stations**, entrances,
+exposure and zones enabled, and 3D. CSS viewport **863×896**, DPR approximately
+**2.2**, one map canvas. It is rendering evidence, separate from a live-feed cycle.
+
+| Genuine camera action | Source-duration window | Compositor draws | Draws/second | Maximum gap |
+| --- | ---: | ---: | ---: | ---: |
+| Zoom in | 650 ms | 56 | 86.15 | 25.961 ms |
+| Brooklyn overview | 1,200 ms | 78 | 65.00 | 44.090 ms |
+
+**Representative >=30 rendered-cadence target: PASS for these measured compositor
+windows.** Zoom p95 gap **16.5405 ms**; overview p95 **26.893 ms**, with one gap over
+33.333 ms. The dark-mode click occurred **648.002 ms into overview**; its concurrent
+theme work remains included. Idle gaps are excluded. These are actual compositor
+draw-event rates, not rAF or MapLibre render-event counts, complete GPU work,
+per-frame data freshness, physical-display presentation or exhaustive device proof.
+Native profiling adds overhead. The earlier transit render-event-only sample below
+remains historical and is not substituted for these compositor measurements.
+
+Native trace `EventTiming` reports **60.309 ms theme** and **56.604 ms assistant**
+click-to-next-paint latency. The assistant interaction's pointer-event maximum is
+**59.439 ms**. These measure input/event response to the next paint, not all map
+style/tile/GPU readiness or completion of the approximately 650 ms greeting.
+Fresh scenario-switch latency is **NOT MEASURED in this recording**. The operator's
+native Performance UI reported **INP 60 ms / CLS 0**; those UI values were not
+independently recomputed. Evidence: [fresh native compositor summary](verification-artifacts/integration/publication-transit-compositor-20261016T1527.summary.json),
+with its ignored saved trace.
+
+**Checkpoint: candidate verified within the completed scopes above. Local main
+promotion, final main-backed browser/live verification, final-history publication
+audit, remote publication and actual-SHA check/deployment outcomes remain PENDING.**
+
+---
+
 # Standalone frontend verification
 
 This report records checks actually performed on October 16, 2026. It does not

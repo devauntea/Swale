@@ -1,4 +1,177 @@
-# Transit integration checkpoint — October 16, 2026
+# Final integration repair and publication — October 16, 2026
+
+This is the current execution record. The owner's final-publication instruction
+authorizes the bounded parser repair/tests, repository-owned restricted runtime,
+normal main promotion/push, existing push-triggered automation and independent
+remote verification. Older no-merge/no-push statements below are historical.
+Manual hosting, credential activation, paid services, unrelated backend changes
+and new features remain outside scope. Publication receipts are kept locally and
+reported separately from automatic hosting/check outcomes.
+
+Frozen reconciliation: original main **M=5fad6b4ebf17c58a1ca427a3ba742d1e843f9e7b**;
+existing integration **I=26528936cb09ae810674fdcce71c52928c148970**;
+reviewed backend **B=c65f03b569fc941264bb1b6ec80f8e0a079263d0**;
+remote main **R=aa08a17d166cbf0f23281627a74289fe8f7efe43**.
+Fresh fetch found no backend advance, so no redundant backend merge was made.
+The candidate already preserves all four histories and the unpublished frontend
+corrections. Unrelated main `.vscode/` and preparation notes are preserved.
+Only sample hooks exist; origin has one fetch URL and one effective push URL,
+both `https://github.com/devauntea/Swale.git`, with no mirror/follow-tags setting.
+GitHub account `kjean230` has push access; main was unprotected, rulesets empty,
+required check contexts empty and Actions workflows absent at reconciliation.
+These are observations to recheck before publication, not permanent assumptions.
+
+## Repaired collection-to-detail round trip
+
+At **15:21:57Z**, the existing server reproduced the actual full collection ID
+`flood_event:⟨BK-3rd-ave-bergen-st-2jg440_20260807T205455Z⟩` returning404
+after normal client encoding. Commit **1e94a56** changes only
+`backend/swale/api/params.py` and directly relevant tests. It reverses the installed
+SurrealDB2.0.0 string-key wrapper/escaped closing delimiter, validates the prefix
+and preserves path404/query422 errors. There is no frontend ID rewrite, extra
+URL decode, eval, query interpolation, format migration or stored-record change.
+
+The unchanged parser failed17 targeted regressions. The repaired selected offline
+gate passes **165 tests**, including the exact ID, Unicode, colons, backslashes,
+literal delimiters, percent sequences, simple IDs, shared callers and negatives.
+Underlying delimiter keys must be represented by their canonical SDK full ID;
+fabricated unwrapped aliases beginning with the delimiter are ambiguous and
+unsupported. Actual uvicorn probes preserve literal `%3A`, `%2F`, `%253A` after
+one URL-decoding pass. An actual slash is still rejected by the existing
+single-segment route before this parser; current stored IDs are unaffected.
+Changing partner route definitions was not included in the authorized repair.
+
+At **15:30:49–15:30:52Z**, the repository-owned candidate runtime passed all
+**23 bounded actual API requests** (inventory/details, metadata/sources,
+stations/entrances, exposure/zones, sensors/DEP maps, flood detail, live board,
+weather/history and negative cases). The previously failing ID returned matching
+observed detail, **68 paired profile samples**, original event times and original
+ingest **14:02:12Z**. No raw payloads were published. Actual frontend evidence
+drill-down from UnionR32 through its cited sensor to a returned event now shows
+matching observed detail/source fields instead of404. The UI does not add a new
+profile chart; its transport retains the verified profile payload.
+
+The initial fresh MTA board fetched **15:30:50Z**, five feed ages **3.3–12.3s**,
+errors0,15 stations,119 displayed arrival records,2 unmatched/null delays,
+59 negative and13 zero delays. There were3 applicable alerts and0 flood mentions;
+this is not a real flood/closure demonstration. History changed4→5 polls.
+NWS fetched **15:30:51Z**, uncached, errors0, observation **15:10Z**, forecast
+issue **07:47:17Z**,0.23in accumulation over24hours,0 official alerts.
+These measured values are session evidence, not constants for a future demo.
+The current **October16** service date matches4 committed service calendars;
+calendar exceptions are already applied in the snapshot, whose actual dates are
+October16–23 inclusive. No acquisition or tracked-snapshot overwrite occurred.
+
+## Reproducible restricted tooling
+
+`scripts/local/` now owns the controller, broker, profile template, containment
+probe, locked offline setup helper and focused tests. No private runtime directory
+was copied wholesale. Source resolves its own checkout, rejects a different root,
+uses that checkout's Python/backend module, an explicit absolute existing DB and
+a private external runtime directory. It rejects checkout dotenv paths by name
+without reading them. Vite also disables dotenv loading (`envDir:false`,
+commit **70da447**). Application credentials remain untouched and unread.
+
+**53 focused helper tests passed.** All four native profiles compiled. Actual
+offline enforcement denies reserved TCP/UDP, a known nonsecret marker read and
+exec-child TCP withEPERM. Actual live probe returned unknown CONNECT403 before
+resolution and official MTA/NWS GET200 at **15:29:27Z**,19351/3917 bytes,
+no redirects. Host enforcement is software in the broker; the native rule is
+coarse outboundTCP443 and does not inspect encrypted methods/paths. Normal TLS
+and source-reviewed GET behavior remain necessary.
+
+The identified old controller80635/backend80638/broker80637 was stopped with
+SIGINT; fresh process/listener/DB-handle checks showed shutdown before reusing
+the retained DB. Candidate controller99122/backend99125/broker99124 then started
+from repository sources. It uses the same absolute database:
+`/Users/kerwynjean/Swale-integration/backend/var/local-transit-c65f03b.db`.
+No DB was copied, replaced or reingested and original provenance was not rewritten.
+Startup effects were reviewed: schema definitions, design-storm metadata seeding,
+and marking previously queued/running jobs failed; no new simulation/AI execution.
+
+Two real helper verification failures remain in local evidence: the first probe
+lacked its nonsecret marker, and pytest parent discovery hit denied
+`.env.example` metadata. Exclusive marker creation and explicit `--confcutdir`
+fixed these without weakening credential restrictions. Candidate setup
+`--verify-existing` checked96 installed packages against the unchanged lock
+(98 resolved), with no environment change. The exact main setup command follows.
+
+```sh
+/usr/bin/python3 -I -S /Users/kerwynjean/Swale/scripts/local/setup.py \
+  --root /Users/kerwynjean/Swale \
+  --uv /Users/kerwynjean/.local/share/swale-local/uv-aarch64-apple-darwin/uv \
+  --python /Users/kerwynjean/.local/share/swale-local/python/cpython-3.12.15-macos-aarch64-none/bin/python3.12 \
+  --cache /Users/kerwynjean/.local/share/swale-local/uv-cache \
+  --runtime-dir /Users/kerwynjean/.local/share/swale-local/repository-main-setup
+```
+
+This creates main's own `.venv` using only existing reviewed cached locked inputs
+under native network denial, never a copied integration environment. It refuses
+replacing an existing virtualenv; use `--verify-existing` for a read-only check.
+See [runtime tooling](../scripts/local/README.md) and [README](../README.md) for
+main-backed serve/stop commands. The eight baseline/transit/weather modules plus
+parser tests run using `mem://`, never the retained DB:
+
+```sh
+/usr/bin/python3 -I -S /Users/kerwynjean/Swale/scripts/local/runtime.py test \
+  --root /Users/kerwynjean/Swale \
+  --database /Users/kerwynjean/Swale-integration/backend/var/local-transit-c65f03b.db \
+  --runtime-dir /Users/kerwynjean/.local/share/swale-local/main-offline-tests \
+  --test test_params.py
+/usr/bin/python3 -I -S /Users/kerwynjean/Swale/scripts/local/tests/test_runtime.py
+```
+
+Fresh frontend checks pass165 tests, TypeScript/build/lint/format and npm registry
+audit0 vulnerabilities, with unchanged dependency manifests. Built-in uv0.13.1
+audit separately checked97 backend packages:0 vulnerabilities/0 adverse statuses,
+exit0, unchanged public lock/pyproject and a write-denied checkout. Experimental
+audit/schema warnings and the first DNS-failed attempt are retained. Its successful
+retry used clean tooling-only OSV network access and credential denials; it did not
+change application networking, install tools or activate credentials. These are
+point-in-time known-vulnerability results, not universal security certification.
+Full source/history scans cover all newly reachable objects, including deleted
+blobs and decompressed public snapshots, before publication. Scanning patterns
+is not an exhaustive secret guarantee. No private runtime artifacts are staged.
+Known imported EOF whitespace at exposure.py:263/data-sources.md:290 is preserved.
+
+Fresh native transit compositor evidence: Zoom56 draws/650ms=**86.15DrawFrame/s**;
+Overview78/1200ms=**65.00/s**, max gap44.09ms (one over33.333ms).
+Both representative windows exceed30. Theme work overlaps the overview window;
+the gap is retained. These are compositor events, not render callbacks, GPU
+completion or certified physical-display presentation. Native INP60ms/CLS0;
+theme next-paint60.309ms, assistant56.604ms. Canonical initial application assets
+including document/worker: **814189 transferred bytes**, below20MB. Basemap
+HAR2436042B and API353291B/15 requests are separate samples. HAR worker303B versus
+ResourceTiming144914B discrepancy remains recorded. See fresh
+[frontend evidence](../frontend/VERIFICATION.md) for methods and limitations.
+
+Local sanitized evidence is under `~/.local/share/swale-local/logs/` and ignored
+frontend `verification-artifacts/integration/publication-*`. It includes actual
+parser before/after, encoding probes, API, helper/setup, audit and native trace/HAR
+results; private logs/HAR/database files are not part of source publication.
+First explicit task clock check was15:27:13Z; actual parser observation15:21:57Z
+preceded it. Earlier cumulative active duration remains unmeasured; the original
+approximately8hour target/6:45 feature freeze was not restarted. This task adds no
+product feature. Main promotion/publication receipts and final runtime identities
+will be recorded after their actual gates, without recursive documentation pushes.
+
+Candidate browser follow-up additionally passed: normal wave and umbrella
+transforms changed during their computed0.65s opening, reduced-motion children
+used animation none/0s, keyboard composer/Escape returned launcher focus, and the
+scripted blockage response retained its DEMO/uncertainty caveat. Explicit dark
+preference survived reload while BASEMAP LOADING, before map readiness. Actual
+responsive CSS sizes698×931 and354×767 had equal client/scroll widths (no horizontal
+overflow); mobile light/dark assistant and Planning drawer/Escape focus were
+observed, and viewport/media overrides were restored. Genuine settled station
+pointer(432,454) opened CarrollF21 with its five entrances; entranceF21_33 fit/focus
+showed its matching relationship. Genuine basin pointer(621,507) opened
+catch_basin:CB305011. Layer toggle retained selection and source-panel Escape
+returned focus. One map canvas remained across these interactions. Fresh scenario
+next-paint latency was not measured; the earlier trace contains no scenario click.
+
+---
+
+# Historical transit integration checkpoint — October 16, 2026
 
 **CONDITIONAL — local transit candidate with a partner detail defect and explicit
 data/performance limits.** Fresh automated checks, observed browser interactions,

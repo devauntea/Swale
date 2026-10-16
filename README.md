@@ -1,113 +1,133 @@
 # Swale
 
-A map-first Brooklyn flood-readiness planning demonstration built with React,
-TypeScript, Vite, MapLibre GL JS and deck.gl. The established default experience
-uses explicitly synthetic **DEMO** fixtures. It does not identify blocked drains,
-show live flooding or provide emergency guidance.
+A map-first Brooklyn planning demonstration with a React/TypeScript/Vite frontend,
+MapLibre GL JS and deck.gl, and the reviewed Python/FastAPI/embedded SurrealDB
+backend. Connected coverage is BK0601. This is not a validated prediction of
+flooding, blockage, station safety or closure.
 
-This isolated local integration candidate preserves the frontend and imports the
-co-founder-owned backend. The approved connection is limited to read-only catch-
-basin inventory, 311 reports, source metadata and health from a committed BK0601
-snapshot. Implementation and acceptance progress are recorded in
-[docs/LOCAL_INTEGRATION.md](docs/LOCAL_INTEGRATION.md). Passing standalone checks
-does not establish a working integrated candidate.
+Read the [current runbook](docs/LOCAL_INTEGRATION.md),
+[verification](frontend/VERIFICATION.md), and
+[next-feature handoff](docs/NEXT_FEATURE_HANDOFF.md). Publishing source and
+successfully deploying a hosted app are separate outcomes.
 
-## Local preview
+## Run locally
 
-Use the prepared integration checkout and task-owned credential-free launcher.
-The backend environment and its own snapshot database must first be initialized
-as recorded in the runbook. Do not create or load a credential file.
+The tested platform is macOS with `sandbox-exec`, Python 3.12, Node >=22.12.0,
+locked dependencies and an existing task-owned database. The repository launcher
+recreates a clean environment, isolated home and native containment. No application
+credential file is needed or loaded. Do not start a second database writer.
 
-In one Terminal:
+Backend, in one terminal:
 
 ```sh
-/usr/bin/python3 -I -S /Users/kerwynjean/.local/share/swale-local/backend.py integration serve
+/usr/bin/python3 -I -S /Users/kerwynjean/Swale/scripts/local/runtime.py serve-live \
+  --root /Users/kerwynjean/Swale \
+  --database /Users/kerwynjean/Swale-integration/backend/var/local-transit-c65f03b.db \
+  --runtime-dir /Users/kerwynjean/.local/share/swale-local/main-runtime
 ```
 
-In a separate Terminal:
+Frontend, in a separate terminal:
 
 ```sh
-cd /Users/kerwynjean/Swale-integration/frontend
+cd /Users/kerwynjean/Swale/frontend
 npm run dev
 ```
 
-The intended frontend URL is http://127.0.0.1:5173/; the backend binds only to
-127.0.0.1:8000. `npm run dev` starts the frontend only. The runbook records whether
-these services have actually been started and observed. Stop each foreground
-process with Ctrl+C in its own Terminal. Keep the preview on this Mac.
+Open **http://127.0.0.1:5173/**. Choose **Backend / snapshot + transit**, then
+**Subway monitoring**, and resume updates if paused. Backend: **127.0.0.1:8000**;
+managed broker: **127.0.0.1:8001**. `npm run dev` starts only Vite. Both development
+and production-preview proxies restrict the frontend to validated, bounded GETs.
 
-The existing locked frontend dependencies require Node >=22.12.0 and npm. The
-task-owned backend uses Python 3.12 and its unchanged uv lockfile. Setup, isolated
-test/ingest commands and containment limits are in the runbook; generic backend
-commands in partner documentation are not the credential-free local workflow.
-OpenFreeMap supplies the approved basemap and compatible building presentation;
-no API key is required. Its resources require internet access in the browser.
-
-## Data modes and limits
-
-Fixture/demo mode preserves the pitched city model, two scenario overlays,
-synthetic basin priorities, complaint points and historical hex examples, forecast
-examples, selection/inspector, layer controls and scripted assistant. Its scenarios
-are exactly `moderate_current` (2.13 in/hr, current sea levels) and `extreme_2080`
-(3.66 in/hr, 2080 sea-level rise). Example values are stored, not scientifically
-calculated; local fixture refresh does not advance source timestamps.
-
-The approved backend mode is a separate snapshot-backed view with actual coverage,
-source times and trust labels. Inventory says nothing about current basin
-condition. A public complaint is reported evidence; historical agency findings and
-inferred nearby-basin associations must remain distinct. Backend errors must stay
-visible without automatically substituting fixtures. See the runbook for the
-current implementation status and mode-selection instructions.
-
-Sensors/flood observations, DEP flood-map presentation, simulations, rainfall
-workflows, rankings, field-entry workflows, briefings, audio, conversational AI,
-NWS/live ingestion and cloud runners remain outside this first connection. The
-stock local backend mounts more routes than the frontend may call. Its CORS and
-the frontend request allowlist are not server authorization controls.
-
-## Themes and Swale Assistant
-
-First visits start in light mode; the visible theme control persists an explicit
-light/dark choice. Both themes preserve the deep-navy sidebar, architectural city
-and blue analysis styling. Theme changes restyle the existing map in place.
-Yellow is reserved for assistant mascot artwork.
-
-The assistant uses a local simplified SVG interpretation of the owner's blue
-robot, yellow raincoat and blue umbrella concept. Its short opening wave respects
-reduced motion. Keyboard opening/closing, focus return, composer, suggestions and
-history are preserved. Fixture replies remain scripted **DEMO** results, with only
-four validated map commands: `set_scenario`, `set_layers`, `highlight`, `fly_to`.
-Backend data actions are outside this slice; fixture history must never appear
-grounded in backend records. No model execution is connected.
-
-## Verification and ownership
+Ctrl+C stops each foreground service. To stop the managed backend separately:
 
 ```sh
-cd /Users/kerwynjean/Swale-integration/frontend
-npm run typecheck
+/usr/bin/python3 -I -S /Users/kerwynjean/Swale/scripts/local/runtime.py stop \
+  --root /Users/kerwynjean/Swale \
+  --database /Users/kerwynjean/Swale-integration/backend/var/local-transit-c65f03b.db \
+  --runtime-dir /Users/kerwynjean/.local/share/swale-local/main-runtime
+```
+
+Stop verifies the controller identity and supervises bounded backend/broker cleanup.
+[Runtime tooling](scripts/local/README.md) documents clean, locked, offline setup,
+preflight, enforcement probes and tests. The runbook records exact tested local
+paths and evidence. Other machines need their own absolute DB path and locked
+virtualenv. Local databases and private runtime output are not published. Generic
+partner setup examples do not replace this restricted workflow.
+
+## Features and data meaning
+
+| View | Supported connected scope |
+| --- | --- |
+| Snapshot | Health/capabilities, source freshness, catch basins and 311 reports, full-ID details, viewport loading and bounded pagination |
+| Subway | MTA stations/entrances, predicted arrivals, available schedule comparisons, applicable alerts and monitoring history |
+| Flood context | Inferred station exposure, DEP modeled polygons, derived sensor buffers and historical FloodNet event evidence |
+| Weather | Separate NWS observations, interval-based forecast accumulation and supplied official alerts |
+| Fixture / demo | Two synthetic scenarios, example priorities, inspector and scripted DEMO assistant, separate from backend records |
+
+The parser repair in `backend/swale/api/params.py` reverses the installed SDK's
+printed string-key delimiters. Collection-produced full event IDs now retrieve
+matching details/profiles after normal URL encoding. Frontend IDs are unchanged;
+wrong-table, empty, malformed and nonexistent IDs remain errors. Path404/query422
+semantics are preserved. The existing single-segment HTTP routes do not support
+actual slashes inside keys; current stored collection IDs are unaffected.
+
+Live transit/weather retrieval does not make inventory, complaints or historical
+sensor events live. One visible board owner polls no faster than 60 seconds, with
+Pause/Resume, backoff and hidden/inactive suspension; weather has a separate
+approximately 600-second boundary. Source, fetch, event, forecast and ingest times
+remain distinct. Errors stay visible without automatic fixture substitution.
+
+The committed schedule covers **October 16–23, 2026**. Expired/unmatched comparisons
+are unavailable, never zero delay or proof of normal service. A non-destructive
+schedule refresh/export remains partner work: the existing acquisition CLI
+rewrites tracked snapshots and is not exposed by this launcher.
+
+Monitoring samples are not distinct long-term station flood events. Train rows
+are stop-associated; exact vehicle positions, destinations and station interiors
+are unavailable. Exposure is unvalidated inference. Sensor buffers are derived
+context, not measured flood boundaries. No emergency, closure, maintenance or
+safe-route instructions are supplied.
+
+## Themes and assistant
+
+First visits default to light; explicit light/dark preference persists. Theme
+changes restyle one map in place. Blue/black/white tokens span both themes; yellow
+is reserved for the local mascot. Its simplified SVG robot/raincoat/umbrella is
+an interpretation of the supplied concept. The short opening wave respects
+reduced motion; keyboard focus, history and map state remain functional.
+
+Replies use scripted **DEMO** fixtures and four validated frontend commands:
+`set_scenario`, `set_layers`, `highlight`, `fly_to`. Backend actions and real
+conversational AI are not connected.
+
+## Verification and boundaries
+
+```sh
+cd /Users/kerwynjean/Swale/frontend
 npm test
+npm run typecheck
 npm run build
 npm run lint
 npm run format:check
-git diff --check
 ```
 
-[frontend/VERIFICATION.md](frontend/VERIFICATION.md) preserves the actual historical
-standalone acceptance evidence and will record fresh candidate results separately.
-The three upstream Liberty filter warnings remain documented. Historical browser
-performance and screenshots do not establish new integrated acceptance.
-[frontend/DEMO.md](frontend/DEMO.md) contains the standalone walkthrough.
+The runbook also provides contained backend/helper tests. Verification separates
+fresh automated, API, browser and compositor/transfer evidence from historical
+results. Three upstream Liberty filter warnings and imported EOF whitespace
+findings remain documented; no universal clean-console or production-security
+claim is made.
 
-The co-founder owns backend source, databases, ingestion/GIS, scoring and real AI.
-Partner references remain available: [backend overview](backend/README.md),
-[draft API](docs/api/v1.md), [source register](docs/data-sources.md), and
-[backend design](docs/design/2026-10-15-swale-backend-design.md). These references
-describe broader capabilities; they do not authorize executing them.
+The broker enforces exact MTA/NWS CONNECT authorities in software with normal TLS.
+Its native TCP443 permission is coarse; encrypted methods/paths are not inspected.
+The stock backend mounts additional loopback routers. Frontend guards and CORS
+are not server authorization. Backend request coalescing, cancellation, retention
+and production authentication/hosting remain follow-ups. Keep localhost private.
 
-Read AGENTS.md and PLAN.md alongside the owner's October 16 bounded integration
-authorization. DATA_NOTES.md preserves historical Phase 0 investigation.
-INTEGRATION_CONTRACT.md remains **PROPOSED — NOT YET AGREED WITH BACKEND TEAM**;
-this owner-approved local consumer slice does not imply agreement to that entire
-proposal. Main and its original worktree remain unchanged. A later explicit owner
-instruction is required before merging into main. Push, PR, deployment, public
-sharing, credential activation and connected-service changes are not authorized.
+The October 16 final instruction authorizes this bounded repair, normal main
+promotion/publication and existing push-triggered automation. It does not authorize
+manual hosting changes, credentials, paid services, new features or unrelated
+backend edits. Broader partner references are [backend overview](backend/README.md),
+[API draft](docs/api/v1.md) and [source register](docs/data-sources.md); they describe
+more than this UI executes. The historical frontend contract remains
+**PROPOSED — NOT YET AGREED WITH BACKEND TEAM**. Older standalone-only authority
+entries are superseded within the approved scope.
