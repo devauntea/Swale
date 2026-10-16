@@ -175,3 +175,77 @@ preserved after its additive scope annotation. No lint configuration is present;
 no lint pass is claimed. The source has been formatted consistently with Prettier.
 
 Final safe-check documentation timestamp: 2026-10-16T04:55:47+00:00.
+
+
+## Permission diagnosis and current acceptance matrix
+
+Updated: 2026-10-16T05:10:10+00:00. Implementation baseline remains local commit
+`f3ab496`; no application code or browser permissions were changed during this
+follow-up. The existing preview and development servers were preserved.
+
+### Connection and required permission
+
+Read-only browser discovery identifies **Chrome**, browser connection `1`, profile
+`K.`, transport `extension` (the ChatGPT browser extension). The denied operation
+was opening `http://127.0.0.1:4173/`; the tool explicitly reported that website
+permission had been declined. Discovery confirms the connection exists, not that
+this website is authorized. No denied URL was retried during this diagnosis.
+
+The required permission is ChatGPT website access to host **127.0.0.1** so the
+existing Chrome connection can read and interact with the local preview. Official
+documentation describes host-based site decisions. The actual blocklist entry was
+not inspected, so its exact stored representation is not asserted.
+
+Supported user action, from the [official browser-extension documentation](https://learn.chatgpt.com/docs/chrome-extension#manage-allowed-and-blocked-websites):
+open desktop-app Settings > Computer Use, choose Manage beside Chrome, and remove
+127.0.0.1 from blocked websites if present. This lets a subsequent website request
+ask again; approve only that site/occasion when prompted. Chat confirmation alone
+has not restored tool access. No permission mutation, alternate browser, CDP,
+headless automation, hostname substitution or indirect access was used.
+
+The agent will wait for explicit confirmation that the actual setting has been
+restored before making one normal browser request. If it is denied again, stop
+rather than retry. Remaining acceptance must use the original three visual
+references and actual current rendered behavior.
+
+### Current checks and evidence
+
+| Check | Status | Actual evidence / scope |
+| --- | --- | --- |
+| Existing implementation preserved | PASS | Follow-up started at HEAD f3ab496 with no tracked changes; application source was not edited. |
+| Production preview preserved | PASS | Existing node PID 61855 listening on 127.0.0.1:4173; no restart/stop or HTTP/browser probe used for this check. |
+| Development server preserved | PASS | Existing node PID 58514 listening on 127.0.0.1:5173. |
+| TypeScript | PASS | `npm run typecheck` in frontend: zero exit status, October 16 follow-up. |
+| Local unit/contract tests | PASS | `npm test`: 59 tests across four files, 01:08:25 EDT, 95 ms; all passed. |
+| Production build | PASS | `npm run build`: zero exit status; 964 modules; Vite reported 270 ms. |
+| Built local assets | PASS | 13 dist files, 2,802,357 total disk bytes; HTML's local asset references exist. This is not network transfer. |
+| Credential-pattern scan | PASS | Tracked textual scan returned zero matches; this is pattern evidence, not an exhaustive security guarantee. |
+| Ignore rules | PASS | Env, local env, dependency and build paths matched .gitignore. |
+| Whitespace/diff check | PASS | `git diff --check` returned zero exit status. |
+| Frontend-only source scope | PASS | Source scan found no production NYC/NWS/OpenAI client or backend implementation; approved OpenFreeMap URLs remain. |
+| Historical detailed 3D view / attribution | PASS | Prior captured Chrome Gowanus view in docs/swale-demo.png; not a final-version recheck. |
+| Historical scenario presentation | PASS | Prior Chrome click changed intensity, sea-level assumption and stored score while retaining selected ID; not a formal current camera measurement. |
+| Historical buildings visibility | PASS | Prior Chrome switch removed extrusions while other overlays remained. |
+| Original startup camera | FAIL | Original browser view was too distant. Code/default-target correction is committed; final browser validation remains BLOCKED below. |
+| Captured missing-sprite resources | FAIL | Seven upstream Liberty missing-sprite warnings in prior captured console window; no final clean-console check. |
+| Website permission for current preview | BLOCKED | Last actual URL-access attempt was rejected as user-declined. No retry during this diagnosis. |
+| Final visual comparison with A/B/C | BLOCKED | Current camera/readability refinements still need actual browser inspection. |
+| Five assistant UI prompts / loading / responses / map effects | BLOCKED | Unit scripts pass; actual browser flows not yet executed. |
+| Marker click/hover, complaint pick, selection/focus | BLOCKED | Needs browser interaction, not inferred from unit tests. |
+| All layers, legends, scenario/camera/selection regressions | BLOCKED | Only historical partial observations above exist; complete current sequence outstanding. |
+| Refresh and source timestamp display | BLOCKED | Pure provider tests pass; browser controls/unchanged dates outstanding. |
+| Stale/unavailable forecast, empty/error recovery UI | BLOCKED | Data contract tests pass; actual rendered states outstanding. |
+| Zoom/pan/rotation, 2D/3D/reset, keyboard/short desktop | BLOCKED | Complete current browser sequences outstanding. |
+| WebGL/context-loss and basemap-unavailable UI | BLOCKED | No browser fault-injection check performed. |
+| Final console and browser network scope | BLOCKED | Static source scan is not a complete runtime capture. |
+| App-controlled initial transferred bytes | NOT MEASURED | Browser capture unavailable; build disk sizes cannot substitute. |
+| Basemap transferred bytes | NOT MEASURED | No browser network capture. |
+| Map FPS / frame-time distribution | NOT MEASURED | No representative browser performance trace. |
+| Scenario-switch latency | NOT MEASURED | No browser interaction timing capture. |
+| Complete three-minute rehearsal / recording | BLOCKED | Walkthrough is prepared; interactive rehearsal and recording remain outstanding. |
+| Frontend fully verified | BLOCKED | Browser acceptance and performance evidence remain incomplete. |
+
+The historical FAIL entries are retained as observed findings rather than hidden
+by passing builds. No backend changes, Git push, deployment or scope expansion
+occurred. Do not interpret the passing non-browser checks as complete frontend
+verification.
