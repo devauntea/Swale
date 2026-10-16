@@ -168,3 +168,17 @@ def test_ingest_run_and_source_bookkeeping(db):
     assert q.get_record(db, "ingest_run", "run1")["report"] == {"upserted": 3}
     assert q.data_sources(db)[0]["last_success_at"] == NOW
     assert q.data_sources(db)[0]["name"] == "renamed"
+
+
+def test_obstructed_basins_respects_the_time_window(db):
+    q.upsert_many(db, "catch_basin", [("A", basin_doc("A", -74.0, 40.6)), ("B", basin_doc("B", -74.001, 40.6))])
+    q.upsert_many(db, "incident", [
+        ("recent", incident_doc("recent", -74.0, 40.6, status="agency_found_obstruction")),
+        ("old", incident_doc("old", -74.001, 40.6, status="agency_found_obstruction", reported_at=NOW - timedelta(days=500))),
+    ])
+    q.replace_near_basin(db, [
+        {"incident": "recent", "basin": "A", "distance_ft": 5.0, "method": "m", "computed_at": NOW},
+        {"incident": "old", "basin": "B", "distance_ft": 5.0, "method": "m", "computed_at": NOW},
+    ])
+    assert q.obstructed_basins(db, NOW - timedelta(days=365)) == {"A"}
+    assert q.obstructed_basins(db, NOW - timedelta(days=600)) == {"A", "B"}

@@ -33,6 +33,14 @@ uv run pytest -m live                   # check that the live sources still have
 uv run swale bench-bbox --fetch && uv run swale bench-bbox   # re-run the bbox benchmark (docs/benchmarks/)
 ```
 
+## Simulations (EPA SWMM)
+
+```bash
+./scripts/fix_swmm_macos.sh     # macOS on Apple Silicon only, once after `uv sync` (see the script for why)
+```
+
+The API seeds DEP's three design storms (1.77, 2.13 and 3.66 in/hr) for each loaded area. `POST /api/v1/simulation-runs` with a `scenario_id` and `runner` set to `local` (or `daytona` when `DAYTONA_API_KEY` is set) runs the Swale SWMM demonstrator. Then poll `GET /api/v1/simulation-runs/{id}`. Results are **predicted**: the model is schematic and uncalibrated, and every assumption is listed in the run's `model.assumptions`.
+
 ## Settings
 
 See `.env.example`. Every setting has a working default.

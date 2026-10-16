@@ -13,11 +13,13 @@ from typing import Any
 from swale.core.geo import BBox, geojson_bbox
 from swale.core.timeutil import epoch_to_utc, iso_z, utcnow
 from swale.ingest.taxonomy_311 import soql_filter
-from swale.sources.registry import CATCH_BASINS, NTA_2020, NYC311, DataSource
+from swale.sources.registry import CATCH_BASINS, FLOODNET_EVENTS, FLOODNET_SENSORS, NTA_2020, NYC311, DataSource
 from swale.sources.socrata import SocrataClient
 
 AREA_CODE = re.compile(r"^[A-Z]{2}\d{4}$")
-FILE_STEMS = {NTA_2020.key: "area", CATCH_BASINS.key: "catch_basins", NYC311.key: "nyc311"}
+FILE_STEMS = {NTA_2020.key: "area", CATCH_BASINS.key: "catch_basins", NYC311.key: "nyc311",
+              FLOODNET_SENSORS.key: "floodnet_sensors", FLOODNET_EVENTS.key: "floodnet_events"}
+OPTIONAL = (FLOODNET_SENSORS, FLOODNET_EVENTS)
 
 
 @dataclass
@@ -37,9 +39,11 @@ class Bundle:
     area: SourcePull
     catch_basins: SourcePull
     nyc311: SourcePull
+    floodnet_sensors: SourcePull | None = None
+    floodnet_events: SourcePull | None = None
 
     def pulls(self) -> list[SourcePull]:
-        return [self.area, self.catch_basins, self.nyc311]
+        return [p for p in (self.area, self.catch_basins, self.nyc311, self.floodnet_sensors, self.floodnet_events) if p is not None]
 
 
 def within_box(column: str, box: BBox) -> str:
@@ -61,7 +65,11 @@ def fetch_bundle(client: SocrataClient, area_code: str, *, since: date, bbox: BB
         NYC311,
         where=f"{within_box('location', box)} AND created_date >= '{since.isoformat()}T00:00:00' AND {soql_filter()}",
     )
-    return Bundle(area_code, fetched_at, since, box, area, basins, complaints)
+    sensors = _pull(client, FLOODNET_SENSORS, where=within_box("location", box))
+    ids = sorted({r["sensor_id"] for r in sensors.rows if r.get("sensor_id")})
+    quoted = ",".join("'" + i.replace("'", "''") + "'" for i in ids)
+    events = _pull(client, FLOODNET_EVENTS, where=f"sensor_id in({quoted})") if ids else SourcePull(FLOODNET_EVENTS, [], None, [])
+    return Bundle(area_code, fetched_at, since, box, area, basins, complaints, sensors, events)
 
 
 def _pull(client: SocrataClient, source: DataSource, *, where: str) -> SourcePull:
@@ -103,7 +111,9 @@ def write_bundle(bundle: Bundle, directory: Path, *, compress: bool = False) -> 
 def read_bundle(directory: Path) -> Bundle:
     manifest = json.loads((directory / "manifest.json").read_text())
     pulls: dict[str, SourcePull] = {}
-    for source in (NTA_2020, CATCH_BASINS, NYC311):
+    for source in (NTA_2020, CATCH_BASINS, NYC311, *OPTIONAL):
+        if source.key not in manifest["sources"]:
+            continue  # older snapshots have no FloodNet files
         entry = manifest["sources"][source.key]
         raw = (directory / entry["file"]).read_bytes()
         rows = json.loads(gzip.decompress(raw) if entry["file"].endswith(".gz") else raw)
@@ -119,4 +129,6 @@ def read_bundle(directory: Path) -> Bundle:
         pulls[NTA_2020.key],
         pulls[CATCH_BASINS.key],
         pulls[NYC311.key],
+        pulls.get(FLOODNET_SENSORS.key),
+        pulls.get(FLOODNET_EVENTS.key),
     )

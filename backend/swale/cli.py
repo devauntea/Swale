@@ -27,6 +27,7 @@ def main(argv: list[str] | None = None) -> int:
     serve = sub.add_parser("serve", help="run the API")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
+    serve.add_argument("--reload", action="store_true", help="restart on code changes (development)")
     sub.add_parser("bench-bbox", help="SurrealDB bbox benchmark; arguments pass through", add_help=False)
     args, rest = parser.parse_known_args(argv)
     settings = Settings.from_env()
@@ -40,7 +41,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "serve":
         import uvicorn
 
-        uvicorn.run("swale.api.app:create_app", factory=True, host=args.host, port=args.port)
+        uvicorn.run("swale.api.app:create_app", factory=True, host=args.host, port=args.port, reload=args.reload,
+                    reload_dirs=[str(BACKEND_DIR / "swale")] if args.reload else None)
         return 0
 
     from swale.ingest.bundle import fetch_bundle, read_bundle, write_bundle

@@ -12,7 +12,7 @@ from surrealdb import RecordID
 from swale.core.geo import BBox
 from swale.db.connection import run, run_one
 
-MAP_TABLES = frozenset({"catch_basin", "incident"})
+MAP_TABLES = frozenset({"catch_basin", "incident", "sensor", "flood_event", "flood_result"})
 CHUNK = 2000
 LINKS = ", ->near_basin.* AS links"
 
@@ -131,3 +131,34 @@ def finish_ingest_run(db: Any, key: str, fields: dict[str, Any]) -> None:
 def upsert_merge(db: Any, table: str, key: str, doc: dict[str, Any]) -> None:
     """Create the record or merge ``doc`` into it; fields not in ``doc`` are kept."""
     run(db, "UPSERT $record MERGE $doc;", {"record": rid(table, key), "doc": doc})
+
+
+def flood_event_stats(db: Any, sensor_ids: Sequence[str], since: datetime | None = None) -> dict[str, dict[str, Any]]:
+    """Per-sensor event count, deepest event and latest event start."""
+    if not sensor_ids:
+        return {}
+    where = "sensor_id IN $ids" + (" AND started_at >= $since" if since else "")
+    rows = run_one(
+        db,
+        f"SELECT sensor_id, count() AS event_count, math::max(max_depth_in) AS max_depth_in, time::max(started_at) AS last_event_at "
+        f"FROM flood_event WHERE {where} GROUP BY sensor_id;",
+        {"ids": list(sensor_ids), "since": since},
+    )
+    return {r["sensor_id"]: r for r in rows}
+
+
+def area_basins(db: Any, area_id: str) -> list[dict[str, Any]]:
+    return run_one(db, "SELECT record::id(id) AS key, lon, lat FROM catch_basin WHERE area_ids CONTAINS $area;", {"area": area_id})
+
+
+def obstructed_basins(db: Any, since: datetime) -> set[str]:
+    """Basins linked to a complaint where DEP's own resolution recorded an obstruction since ``since``."""
+    # Filter incidents first: comparing a datetime through the link (in.reported_at >= $since) silently
+    # matches nothing in surrealdb-core 2.3.10 (verified 2026-10-16), while direct comparisons work.
+    rows = run_one(
+        db,
+        "SELECT VALUE record::id(out) FROM near_basin WHERE in IN (SELECT VALUE id FROM incident "
+        "WHERE verification_status = 'agency_found_obstruction' AND reported_at >= $since);",
+        {"since": since},
+    )
+    return set(rows)

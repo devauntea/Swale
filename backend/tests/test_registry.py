@@ -2,7 +2,7 @@ from swale.sources.registry import CATCH_BASINS, NYC311, REGISTRY
 
 
 def test_registry_is_keyed_by_source_key():
-    assert set(REGISTRY) == {"nyc_catch_basins", "nyc311", "nyc_nta_2020"}
+    assert set(REGISTRY) == {"nyc_catch_basins", "nyc311", "nyc_nta_2020", "floodnet_sensors", "floodnet_events"}
     assert all(key == source.key for key, source in REGISTRY.items())
 
 

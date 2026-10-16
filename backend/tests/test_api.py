@@ -48,7 +48,7 @@ def test_health_reports_db_and_sources(client):
     body = client.get("/api/v1/health").json()
     assert body["db"] == {"status": "ok", "engine": "surrealdb", "mode": "embedded"}
     assert body["status"] in ("ok", "degraded")
-    assert {s["id"] for s in body["sources"]} == {"nyc311", "nyc_catch_basins", "nyc_nta_2020"}
+    assert {s["id"] for s in body["sources"]} == {"nyc311", "nyc_catch_basins", "nyc_nta_2020", "floodnet_sensors", "floodnet_events"}
 
 
 def test_layers_list_available_and_planned_layers(client):

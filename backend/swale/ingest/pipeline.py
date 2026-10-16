@@ -16,10 +16,18 @@ from swale.db import queries as q
 from swale.db.schema import apply_schema
 from swale.ingest.bundle import Bundle, SourcePull
 from swale.ingest.link import METHOD, nearest_basins
-from swale.ingest.transform import Transformed, transform_area, transform_basins, transform_incidents
+from swale.ingest.transform import (
+    Transformed,
+    transform_area,
+    transform_basins,
+    transform_flood_events,
+    transform_incidents,
+    transform_sensors,
+)
 from swale.sources.registry import REGISTRY, DataSource
 
-TABLES = {"nyc_nta_2020": "area", "nyc_catch_basins": "catch_basin", "nyc311": "incident"}
+TABLES = {"nyc_nta_2020": "area", "nyc_catch_basins": "catch_basin", "nyc311": "incident",
+          "floodnet_sensors": "sensor", "floodnet_events": "flood_event"}
 REJECT_SAMPLE = 200
 
 
@@ -111,6 +119,20 @@ def ingest_bundle(db: Any, bundle: Bundle, *, mode: str, now: datetime) -> Inges
         bundle.nyc311.rows, area_code=bundle.area_code, area_geom=area_geom, run_key=run_key, now=now,
     ))
 
+    reports = [area_report, basin_report, incident_report]
+    if bundle.floodnet_sensors is not None:
+        sensor_report, sensors = load(bundle.floodnet_sensors, lambda run_key: transform_sensors(
+            bundle.floodnet_sensors.rows, area_code=bundle.area_code, area_geom=area_geom, run_key=run_key, now=now,
+            updated_at=bundle.floodnet_sensors.dataset_updated_at,
+        ))
+        reports.append(sensor_report)
+        lookup = {key: {"lon": d["lon"], "lat": d["lat"], "tidally_influenced": d["tidally_influenced"]} for key, d in sensors.docs}
+        if bundle.floodnet_events is not None:
+            event_report, _ = load(bundle.floodnet_events, lambda run_key: transform_flood_events(
+                bundle.floodnet_events.rows, sensors=lookup, run_key=run_key, now=now, updated_at=bundle.floodnet_events.dataset_updated_at,
+            ))
+            reports.append(event_report)
+
     nearest = nearest_basins(
         [(key, doc["lon"], doc["lat"]) for key, doc in incidents.docs],
         [(key, doc["lon"], doc["lat"]) for key, doc in basins.docs],
@@ -120,4 +142,4 @@ def ingest_bundle(db: Any, bundle: Bundle, *, mode: str, now: datetime) -> Inges
         for key, match in nearest.items()
     ])
     linked = sum(1 for match in nearest.values() if match)
-    return IngestSummary(bundle.area_code, mode, [area_report, basin_report, incident_report], linked, len(nearest) - linked)
+    return IngestSummary(bundle.area_code, mode, reports, linked, len(nearest) - linked)

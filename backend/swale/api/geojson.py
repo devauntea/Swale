@@ -113,3 +113,76 @@ def collection(
             "sources": sources,
         },
     }
+
+
+def sensor_feature(rec: dict[str, Any], stats: dict[str, Any] | None) -> dict[str, Any]:
+    stats = stats or {}
+    return {
+        "type": "Feature",
+        "id": str(rec["id"]),
+        "geometry": to_geojson(rec["geom"]),
+        "properties": {
+            "layer": "sensors",
+            "knowledge_type": rec["knowledge_type"],
+            "sensor_id": rec["sensor_id"],
+            "name": rec["name"],
+            "tidally_influenced": rec.get("tidally_influenced"),
+            "installed_at": iso_z(rec.get("installed_at")),
+            "removed_at": iso_z(rec.get("removed_at")),
+            "lowest_point_height_delta_in": rec.get("lowest_point_height_delta_in"),
+            "area_ids": rec["area_ids"],
+            "event_count": stats.get("event_count", 0),
+            "max_depth_in": stats.get("max_depth_in"),
+            "last_event_at": iso_z(stats.get("last_event_at")),
+            "source": source_ref(rec),
+            "ingested_at": iso_z(rec["ingested_at"]),
+        },
+    }
+
+
+def flood_event_feature(rec: dict[str, Any], *, include_profile: bool = False) -> dict[str, Any]:
+    props: dict[str, Any] = {
+        "layer": "flood_observations",
+        "knowledge_type": rec["knowledge_type"],
+        "sensor_id": rec["sensor_id"],
+        "sensor": str(rec["sensor"]),
+        "started_at": iso_z(rec["started_at"]),
+        "ended_at": iso_z(rec.get("ended_at")),
+        "max_depth_in": rec["max_depth_in"],
+        "duration_min": rec.get("duration_min"),
+        "onset_min": rec.get("onset_min"),
+        "drain_min": rec.get("drain_min"),
+        "duration_above_4in_min": rec.get("duration_above_4in_min"),
+        "duration_above_12in_min": rec.get("duration_above_12in_min"),
+        "tidally_influenced": rec.get("tidally_influenced"),
+        "source": source_ref(rec),
+        "ingested_at": iso_z(rec["ingested_at"]),
+    }
+    if include_profile:
+        props["profile"] = {"t_s": rec.get("profile_t_s", []), "depth_in": rec.get("profile_depth_in", [])}
+    return {"type": "Feature", "id": str(rec["id"]), "geometry": to_geojson(rec["geom"]), "properties": props}
+
+
+def flood_result_feature(rec: dict[str, Any], *, scenario_label: str | None = None) -> dict[str, Any]:
+    return {
+        "type": "Feature",
+        "id": str(rec["id"]),
+        "geometry": to_geojson(rec["geom"]),
+        "properties": {
+            "layer": "simulation_results",
+            "knowledge_type": rec["knowledge_type"],
+            "run_id": str(rec["run"]),
+            "basin_id": str(rec["basin"]),
+            "scenario_label": scenario_label,
+            "generated_at": iso_z(rec["generated_at"]),
+            "hours_flooded": rec["hours_flooded"],
+            "max_flood_rate_cfs": rec["max_flood_rate_cfs"],
+            "flood_volume_ft3": rec["flood_volume_ft3"],
+            "max_ponded_depth_in": rec["max_ponded_depth_in"],
+            "risk_class": rec["risk_class"],
+            "blockage_applied": rec["blockage_applied"],
+            "inlet_height_ft": rec["inlet_height_ft"],
+            "catchment_ac": rec.get("catchment_ac"),
+            "note": "Swale SWMM demonstrator (schematic, not calibrated). Predicted, not observed.",
+        },
+    }

@@ -2,20 +2,22 @@
 
 from __future__ import annotations
 
+import json
 import math
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlencode
 
 from swale.core.geo import covers_points, geojson_bbox, in_nyc, to_state_plane
-from swale.core.timeutil import nyc_local_to_utc
+from swale.core.timeutil import gmt_to_utc, nyc_local_to_utc
 from swale.core.trust import KnowledgeType, Verification
 from swale.db.geometry import point, to_surreal
 from swale.db.queries import rid
 from swale.ingest.resolutions_311 import classify
 from swale.ingest.taxonomy_311 import categorize
-from swale.sources.registry import CATCH_BASINS, NTA_2020, NYC311, DataSource
+from swale.sources.registry import CATCH_BASINS, FLOODNET_EVENTS, FLOODNET_SENSORS, NTA_2020, NYC311, DataSource
 
 STATE_PLANE_TOLERANCE_FT = 50.0
 
@@ -190,3 +192,125 @@ def _area_ids(area_code: str, area_geom: dict[str, Any], lons: list[float], lats
     if not lons:
         return []
     return [[area_code] if inside else [] for inside in covers_points(area_geom, lons, lats)]
+
+
+def transform_sensors(
+    rows: list[dict[str, Any]], *, area_code: str, area_geom: dict[str, Any], run_key: str, now: datetime, updated_at: datetime | None
+) -> Transformed:
+    out = Transformed()
+    kept: list[tuple[str, float, float, dict[str, Any]]] = []
+    seen: set[str] = set()
+    for row in rows:
+        sensor_id = row.get("sensor_id")
+        if not sensor_id:
+            out.rejected.append(Rejected(None, "missing_id"))
+            continue
+        lonlat = _lonlat(row)
+        if isinstance(lonlat, str):
+            out.rejected.append(Rejected(sensor_id, lonlat))
+            continue
+        if sensor_id in seen:
+            out.notes["duplicate_id"] += 1
+            continue
+        seen.add(sensor_id)
+        kept.append((sensor_id, lonlat[0], lonlat[1], row))
+    areas = _area_ids(area_code, area_geom, [k[1] for k in kept], [k[2] for k in kept])
+    for (sensor_id, lon, lat, row), area_ids in zip(kept, areas):
+        try:
+            installed_at, removed_at = gmt_to_utc(row.get("date_installed")), gmt_to_utc(row.get("date_removed"))
+        except ValueError:
+            out.rejected.append(Rejected(sensor_id, "bad_timestamp"))
+            continue
+        tidal = {"Yes": True, "No": False}.get(row.get("tidally_influenced"))
+        if tidal:
+            out.notes["tidally_influenced"] += 1
+        out.docs.append(
+            (
+                sensor_id,
+                {
+                    "sensor_id": sensor_id,
+                    "name": row.get("sensor_name") or sensor_id,
+                    "geom": point(lon, lat),
+                    "lon": lon,
+                    "lat": lat,
+                    "installed_at": installed_at,
+                    "removed_at": removed_at,
+                    "tidally_influenced": tidal,
+                    "street_name": row.get("street_name"),
+                    "nta": row.get("nta"),
+                    "lowest_point_height_delta_in": _float(row.get("lowest_point_height_delta_inches")),
+                    "area_ids": area_ids,
+                    "knowledge_type": KnowledgeType.OBSERVED.value,
+                    **provenance(FLOODNET_SENSORS, sensor_id, run_key=run_key, now=now, updated_at=updated_at, raw=row),
+                },
+            )
+        )
+    return out
+
+
+def transform_flood_events(
+    rows: list[dict[str, Any]], *, sensors: dict[str, dict[str, Any]], run_key: str, now: datetime, updated_at: datetime | None
+) -> Transformed:
+    """``sensors`` maps sensor_id -> {"lon", "lat", "tidally_influenced"} for the sensors loaded in this bundle."""
+    out = Transformed()
+    seen: set[str] = set()
+    for row in rows:
+        sensor_id = row.get("sensor_id")
+        sensor = sensors.get(sensor_id or "")
+        if sensor is None:
+            out.rejected.append(Rejected(sensor_id, "unknown_sensor"))
+            continue
+        try:
+            started_at, ended_at = gmt_to_utc(row.get("flood_start_time")), gmt_to_utc(row.get("flood_end_time"))
+        except ValueError:
+            out.rejected.append(Rejected(sensor_id, "bad_timestamp"))
+            continue
+        depth = _float(row.get("max_depth_inches"))
+        if started_at is None or depth is None:
+            out.rejected.append(Rejected(sensor_id, "missing_start_or_depth"))
+            continue
+        key = f"{sensor_id}_{started_at:%Y%m%dT%H%M%SZ}"
+        if key in seen:
+            out.notes["duplicate_id"] += 1
+            continue
+        seen.add(key)
+        depths, times = _float_list(row.get("flood_profile_depth_inches")), _float_list(row.get("flood_profile_time_secs"))
+        if depths is None or times is None or len(depths) != len(times):
+            out.notes["bad_profile"] += 1
+            depths, times = [], []
+        doc = {
+            "sensor": rid("sensor", sensor_id),
+            "sensor_id": sensor_id,
+            "geom": point(sensor["lon"], sensor["lat"]),
+            "lon": sensor["lon"],
+            "lat": sensor["lat"],
+            "started_at": started_at,
+            "ended_at": ended_at,
+            "max_depth_in": depth,
+            "onset_min": _float(row.get("onset_time_mins")),
+            "drain_min": _float(row.get("drain_time_mins")),
+            "duration_min": _float(row.get("duration_mins")),
+            "duration_above_4in_min": _float(row.get("duration_above_4_inches_mins")),
+            "duration_above_12in_min": _float(row.get("duration_above_12_inches_mins")),
+            "duration_above_24in_min": _float(row.get("duration_above_24_inches_mins")),
+            "profile_depth_in": depths,
+            "profile_t_s": times,
+            "tidally_influenced": sensor["tidally_influenced"],
+            "knowledge_type": KnowledgeType.OBSERVED.value,
+            **provenance(FLOODNET_EVENTS, f"{sensor_id}@{row['flood_start_time']}", run_key=run_key, now=now, updated_at=updated_at, raw=row),
+        }
+        doc["source_url"] = f"{FLOODNET_EVENTS.domain}/resource/{FLOODNET_EVENTS.dataset}.json?" + urlencode(
+            {"sensor_id": sensor_id, "flood_start_time": row["flood_start_time"]}
+        )
+        out.docs.append((key, doc))
+    return out
+
+
+def _float_list(text: Any) -> list[float] | None:
+    if text in (None, ""):
+        return []
+    try:
+        values = json.loads(text) if isinstance(text, str) else text
+        return [float(v) for v in values]
+    except (TypeError, ValueError):
+        return None

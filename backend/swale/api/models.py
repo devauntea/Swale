@@ -159,3 +159,23 @@ class HealthResponse(Model):
     build: str
     db: dict[str, str]
     sources: list[SourceFreshness]
+
+
+class LayerProps(Model):
+    layer: str
+    knowledge_type: KnowledgeTypeLit
+    source: SourceRef | None = None  # model outputs (predicted/inferred) have no source record
+    ingested_at: str | None = None
+
+
+class LayerFeature(Model):
+    type: Literal["Feature"]
+    id: str
+    geometry: Geometry | None
+    properties: LayerProps
+
+
+class LayerCollection(Model):
+    type: Literal["FeatureCollection"]
+    features: list[LayerFeature]
+    meta: Meta

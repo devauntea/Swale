@@ -85,4 +85,36 @@ NTA_2020 = DataSource(
     required_columns=("nta2020", "ntaname", "boroname", "the_geom"),
 )
 
-REGISTRY: dict[str, DataSource] = {s.key: s for s in (CATCH_BASINS, NYC311, NTA_2020)}
+FLOODNET_SENSORS = DataSource(
+    key="floodnet_sensors",
+    name="FloodNet: Sensor Deployment Metadata",
+    publisher="Department of Environmental Protection (DEP)",
+    dataset="kb2e-tjy3",
+    id_column="sensor_id",
+    cadence="Every 2 weeks (automated)",
+    crs="EPSG:4326",
+    time_semantics="Install/removal dates as published (GMT)",
+    stale_after=timedelta(days=21),
+    required_columns=("sensor_id", "sensor_name", "date_installed", "date_removed", "tidally_influenced", "latitude", "longitude",
+                      "location", "lowest_point_height_delta_inches", "nta"),
+    known_limitations=("Tidally influenced sensors also record tidal flooding, not only stormwater.",),
+)
+
+FLOODNET_EVENTS = DataSource(
+    key="floodnet_events",
+    name="FloodNet: Street Flooding Events Measured by FloodNet Sensors",
+    publisher="Department of Environmental Protection (DEP)",
+    dataset="aq7i-eu5q",
+    id_column="sensor_id",
+    cadence="Every 2 weeks (automated); not real time",
+    crs="EPSG:4326 (sensor location)",
+    time_semantics="GMT, per the dataset's column descriptions",
+    stale_after=timedelta(days=21),
+    required_columns=("sensor_id", "flood_start_time", "flood_end_time", "max_depth_inches", "onset_time_mins", "drain_time_mins",
+                      "duration_mins", "duration_above_4_inches_mins", "duration_above_12_inches_mins",
+                      "duration_above_24_inches_mins", "flood_profile_depth_inches", "flood_profile_time_secs"),
+    known_limitations=("Events exist only where sensors are installed.",
+                       "No events before a sensor's install date does not mean no flooding."),
+)
+
+REGISTRY: dict[str, DataSource] = {s.key: s for s in (CATCH_BASINS, NYC311, NTA_2020, FLOODNET_SENSORS, FLOODNET_EVENTS)}
