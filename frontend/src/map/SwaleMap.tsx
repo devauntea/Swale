@@ -1,8 +1,9 @@
+import { basinIcon, complaintIcon } from "./markerAssets";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Map, AttributionControl, setWorkerUrl } from "maplibre-gl";
 import type { ErrorEvent as MapErrorEvent } from "maplibre-gl";
 import { MapLibreOverlay } from "@deck.gl/maplibre";
-import { PolygonLayer, ScatterplotLayer } from "@deck.gl/layers";
+import { IconLayer, PolygonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import type { Layer, PickingInfo } from "@deck.gl/core";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -24,7 +25,6 @@ import {
   HOME_CAMERA,
   prefersReducedMotion,
   MAP_THEMES,
-  PRIORITY_RADII,
 } from "./presentation";
 
 import type { Theme } from "../app/theme";
@@ -655,20 +655,16 @@ export function SwaleMap(props: SwaleMapProps) {
     );
 
     nextLayers.push(
-      new ScatterplotLayer<DrainageComplaint, InterleavedLayerProps>({
+      new IconLayer<DrainageComplaint, InterleavedLayerProps>({
         id: "swale-demo-recent-complaints",
         data: snapshot.complaints.filter((complaint) => complaint.recent),
         visible: layers.complaints,
         beforeId: labelBeforeId,
         pickable: true,
         getPosition: (complaint) => complaint.position,
-        radiusUnits: "pixels",
-        getRadius: 3.5,
-        stroked: true,
-        getFillColor: colors.complaint,
-        getLineColor: colors.markerOutline,
-        getLineWidth: 1,
-        lineWidthUnits: "pixels",
+        getIcon: () => complaintIcon,
+        getSize: 30,
+        sizeUnits: "pixels",
         parameters: { depthCompare: "always", depthWriteEnabled: false },
         onHover: (info) =>
           pickTooltip(info, (complaint) => ({
@@ -718,36 +714,23 @@ export function SwaleMap(props: SwaleMapProps) {
     );
 
     nextLayers.push(
-      new ScatterplotLayer<CatchBasin, InterleavedLayerProps>({
+      new IconLayer<CatchBasin, InterleavedLayerProps>({
         id: "swale-demo-catch-basins",
         data: snapshot.basins,
         visible: layers.basins,
         beforeId: labelBeforeId,
         pickable: true,
         getPosition: (basin) => basin.position,
-        radiusUnits: "pixels",
-        getRadius: (basin) =>
+        getIcon: () => basinIcon,
+        getSize: (basin) =>
           basin.id === selectedBasinId
-            ? 7.5
+            ? 38
             : highlighted.has(basin.id)
-              ? 6.5
-              : PRIORITY_RADII[basin.priorities[scenarioId].band],
-        stroked: true,
-        getFillColor: (basin) =>
-          colors.priority[basin.priorities[scenarioId].band],
-        getLineColor: colors.markerOutline,
-        getLineWidth: 1.6,
-        lineWidthUnits: "pixels",
+              ? 34
+              : 28,
+        sizeUnits: "pixels",
         parameters: { depthCompare: "always", depthWriteEnabled: false },
-        updateTriggers: {
-          getFillColor: [scenarioId, snapshot.version, theme],
-          getRadius: [
-            selectedBasinId,
-            highlightedIds,
-            scenarioId,
-            snapshot.version,
-          ],
-        },
+        updateTriggers: { getSize: [selectedBasinId, highlightedIds] },
         onHover: (info) =>
           pickTooltip(info, (basin) => {
             const priority = basin.priorities[scenarioId];

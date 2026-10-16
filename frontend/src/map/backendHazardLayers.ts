@@ -1,3 +1,4 @@
+import { basinIcon, complaintIcon } from "./markerAssets";
 import { IconLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import type { Layer, PickingInfo } from "@deck.gl/core";
 import type {
@@ -59,6 +60,8 @@ export function hazardIcon(
   theme: Theme,
   selected: boolean,
 ) {
+  if (marker.count === 1)
+    return marker.presentation.kind === "inventory" ? basinIcon : complaintIcon;
   const { kind, state } = marker.presentation;
   const clustered = marker.count > 1;
   const key = `${theme}:${kind}:${state}:${selected}:${clustered}`;
@@ -193,12 +196,12 @@ export function backendMapLayers(
           hazardIcon(marker, theme, marker.feature.id === selectedId),
         getSize: (marker) =>
           marker.feature.id === selectedId
-            ? 30
+            ? 38
             : marker.count > 1
               ? 24
               : kind === "basin"
-                ? 14
-                : 22,
+                ? 24
+                : 30,
         sizeUnits: "pixels",
         updateTriggers: { getIcon: [theme, selectedId], getSize: [selectedId] },
         parameters: { depthCompare: "always", depthWriteEnabled: false },

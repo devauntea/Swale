@@ -899,17 +899,32 @@ export function BackendLegend({
       </button>
       {expanded && (
         <div className="legend-content">
+          <p>
+            <img
+              src="/markers/catch-basin.svg"
+              width="26"
+              height="26"
+              alt="Catch basin grate"
+            />{" "}
+            <img
+              src="/markers/complaint-311.svg"
+              width="26"
+              height="26"
+              alt="311 complaint badge"
+            />{" "}
+            Icon colors identify record types, not severity.
+          </p>
           <div className="legend-layers">
             {layers.basins && (
               <span>
                 <i className="backend-point" />
-                Observed inventory · no condition
+                Red grate · inventory, not condition
               </span>
             )}
             {layers.complaints && (
               <span>
                 <i className="backend-point reported" />
-                Reported incidents · not current proof
+                Yellow 311 · reports, not current proof
               </span>
             )}
             {!layers.basins && !layers.complaints && (

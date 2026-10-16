@@ -1539,3 +1539,9 @@ The isolated `feat/guided-tutorial` implementation is based on fetched main
 `4ddb2b385755748787f0f92b7f152941960aec19`. See
 [the T1–T14 evidence and remaining acceptance limits](docs/tutorial/VERIFICATION.md).
 Preview: http://127.0.0.1:5193/. No push/deploy or recording-runtime changes.
+
+## Owner-requested map icon update — October 16, 2026, 15:29 EDT
+
+Created reference-inspired vector assets: red catch basin grates and NYC 311 complaint badges using the mascot coat colors (#FFE17A / #F8BD2B). These explicit owner-requested colors supersede the earlier mascot-only yellow rule for this badge. Fixture and existing snapshot map markers, legends, and tutorial map/evidence explanations now share this meaning. Color identifies record type, not verified condition or severity. Existing grouping and report pulse eligibility remain intact.
+
+Validation: all 311 tests passed; strict TypeScript/production build and lint passed. The tutorial's five tests passed again after copy changes. Actual browser observation at localhost:5193 confirmed readable distinct icons in both themes without losing selection. Evidence: docs/tutorial/markers-light.jpg and markers-dark.jpg. No fresh FPS or latency measurement was made for this small asset update. CloudFront deployment has not been verified. Recording preview sessions were left untouched.

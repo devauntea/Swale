@@ -44,6 +44,17 @@ export function MapLegend({
             </div>
           )}
           <div className="legend-layers">
+            {layers.basins && (
+              <span>
+                <img
+                  src="/markers/catch-basin.svg"
+                  width="24"
+                  height="24"
+                  alt=""
+                />
+                Catch basin · red identifies type, not condition
+              </span>
+            )}
             {layers.floodZones && (
               <span>
                 <i
@@ -55,7 +66,12 @@ export function MapLegend({
             {layers.complaints && (
               <>
                 <span>
-                  <i className="complaint-swatch" />
+                  <img
+                    src="/markers/complaint-311.svg"
+                    width="24"
+                    height="24"
+                    alt=""
+                  />
                   Recent report examples
                 </span>
                 <span>

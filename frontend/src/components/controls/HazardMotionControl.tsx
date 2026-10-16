@@ -23,16 +23,12 @@ export function HazardLegend() {
   return (
     <div className="hazard-legend">
       <span>
-        <i className="hazard-key grate" aria-hidden="true">
-          ▤
-        </i>{" "}
-        Grate: drain report / inventory
+        <img src="/markers/catch-basin.svg" alt="" width="24" height="24" /> Red
+        grate: catch basin inventory
       </span>
       <span>
-        <i className="hazard-key pothole" aria-hidden="true">
-          ϟ
-        </i>{" "}
-        Cracked road: pothole report
+        <img src="/markers/complaint-311.svg" alt="" width="24" height="24" />{" "}
+        Yellow 311: complaint record
       </span>
       <span>
         <i className="hazard-key active" aria-hidden="true" /> Red halo: recent

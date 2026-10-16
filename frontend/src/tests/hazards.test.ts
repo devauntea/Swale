@@ -162,18 +162,21 @@ describe("source-qualified hazard semantics", () => {
         .pulseEligible,
     ).toBe(false);
   });
-  it("uses distinct grate/pothole silhouettes at validated points and preserves static markers", () => {
+  it("uses the 311 badge for complaints at valid points across themes", () => {
     const drain = report(),
       pothole = report("incident:pothole", "pothole");
     const d = hazardMarkers([drain], collection(), null, 17, now)[0];
     const p = hazardMarkers([pothole], collection(), null, 17, now)[0];
-    expect(hazardIcon(d, "light", false).url).not.toBe(
+    expect(hazardIcon(d, "light", false).url).toBe(
       hazardIcon(p, "light", false).url,
+    );
+    expect(hazardIcon(d, "light", false).url).toBe(
+      "/markers/complaint-311.svg",
     );
     const invalid = report();
     invalid.geometry = null;
     expect(hazardMarkers([invalid], collection(), null, 17, now)).toEqual([]);
-    expect(hazardIcon(d, "dark", true).url).not.toBe(
+    expect(hazardIcon(d, "dark", true).url).toBe(
       hazardIcon(d, "dark", false).url,
     );
   });

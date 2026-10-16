@@ -139,7 +139,7 @@ describe("design palette contracts (not rendered acceptance)", () => {
       );
     });
   }
-  it("reserves yellow literals for the mascot and the verified MTA service palette", () => {
+  it("reserves yellow for the mascot, owner-approved 311 badge and MTA palette", () => {
     const visit = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
         entry.isDirectory() && entry.name !== "tests"
@@ -160,6 +160,11 @@ describe("design palette contracts (not rendered acceptance)", () => {
         if (
           file.endsWith("/map/servicePalette.ts") &&
           ["#F6BC26", "#EB6800", "#799534"].includes(match[0].toUpperCase())
+        )
+          continue;
+        if (
+          file.endsWith("/public/markers/complaint-311.svg") &&
+          ["#FFE17A", "#F8BD2B"].includes(match[0].toUpperCase())
         )
           continue;
         const [r, g, b] = channels(match[0]);

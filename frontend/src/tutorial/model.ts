@@ -13,7 +13,7 @@ export const steps = [
     id: "map",
     title: "Explore the Brooklyn map",
     anchor: "map",
-    text: "Drag to pan and use + / − to zoom. Focus the map to pan with arrow keys. Select a visible basin, report or station to inspect its evidence; the available features depend on your data mode.",
+    text: "Drag to pan and use + / − to zoom. Focus the map to pan with arrow keys. Red grate icons mark catch basins; coat-yellow NYC 311 badges mark complaint records. Select a visible basin, report or station to inspect its evidence; the available features depend on your data mode.",
     practice:
       "Try selecting a feature, or use the sidebar’s keyboard-accessible selection list.",
   },
@@ -53,7 +53,7 @@ export const steps = [
     id: "evidence",
     title: "Understand infrastructure warnings",
     anchor: "evidence",
-    text: "Inspect a drainage feature or incident and read its source, dates and verification details. In snapshot mode, grate and pothole symbols distinguish report types; eligible drainage indicators may pulse red. Historical, dated and unknown records remain distinct.",
+    text: "Inspect a drainage feature or incident and read its source, dates and verification details. Red grate icons identify catch basin inventory, not a blocked or dangerous basin. Yellow NYC 311 badges, matching the assistant’s raincoat, identify complaint records, not confirmed current conditions. Select either icon to inspect its evidence. Eligible recent unresolved reports may have a red halo. Historical, dated and unknown records remain distinct.",
     practice:
       "A nearby report or inferred link does not establish cause, current blockage or verified maintenance. Inspection priority (heuristic, not validated) is not a prediction.",
   },

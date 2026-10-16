@@ -332,15 +332,19 @@ describe("backend panels and keyboard state", () => {
 
   it("uses inventory/report/stale symbols without exposing fixture priority bands", () => {
     render(createElement(BackendLegend, { data: data(), layers }));
-    expect(screen.getByText("Observed inventory · no condition")).toBeTruthy();
     expect(
-      screen.getByText("Reported incidents · not current proof"),
+      screen.getByText("Red grate · inventory, not condition"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("Yellow 311 · reports, not current proof"),
     ).toBeTruthy();
     expect(screen.getByText("Dimmed: stale source snapshot")).toBeTruthy();
     expect(screen.queryByText(/Inspection priority/)).toBeNull();
     const toggle = screen.getByRole("button", { name: "SNAPSHOT MAP LEGEND" });
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByText("Observed inventory · no condition")).toBeNull();
+    expect(
+      screen.queryByText("Red grate · inventory, not condition"),
+    ).toBeNull();
   });
 });
