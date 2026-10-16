@@ -4,10 +4,12 @@ version = "0.1.0"
 description = "Swale backend: Brooklyn flood-intelligence data pipelines, simulation and API"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "fastapi>=0.143.2",
     "httpx>=0.28.1",
     "pyproj>=3.8.0",
     "shapely>=2.2.0",
     "surrealdb==2.0.0",
+    "uvicorn>=0.54.0",
 ]
 
 [dependency-groups]
