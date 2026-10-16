@@ -1,5 +1,11 @@
 # Final integration repair and publication — October 16, 2026
 
+**Local main promotion and main-backed localhost verified.** The tested source
+baseline is **302ea7757106b2a7a60a3e8c21b8fc82d598135a**, including runtime/setup
+commit **466a9cb**. The final closeout changes documentation only; publication
+receipts/check outcomes are retained outside Git and in the final operator report.
+Verify fresh main/origin/main at takeover using [the handoff](NEXT_FEATURE_HANDOFF.md).
+
 This is the current execution record. The owner's final-publication instruction
 authorizes the bounded parser repair/tests, repository-owned restricted runtime,
 normal main promotion/push, existing push-triggered automation and independent
@@ -152,8 +158,8 @@ results; private logs/HAR/database files are not part of source publication.
 First explicit task clock check was15:27:13Z; actual parser observation15:21:57Z
 preceded it. Earlier cumulative active duration remains unmeasured; the original
 approximately8hour target/6:45 feature freeze was not restarted. This task adds no
-product feature. Main promotion/publication receipts and final runtime identities
-will be recorded after their actual gates, without recursive documentation pushes.
+product feature. Publication receipts are recorded after their actual gates,
+without recursive documentation pushes.
 
 Candidate browser follow-up additionally passed: normal wave and umbrella
 transforms changed during their computed0.65s opening, reduced-motion children
@@ -168,6 +174,67 @@ showed its matching relationship. Genuine basin pointer(621,507) opened
 catch_basin:CB305011. Layer toggle retained selection and source-panel Escape
 returned focus. One map canvas remained across these interactions. Fresh scenario
 next-paint latency was not measured; the earlier trace contains no scenario click.
+
+## Main-backed verification and final run state
+
+Main was fast-forwarded normally from M to **302ea77** after the candidate gates.
+Local backup **backup/pre-final-integration-20261016T1543** preserves M; integration
+and partner histories/refs remain. Main's unrelated preparation note and `.vscode/`
+are preserved. Main's own offline setup built the editable package from
+`/Users/kerwynjean/Swale/backend`, installed96 locked packages, and its `.pth`
+points to that main backend. No copied integration virtualenv was used.
+
+Fresh main checks: **165 backend tests (7.72s)**, **165 frontend tests (2.55s)**,
+TypeScript/build/lint/format pass, installed frontend dependency tree has no
+problems and159 installed package versions match the lock. Main's actual native
+live probe passed all denials/unknown403 and official GET200 at **15:43:42Z**.
+All **23 actual main API checks passed at15:44:11–15:44:14Z**, health build302ea77,
+DBok and all four optional integrationsfalse. The repaired original event's68
+sample profile matched again. Six development/identical-source production-preview
+proxy checks returned200. The same main browser successfully displayed the
+separate Carroll event detail (15.35in,137 profile samples verified separately).
+
+One visible main transit owner initially fetched **15:44:32Z**, then automatically
+refreshed **15:45:32Z** and **15:46:32Z**. All five MTA feed source timestamps
+advanced exactly60s between those two cycles, errors list empty. MTA does not
+expose a cached flag; no cache-hit claim is invented. Weather explicitly reused
+its15:44:13Z cache with original observation/forecast times. Source panel and
+local `final-publication-main-live-cycles.json` retain these observations.
+
+Actual main `stop` cleaned controller4253/backend4266/broker4265. Resume while
+down produced visible STALE/HTTP502, retained old source times and Backend mode,
+and explicitly no fixture substitution. Updates were paused during restart, then
+resumed respecting the normal retry backoff. Browser attachment was lost before
+same-tab recovery could be observed; this is retained as an observation limit,
+not a claimed same-tab recovery pass. Normal browser control opened a fresh tab
+in the same Chrome profile; it recovered Backend Subway **LIVE** at15:51:58Z,
+last browser success15:52:00.002Z, uncached NWS15:51:59Z. Obsolete task-owned tabs
+were closed through supported browser management, leaving one localhost tab/live
+owner. No permission denial or alternate browser/origin workaround occurred.
+
+Current identified processes: Vite **4264**, controller **5374**, broker **5376**,
+backend **5377**. Their commands/cwd show main frontend/main helper/main backend;
+startup prints `Swale backend module=/Users/kerwynjean/Swale/backend/swale/__init__.py`.
+Backend health derives build metadata from this main checkout on each request;
+documentation-only closeout does not change loaded implementation code. Final
+publication verifies that implementation-tree equality and health identity.
+Logs under `~/.local/share/swale-local/logs/`:
+`final-publication-main-server-restarted.txt`, `final-publication-main-vite.txt`,
+`final-publication-main-backend-tests.txt`, `final-publication-api-main.json`,
+`final-publication-main-probe.txt` and the frontend main-check receipt.
+
+Use the exact README serve/stop commands above. For the current Vite only, after
+confirming PID4264 still has its documented main Vite identity, `kill -INT 4264`
+stops it. The supervised `runtime.py stop` command is preferred for the backend.
+No4173 listener or obsolete integration service remains. Browser cache disabling,
+media and viewport overrides were restored; temporary DevTools/QA tabs are closed.
+No page instrumentation was installed by the final main smoke checks.
+
+GitHub preflight again confirmed push access, unprotected main, no rulesets,
+required contexts or Actions workflows. A normal main-only push follows the final
+fresh ref/history scan. No hosted deployment success is asserted by this record.
+The next task is a newly selected feature from synchronized published main;
+see the handoff rather than repeating merge preparation.
 
 ---
 

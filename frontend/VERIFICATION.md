@@ -1,7 +1,7 @@
 # Final integration publication candidate — October 16, 2026
 
-**Latest additive checkpoint: candidate verification in progress. Main-backed
-acceptance and GitHub publication are pending.** The owner's final-publication
+**Latest additive checkpoint: main-backed localhost verified; final publication
+receipts are recorded separately after the authorized push.** The owner's final-publication
 instruction authorizes the bounded parser repair, verified local main promotion,
 normal publication and existing push-triggered automation. Older authorization
 restrictions below are historical records, preserved verbatim; they do not override
@@ -159,9 +159,33 @@ native Performance UI reported **INP 60 ms / CLS 0**; those UI values were not
 independently recomputed. Evidence: [fresh native compositor summary](verification-artifacts/integration/publication-transit-compositor-20261016T1527.summary.json),
 with its ignored saved trace.
 
-**Checkpoint: candidate verified within the completed scopes above. Local main
-promotion, final main-backed browser/live verification, final-history publication
-audit, remote publication and actual-SHA check/deployment outcomes remain PENDING.**
+## Main-backed closeout
+
+Local main was fast-forwarded normally to tested baseline **302ea77**; the final
+closeout is documentation only. Main's own locked environment, module path, Vite
+command/cwd and health build establish source roots at `/Users/kerwynjean/Swale`.
+Fresh main checks pass165 frontend tests/TypeScript/build/lint/format,165 selected
+backend tests, native live containment probes and all23 bounded actual API checks.
+No package or lock upgrade was needed;159 installed frontend versions match lock.
+
+The main browser showed the repaired historical event detail and a single map.
+One foreground board fetched15:44:32Z, automatically refreshed15:45:32Z and
+15:46:32Z; all five feed timestamps advanced60s, with no MTA errors listed.
+Weather explicitly reused its dated cache. Actual controller shutdown showed
+STALE/HTTP502, preserved Backend mode/times and no fixture fallback. The backend
+restarted from main. Browser attachment loss prevented observing same-tab recovery;
+a fresh tab in the same profile subsequently showed Backend Subway LIVE at
+15:51:58Z (browser success15:52:00.002Z), uncached weather15:51:59Z. This is actual
+fresh-tab recovery, not a relabeled same-tab pass. Obsolete QA tabs were closed;
+one live owner remains and the temporary4173 server is stopped. Media/viewport and
+cache overrides were restored. Main smoke checks installed no page instrumentation.
+
+The candidate compositor/transfer measurements above remain applicable to the
+unchanged implementation tree; they were not rerun or falsely labeled main traces.
+Fresh scenario latency remains unmeasured. See [current run record](../docs/LOCAL_INTEGRATION.md)
+for source roots, process identities, stop commands and exact evidence. Remote
+publication and actual-SHA optional deployment/check receipts live in sanitized
+local evidence and the final report; this file does not claim CI or hosting passed.
 
 ---
 

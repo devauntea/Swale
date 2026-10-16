@@ -5,6 +5,14 @@ publishes the existing integration; it does not choose or begin another feature.
 The exact final publication SHA/check receipts are recorded locally and in the
 operator's final report rather than in a self-referencing documentation commit.
 
+Latest implementation-operator result: **main-backed localhost verified** at
+tested baseline **302ea7757106b2a7a60a3e8c21b8fc82d598135a**. Main's own locked
+backend environment,165 backend/165 frontend tests, actual23-request API sequence
+and visible live-board cycles pass. Current runtime tooling is **466a9cb**.
+The publication closeout changes documentation only; its implementation tree is
+checked against that baseline before the normal push. Read the final receipt to
+confirm the resulting published SHA and separate automatic deployment outcomes.
+
 ## Verify the fresh baseline first
 
 Use `/Users/kerwynjean/Swale` on `main`. Inspect status, worktrees and active service
@@ -35,7 +43,7 @@ continue feature work on the integration branch or repeat completed merge prep.
 - Parser repair: `1e94a56`; frontend evidence regressions and disabled Vite dotenv
   loading: `70da447`. Later preparation commits add repository-owned runtime/setup,
   focused tests, documentation and clarified regression names. Read the current
-  Git log for their exact IDs instead of treating this file's parent as final HEAD.
+Git log for their exact IDs instead of treating this file's parent as final HEAD.
 - Remote main before publication: `aa08a17d166cbf0f23281627a74289fe8f7efe43`.
   A uniquely named local pre-publication backup preserves original main; keep it
   and `integration/frontend-backend-v1`. Never force-push or rewrite this history.
