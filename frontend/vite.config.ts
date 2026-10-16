@@ -37,6 +37,8 @@ function readOnlyApi(): Plugin {
 }
 
 export default defineConfig({
+  // Local snapshot/live runtime deliberately does not load application dotenv files.
+  envDir: false,
   plugins: [readOnlyApi(), react()],
   server: { host: "127.0.0.1", port: 5173, strictPort: true, proxy },
   preview: { host: "127.0.0.1", port: 4173, strictPort: true, proxy },

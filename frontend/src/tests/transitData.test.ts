@@ -10,6 +10,7 @@ import {
   distinctTransitArrivals,
   parseTransitLive,
   parseTransitStation,
+  parseTransitObservation,
   parseTransitZone,
   parseTransitPage,
   parseTransitWeather,
@@ -281,6 +282,57 @@ describe("transit route and runtime contracts (mock transport)", () => {
         redirect: "error",
       }),
     );
+  });
+  it("retrieves a repaired full opaque event ID and preserves profile samples and source times", async () => {
+    const id = "flood_event:⟨TEST_événement:02⟩";
+    const feature: TransitObservation = {
+      type: "Feature",
+      id,
+      geometry: station().geometry,
+      properties: {
+        layer: "flood_observations",
+        knowledge_type: "observed",
+        sensor_id: "TEST_SENSOR",
+        sensor: "sensor:TEST_SENSOR",
+        started_at: "2026-10-01T10:00:00Z",
+        ended_at: "2026-10-01T10:02:00Z",
+        max_depth_in: 2,
+        duration_min: 2,
+        onset_min: null,
+        drain_min: 0,
+        duration_above_4in_min: 0,
+        duration_above_12in_min: 0,
+        tidally_influenced: false,
+        source: {
+          ...station().properties.source,
+          id: "test-floodnet",
+          record_id: "TEST_événement:02",
+          updated_at: "2026-10-15T10:00:00Z",
+        },
+        ingested_at: fixed,
+        profile: { t_s: [0, 60, 120], depth_in: [0, 2, 0] },
+      },
+    };
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify(feature), {
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    const result = await new TransitClient({ fetcher }).observation(id);
+    expect(fetcher).toHaveBeenCalledWith(
+      `/api/v1/flood-observations/${encodeURIComponent(id)}`,
+      expect.objectContaining({ method: "GET", credentials: "omit" }),
+    );
+    expect(result).toEqual(feature);
+    expect(() =>
+      parseTransitObservation({
+        ...feature,
+        properties: {
+          ...feature.properties,
+          profile: { t_s: [0, 60], depth_in: [0] },
+        },
+      }),
+    ).toThrow();
   });
   it("preserves opaque IDs, null geometry/structure/destination absence, zero and negative delays", () => {
     const s = parseTransitStation({ ...station(), geometry: null });
@@ -654,7 +706,7 @@ describe("transit lifecycle (isolated DOM and mock client)", () => {
       "distinct_flood_events",
     );
   });
-  it("fails closed for unknown evidence and retains full-ID collection events when partner profile detail returns404", async () => {
+  it("fails closed for unknown evidence and retains full-ID events through unavailable, repaired and mismatched detail responses", async () => {
     const c = mocks();
     const sensorId = "sensor:TEST",
       eventId = "flood_event:⟨TEST_event⟩";
@@ -732,5 +784,36 @@ describe("transit lifecycle (isolated DOM and mock client)", () => {
       error: "Not found",
     });
     expect(h.result.current.evidence.note).toContain("not rewritten");
+    const repaired: TransitObservation = {
+      ...observation,
+      properties: {
+        ...observation.properties,
+        started_at: "2026-10-01T10:00:00Z",
+        ingested_at: fixed,
+        profile: { t_s: [0, 60], depth_in: [0, 2] },
+      },
+    };
+    detail.mockResolvedValue(repaired);
+    await act(async () => {
+      h.result.current.openEvidence(eventId);
+    });
+    expect(h.result.current.evidence).toMatchObject({
+      id: eventId,
+      kind: "flood_observation",
+      status: "ready",
+      feature: repaired,
+      error: null,
+      note: null,
+    });
+    detail.mockResolvedValue({ ...repaired, id: "flood_event:WRONG" });
+    await act(async () => {
+      h.result.current.openEvidence(eventId);
+    });
+    expect(h.result.current.evidence).toMatchObject({
+      id: eventId,
+      status: "error",
+      feature: observation,
+      error: "Evidence response ID did not match.",
+    });
   });
 });

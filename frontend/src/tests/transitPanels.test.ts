@@ -312,6 +312,52 @@ function inspectorProps(current = data()) {
 }
 
 describe("transit presentation trust and unknown states", () => {
+  it("shows the matching repaired historical event and source metadata without the former detail error", () => {
+    const eventId = "flood_event:⟨TEST_événement:02⟩";
+    const evidence: TransitEvidenceState = {
+      ...noEvidence,
+      id: eventId,
+      kind: "flood_observation",
+      status: "ready",
+      feature: {
+        type: "Feature",
+        id: eventId,
+        geometry: station.geometry,
+        properties: {
+          layer: "flood_observations",
+          knowledge_type: "observed",
+          sensor_id: "TEST_SENSOR",
+          sensor: "sensor:TEST_SENSOR",
+          started_at: "2026-10-01T10:00:00Z",
+          ended_at: "2026-10-01T10:02:00Z",
+          max_depth_in: 2,
+          duration_min: 2,
+          onset_min: null,
+          drain_min: 0,
+          duration_above_4in_min: 0,
+          duration_above_12in_min: 0,
+          tidally_influenced: false,
+          source: { ...source, record_id: "TEST_événement:02" },
+          ingested_at: time,
+          profile: { t_s: [0, 60, 120], depth_in: [0, 2, 0] },
+        },
+      },
+    };
+    const view = render(
+      createElement(TransitInspector, { ...inspectorProps(), evidence }),
+    );
+    const panel = view.container.querySelector(".transit-evidence-detail")!;
+    expect(panel.textContent).toContain(eventId);
+    expect(panel.textContent).toContain("observed");
+    expect(panel.textContent).toContain("2026-10-01T10:00:00Z");
+    expect(panel.textContent).toContain("2026-10-01T10:02:00Z");
+    expect(panel.textContent).toContain("source record TEST_événement:02");
+    expect(panel.textContent).toContain(
+      "Measurements apply at the sensor/time",
+    );
+    expect(panel.querySelector('[role="alert"]')).toBeNull();
+    expect(panel.textContent).not.toContain("profile unavailable");
+  });
   it("shows backend weather-enabled zone rain summary instead of the unknown static exposure summary", () => {
     const current = data();
     const meta = {
