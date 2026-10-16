@@ -62,7 +62,7 @@ class AlertPacks:
 
     # ---- one pack ------------------------------------------------------------------------------
     def start(self, area_id: str, *, force: bool = False, languages: list[str] | None = None, runner: str = "local",
-              trigger: str = "manual") -> str:
+              trigger: str = "manual") -> str | None:
         with self.lock:
             area = q.get_record(self.db, "area", area_id)
         if area is None:
@@ -71,6 +71,8 @@ class AlertPacks:
         rain = exposure.rain_level(weather)
         key = f"{area_id}_{utcnow():%Y%m%dT%H%M%SZ}_{uuid.uuid4().hex[:4]}"
         triggered = rain["level"] in TRIGGER_LEVELS
+        if trigger == "monitor" and not triggered:
+            return None  # the monitor records only packs it starts; quiet checks are not stored
         doc = {"area_id": area_id, "created_at": utcnow(), "trigger": trigger, "forced": force and not triggered, "rain": rain,
                "languages": languages if languages is not None else DEFAULT_LANGUAGES, "runner": runner,
                "status": "queued" if (triggered or force) else "not_triggered", "steps": [], "knowledge_type": "inferred"}

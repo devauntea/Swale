@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 
 from swale.api.app import create_app
 from swale.config import Settings
-from swale.core.geo import BBox
 from swale.db import queries as q
 from swale.ingest.bundle import read_bundle
 from swale.ingest.pipeline import ingest_bundle

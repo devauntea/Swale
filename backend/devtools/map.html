@@ -633,7 +633,11 @@ function showFeature(kind, p, appended = false) {
 $("brief").addEventListener("click", () => guard($("brief"), async () => {
   $("brief-status").textContent = state.health?.integrations?.bedrock ? "Claude (Bedrock) is writing the briefing…" : "Writing the briefing (no Bedrock key: template)…";
   const lang = $("brief-lang").value;
-  const b = await api("/briefings", { method: "POST", body: JSON.stringify({ bbox: AREA_BBOX, run_id: state.runId, top_n: 5, audio: true, languages: lang ? [lang] : [] }) });
+  let b = await api("/briefings", { method: "POST", body: JSON.stringify({ bbox: AREA_BBOX, run_id: state.runId, top_n: 5, audio: true }) });
+  if (lang) {  // a separate request keeps each one well under CloudFront's 60-second limit
+    $("brief-status").textContent = "Translating and recording audio…";
+    b = await api(`/briefings/${encodeURIComponent(b.id)}/translations`, { method: "POST", body: JSON.stringify({ languages: [lang], audio: true }) });
+  }
   $("brief-status").textContent = "";
   const who = b.source === "llm" ? `Written by ${esc(b.model)} on Amazon Bedrock · every claim checked against the evidence`
     : `Template briefing${b.error ? " · " + esc(b.error) : ""}`;
@@ -660,7 +664,7 @@ function translationsHtml(b) {
 // ---------- briefing quality (Arize) ----------
 $("evals").addEventListener("click", () => guard($("evals"), async () => {
   $("evals-out").innerHTML = `<div class="note">Evaluating new briefings (Claude as judge) and sending results to Arize…</div>`;
-  const r = await api("/briefings/evals", { method: "POST", body: JSON.stringify({ limit: 5, judge: true }) });
+  const r = await api("/briefings/evals", { method: "POST", body: JSON.stringify({ limit: 2, judge: true }) });
   $("evals-out").innerHTML = `<div class="card"><b>Briefing quality by prompt version</b>
     ${r.by_prompt_version.map((p) => `<div>${esc(p.prompt_version)}: ${p.briefings} briefings · faithfulness ${p.faithfulness == null ? "–" : fmt(p.faithfulness * 100, 0) + "%"} ·
       evidence checks passed ${fmt(p.citation_pass_rate * 100, 0)}% · model draft used ${fmt(p.model_draft_rate * 100, 0)}% · ${fmt(p.words_per_stop, 0)} words per stop</div>`).join("")}
@@ -674,6 +678,10 @@ async function loadPackLevel() {
     $("pack-level").innerHTML = `Rain level now: <span class="lvl lvl-${c.rain.level}">${esc(c.rain.level)}</span> ·
       ${c.would_trigger ? "an alert pack would run now" : "below the trigger; running it now is labelled a drill"}${c.monitor ? " · automatic monitor on (every 10 min)" : ""}`;
     state.packTriggers = c.would_trigger;
+    if (!$("pack-out").innerHTML) {  // show the latest finished pack, so its audio is ready to play
+      const done = (await api("/alert-packs?area_id=BK0601")).items.find((p) => p.status === "succeeded");
+      if (done) await showPack(done.id);
+    }
   } catch (err) { $("pack-level").textContent = "Rain level: " + err.message; }
 }
 async function showPack(id) {

@@ -104,20 +104,32 @@ def voice_inspection(
 
 
 @router.get("/stream/changes")
-def stream_changes(request: Request) -> StreamingResponse:
-    """Server-sent events for new inspections and alert packs, read from SurrealDB change feeds."""
+async def stream_changes(request: Request) -> StreamingResponse:
+    """Server-sent events for new inspections and alert packs, read from SurrealDB change feeds.
+
+    Async on purpose: an idle viewer holds no worker thread, so many open consoles cannot starve the API.
+    """
+    import asyncio
+
     stream = request.app.state.changes
     sub = stream.subscribe()
 
-    def events():
+    async def events():
         try:
             yield "retry: 3000\n\n"
-            while True:
+            idle = 0.0
+            while not await request.is_disconnected():
                 try:
-                    e = sub.get(timeout=15)
-                    yield f"event: {e['table']}\ndata: {json.dumps(e, default=str)}\n\n"
+                    e = sub.get_nowait()
                 except queue.Empty:
-                    yield ": keep-alive\n\n"
+                    await asyncio.sleep(0.5)
+                    idle += 0.5
+                    if idle >= 15:
+                        idle = 0.0
+                        yield ": keep-alive\n\n"
+                    continue
+                idle = 0.0
+                yield f"event: {e['table']}\ndata: {json.dumps(e, default=str)}\n\n"
         finally:
             stream.unsubscribe(sub)
 
