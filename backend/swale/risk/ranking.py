@@ -85,7 +85,7 @@ def rank(db: Any, bbox: BBox, *, now: datetime, run_key: str | None = None, limi
     keys = [b["id"].id for b in basins]
 
     # Linked complaints (incidents near the view, with their nearest-basin link).
-    where, params = q.incident_filters(since=since)
+    where, params = q.incident_filters(since=since, until=now)  # evidence up to `now` only (lets validation rank as of a past date)
     incidents = q.page_in_bbox(db, "incident", padded, limit=100000, where=where, vars=params, fetch_links=True).records
     by_basin: dict[str, list[dict[str, Any]]] = {}
     for inc in incidents:
@@ -94,7 +94,7 @@ def rank(db: Any, bbox: BBox, *, now: datetime, run_key: str | None = None, limi
 
     # FloodNet sensors near each basin (non-tidal only), with their deepest recent event.
     sensors = [s for s in q.page_in_bbox(db, "sensor", padded, limit=1000).records if not s.get("tidally_influenced")]
-    stats = q.flood_event_stats(db, [s["sensor_id"] for s in sensors], since)
+    stats = q.flood_event_stats(db, [s["sensor_id"] for s in sensors], since, now)
     sensors = [s for s in sensors if s["sensor_id"] in stats]
     sensor_near: dict[str, list[tuple[dict[str, Any], float]]] = {}
     if sensors:

@@ -68,3 +68,23 @@ def test_api_returns_inferred_features_and_methodology(app):
     assert client.get("/api/v1/risk-rankings/methodology").json()["factors"][0]["id"] == "confirmed_obstruction_history"
     missing = client.get("/api/v1/risk-rankings", params={"bbox": ",".join(map(str, bundle.bbox.as_list())), "run_id": "simulation_run:nope"})
     assert missing.status_code == 404
+
+
+def test_validation_uses_only_earlier_evidence_and_reports_lift(app):
+    from swale.risk.validation import validate
+
+    db, bundle = app.state.db, app.state.bundle
+    cutoff = datetime(2025, 10, 1, tzinfo=timezone.utc)
+    out = validate(db, bundle.bbox, cutoff=cutoff, window_days=365, cutoffs=(5,))
+    assert out["basins_ranked"] > 0 and 0 <= out["base_rate"]["any"] <= 1
+    for row in out["precision_at"]:
+        assert 0 <= row["any"] <= 1
+    future = rank(db, bundle.bbox, now=cutoff, limit=500)["items"]
+    for it in future:  # no evidence dated after the cutoff may contribute
+        for f in it["factors"]:
+            for evidence_id in f["evidence_ids"]:
+                rec = q.get_record(db, *evidence_id.split(":", 1))
+                if rec and "reported_at" in rec:
+                    assert rec["reported_at"] <= cutoff
+    bad = app.state.client.get("/api/v1/risk-rankings/validation", params={"cutoff": "2099-01-01"})
+    assert bad.status_code == 422

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
@@ -60,3 +61,23 @@ def risk_rankings(
                       next_after=None, sources=freshness(q.data_sources(db)))
     body["meta"]["ranked"] = out.get("ranked", 0)
     return body
+
+
+@router.get("/risk-rankings/validation")
+def get_validation(
+    cutoff: str = Query("2025-10-01", description="rank as of this date (YYYY-MM-DD), using only earlier evidence"),
+    window_days: int = Query(365, ge=30, le=730),
+    bbox: str = Query("-74.01995,40.66457,-73.97962,40.69255"),
+    db: Any = Depends(get_db),
+) -> dict[str, Any]:
+    from datetime import date, datetime, time, timezone
+
+    from swale.risk.validation import validate
+
+    try:
+        cut = datetime.combine(date.fromisoformat(cutoff), time(0), tzinfo=timezone.utc)
+    except ValueError:
+        raise Problem(422, "invalid-parameter", "Invalid parameter", "cutoff must be YYYY-MM-DD") from None
+    if cut + timedelta(days=window_days) > utcnow():
+        raise Problem(422, "invalid-parameter", "Invalid parameter", "cutoff + window_days must be in the past")
+    return {"api_version": API_VERSION, **validate(db, parse_bbox(bbox), cutoff=cut, window_days=window_days)}

@@ -133,16 +133,16 @@ def upsert_merge(db: Any, table: str, key: str, doc: dict[str, Any]) -> None:
     run(db, "UPSERT $record MERGE $doc;", {"record": rid(table, key), "doc": doc})
 
 
-def flood_event_stats(db: Any, sensor_ids: Sequence[str], since: datetime | None = None) -> dict[str, dict[str, Any]]:
+def flood_event_stats(db: Any, sensor_ids: Sequence[str], since: datetime | None = None, until: datetime | None = None) -> dict[str, dict[str, Any]]:
     """Per-sensor event count, deepest event and latest event start."""
     if not sensor_ids:
         return {}
-    where = "sensor_id IN $ids" + (" AND started_at >= $since" if since else "")
+    where = "sensor_id IN $ids" + (" AND started_at >= $since" if since else "") + (" AND started_at <= $until" if until else "")
     rows = run_one(
         db,
         f"SELECT sensor_id, count() AS event_count, math::max(max_depth_in) AS max_depth_in, time::max(started_at) AS last_event_at "
         f"FROM flood_event WHERE {where} GROUP BY sensor_id;",
-        {"ids": list(sensor_ids), "since": since},
+        {"ids": list(sensor_ids), "since": since, "until": until},
     )
     return {r["sensor_id"]: r for r in rows}
 
