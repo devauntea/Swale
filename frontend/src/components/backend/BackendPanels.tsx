@@ -44,6 +44,7 @@ const backendLayers: {
 
 export function BackendSidebar(p: {
   modeSelector: ReactNode;
+  viewSelector?: ReactNode;
   data: BackendData;
   layers: LayerVisibility;
   onLayer: (key: BackendLayerKey) => void;
@@ -84,6 +85,7 @@ export function BackendSidebar(p: {
         </button>
       </div>
       {p.modeSelector}
+      {p.viewSelector}
       <div className="sidebar-scroll">
         <section className="backend-section">
           <div className="section-heading">
@@ -154,9 +156,11 @@ export function BackendSidebar(p: {
         <section className="backend-section backend-unavailable">
           <h2>OUTSIDE THIS CONNECTED VIEW</h2>
           <p>
-            Flood scenarios, flood polygons, inspection priorities, forecasts
-            and assistant data commands are unavailable in backend mode. The
-            fixture demonstration keeps its separate scenarios and examples.
+            Fixture scenarios, synthetic flood polygons, inspection priorities
+            and assistant data commands are unavailable in this snapshot view.
+            Subway monitoring provides separately labelled transit, weather and
+            flood context. The fixture demonstration keeps its authored
+            examples.
           </p>
           <p>
             Advertised backend capabilities do not enable additional actions.

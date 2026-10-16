@@ -34,6 +34,22 @@ import { useTheme } from "./useTheme";
 import { MapErrorBoundary } from "./MapErrorBoundary";
 import { useBackendData } from "../backend/useBackendData";
 import type { BackendBbox } from "../backend/contracts";
+import { useTransitData } from "../backend/useTransitData";
+import type {
+  TransitStation,
+  TransitEntrance,
+  TransitZone,
+  TransitLayerVisibility,
+} from "../backend/transitContracts";
+import type { TransitCameraRequest } from "../map/SwaleMap";
+import type { TransitPickKind } from "../map/transitLayers";
+import {
+  TransitSidebar,
+  TransitInspector,
+  TransitLegend,
+  TransitSourcesPanel,
+} from "../components/transit/TransitPanels";
+import "./transitView.css";
 import {
   BackendSidebar,
   BackendInspector,
@@ -135,7 +151,38 @@ function Workspace({
     "fixture",
   );
   const [bounds, setBounds] = useState<BackendBbox | null>(null);
-  const backend = useBackendData(sourceMode === "backend", bounds);
+  const [backendView, setBackendView] = useState<"snapshot" | "transit">(
+    "snapshot",
+  );
+  const transitActive = sourceMode === "backend" && backendView === "transit";
+  const transit = useTransitData(transitActive, bounds);
+  const [transitLayers, setTransitLayers] = useState<TransitLayerVisibility>({
+    stations: true,
+    entrances: true,
+    exposure: true,
+    zones: true,
+  });
+  const [selectedStation, setSelectedStation] = useState<TransitStation | null>(
+    null,
+  );
+  const [selectedEntrance, setSelectedEntrance] =
+    useState<TransitEntrance | null>(null);
+  const [selectedZone, setSelectedZone] = useState<TransitZone | null>(null);
+  const [transitCamera, setTransitCamera] =
+    useState<TransitCameraRequest | null>(null);
+  const transitCameraSequence = useRef(0);
+  const transitSelection = useMemo(
+    () => ({
+      stationId: selectedStation?.id ?? null,
+      entranceId: selectedEntrance?.id ?? null,
+      zoneId: selectedZone?.id ?? null,
+    }),
+    [selectedStation, selectedEntrance, selectedZone],
+  );
+  const backend = useBackendData(
+    sourceMode === "backend" && backendView === "snapshot",
+    bounds,
+  );
   const [backendLayers, setBackendLayers] = useState({
     basins: true,
     complaints: true,
@@ -154,7 +201,7 @@ function Workspace({
       modeSelect.current?.focus({ preventScroll: true });
       refocusMode.current = false;
     }
-  }, [sourceMode]);
+  }, [sourceMode, backendView]);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [mascotExpression, setMascotExpression] =
     useState<MascotExpression>("idle");
@@ -271,25 +318,148 @@ function Workspace({
           setSourceMode(event.target.value);
           setSourcesOpen(false);
           setBackendFocus(null);
+          setTransitCamera(null);
         }}
       >
         <option value="fixture">Fixture / demo</option>
-        <option value="backend">Backend / local snapshot</option>
+        <option value="backend">Backend / snapshot + transit</option>
       </select>
     </label>
   );
   const selectBackend = (kind: "basin" | "incident", id: string) => {
-    if (sourceMode !== "backend") return;
+    if (sourceMode !== "backend" || backendView !== "snapshot") return;
     backend.select(kind, id);
     if (controlsOpen) {
       setControlsOpen(false);
       controlsTrigger.current?.focus({ preventScroll: true });
     }
   };
+  const focusTransit = (
+    feature: TransitStation | TransitEntrance | null = selectedStation,
+  ) => {
+    if (!transitActive || !feature?.geometry) return;
+    setTransitCamera({
+      kind: "focus",
+      position: [
+        feature.geometry.coordinates[0],
+        feature.geometry.coordinates[1],
+      ],
+      nonce: ++transitCameraSequence.current,
+    });
+  };
+  const selectTransitStation = (id: string, move = false) => {
+    if (!transitActive) return;
+    const station = transit.data.stations.features.find(
+      (item) => item.id === id,
+    );
+    if (!station) return;
+    setSelectedStation(station);
+    setSelectedEntrance(null);
+    setSelectedZone(null);
+    transit.clearEvidence();
+    if (move) focusTransit(station);
+    if (controlsOpen) {
+      setControlsOpen(false);
+      controlsTrigger.current?.focus({ preventScroll: true });
+    }
+  };
+  const selectTransitEntrance = (id: string) => {
+    if (!transitActive) return;
+    const entrance =
+      transit.data.entrances.features.find((item) => item.id === id) ??
+      (selectedEntrance?.id === id ? selectedEntrance : null);
+    if (!entrance) return;
+    const station =
+      transit.data.stations.features.find(
+        (item) => item.id === entrance.properties.station_id,
+      ) ??
+      (selectedStation?.id === entrance.properties.station_id
+        ? selectedStation
+        : null);
+    setSelectedStation(station);
+    setSelectedEntrance(entrance);
+    setSelectedZone(null);
+    transit.clearEvidence();
+    focusTransit(entrance);
+  };
+  const selectTransitMap = (kind: TransitPickKind, id: string) => {
+    if (!transitActive) return;
+    if (kind === "station") selectTransitStation(id);
+    else if (kind === "entrance") selectTransitEntrance(id);
+    else {
+      const zone = transit.data.zones.features.find((item) => item.id === id);
+      if (zone) {
+        setSelectedStation(null);
+        setSelectedZone(zone);
+        setSelectedEntrance(null);
+        transit.clearEvidence();
+      }
+    }
+  };
+  const fitEntrances = () => {
+    if (!transitActive || !selectedStation) return;
+    const positions = transit.data.entrances.features
+      .filter(
+        (e) => e.properties.station_id === selectedStation.id && e.geometry,
+      )
+      .map(
+        (e) =>
+          [e.geometry!.coordinates[0], e.geometry!.coordinates[1]] as [
+            number,
+            number,
+          ],
+      );
+    if (positions.length)
+      setTransitCamera({
+        kind: "fit",
+        positions,
+        nonce: ++transitCameraSequence.current,
+      });
+  };
+  const transitOverview = () => {
+    if (transitActive)
+      setTransitCamera({
+        kind: "overview",
+        nonce: ++transitCameraSequence.current,
+      });
+  };
+  const viewSelector = (
+    <div className="backend-view-switch" role="group" aria-label="Backend view">
+      {(["snapshot", "transit"] as const).map((view) => (
+        <button
+          key={view}
+          aria-pressed={backendView === view}
+          onClick={() => {
+            refocusMode.current = true;
+            setBackendView(view);
+            setSourcesOpen(false);
+            setBackendFocus(null);
+            setTransitCamera(null);
+          }}
+        >
+          {view === "snapshot" ? "Snapshot records" : "Subway monitoring"}
+        </button>
+      ))}
+      {transitActive && (
+        <button
+          aria-pressed={backendLayers.buildings}
+          onClick={() =>
+            setBackendLayers((current) => ({
+              ...current,
+              buildings: !current.buildings,
+            }))
+          }
+        >
+          3D buildings
+        </button>
+      )}
+    </div>
+  );
   return (
     // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape is delegated from descendant controls; the landmark has no activation behavior.
     <main
       data-source-mode={sourceMode}
+      data-backend-view={backendView}
       className={`workspace ${assistantOpen ? "assistant-is-open" : ""} ${controlsOpen ? "controls-are-open" : ""}`}
       onKeyDown={(event) => {
         if (event.key === "Escape" && controlsOpen) {
@@ -331,6 +501,11 @@ function Workspace({
               sourceMode === "backend" ? backend.detail.id : null
             }
             backendFocus={sourceMode === "backend" ? backendFocus : null}
+            transit={transitActive ? transit.data : null}
+            transitLayers={transitLayers}
+            transitSelection={transitSelection}
+            transitCamera={transitActive ? transitCamera : null}
+            onSelectTransit={selectTransitMap}
             onSelectBackend={selectBackend}
             onViewportChange={setBounds}
             onSelectBasin={selectBasin}
@@ -386,20 +561,45 @@ function Workspace({
         </div>
       </div>
       {sourceMode === "backend" ? (
-        <BackendSidebar
-          modeSelector={modeSelector}
-          data={backend.data}
-          layers={backendLayers}
-          onLayer={(key) =>
-            setBackendLayers((current) => ({
-              ...current,
-              [key]: !current[key],
-            }))
-          }
-          onSelect={selectBackend}
-          onRefresh={backend.refresh}
-          onSources={() => setSourcesOpen((value) => !value)}
-        />
+        transitActive ? (
+          <TransitSidebar
+            data={transit.data}
+            layers={transitLayers}
+            selectedStationId={selectedStation?.id ?? null}
+            modeSelector={modeSelector}
+            viewSelector={viewSelector}
+            paused={transit.paused}
+            onPauseChange={transit.setPaused}
+            onRefresh={transit.refresh}
+            onSelectStation={(id) => selectTransitStation(id, true)}
+            onFocus={() => focusTransit()}
+            onFitEntrances={fitEntrances}
+            onOverview={transitOverview}
+            onLayer={(key) =>
+              setTransitLayers((current) => ({
+                ...current,
+                [key]: !current[key],
+              }))
+            }
+            onSources={() => setSourcesOpen((value) => !value)}
+          />
+        ) : (
+          <BackendSidebar
+            modeSelector={modeSelector}
+            viewSelector={viewSelector}
+            data={backend.data}
+            layers={backendLayers}
+            onLayer={(key) =>
+              setBackendLayers((current) => ({
+                ...current,
+                [key]: !current[key],
+              }))
+            }
+            onSelect={selectBackend}
+            onRefresh={backend.refresh}
+            onSources={() => setSourcesOpen((value) => !value)}
+          />
+        )
       ) : (
         <ControlSidebar
           modeSelector={modeSelector}
@@ -426,23 +626,50 @@ function Workspace({
         />
       )}
       <div
-        className={`inspector-position ${(sourceMode === "backend" ? backend.detail.id : basin) ? "has-selection" : ""}`}
+        className={`inspector-position ${(sourceMode === "backend" ? (transitActive ? selectedStation || selectedZone || selectedEntrance : backend.detail.id) : basin) ? "has-selection" : ""}`}
       >
         {sourceMode === "backend" ? (
-          <BackendInspector
-            data={backend.data}
-            detail={backend.detail}
-            onRetryDetail={backend.retryDetail}
-            onClose={backend.clearSelection}
-            onFocus={() => {
-              const geometry = backend.detail.feature?.geometry;
-              if (geometry?.type === "Point")
-                setBackendFocus({
-                  position: [geometry.coordinates[0], geometry.coordinates[1]],
-                  nonce: ++backendFocusSequence.current,
-                });
-            }}
-          />
+          transitActive ? (
+            <TransitInspector
+              station={selectedStation}
+              entrance={selectedEntrance}
+              zone={selectedZone}
+              data={transit.data}
+              selectedEntranceId={selectedEntrance?.id ?? null}
+              selectedZoneId={selectedZone?.id ?? null}
+              onSelectEntrance={selectTransitEntrance}
+              onFocus={() => focusTransit(selectedStation ?? selectedEntrance)}
+              onFitEntrances={fitEntrances}
+              onOverview={transitOverview}
+              onClose={() => {
+                setSelectedStation(null);
+                setSelectedEntrance(null);
+                setSelectedZone(null);
+                transit.clearEvidence();
+              }}
+              onEvidence={transit.openEvidence}
+              evidence={transit.evidence}
+              clearEvidence={transit.clearEvidence}
+            />
+          ) : (
+            <BackendInspector
+              data={backend.data}
+              detail={backend.detail}
+              onRetryDetail={backend.retryDetail}
+              onClose={backend.clearSelection}
+              onFocus={() => {
+                const geometry = backend.detail.feature?.geometry;
+                if (geometry?.type === "Point")
+                  setBackendFocus({
+                    position: [
+                      geometry.coordinates[0],
+                      geometry.coordinates[1],
+                    ],
+                    nonce: ++backendFocusSequence.current,
+                  });
+              }}
+            />
+          )
         ) : (
           <BasinInspector
             basin={basin}
@@ -466,11 +693,17 @@ function Workspace({
         <p>
           {sourceMode === "fixture"
             ? "Explore illustrative infrastructure priorities."
-            : "Explore snapshot inventory and reported incidents."}
+            : transitActive
+              ? "Station service, entrances and flood evidence."
+              : "Explore snapshot inventory and reported incidents."}
         </p>
       </div>
       {sourceMode === "backend" ? (
-        <BackendLegend data={backend.data} layers={backendLayers} />
+        transitActive ? (
+          <TransitLegend data={transit.data} layers={transitLayers} />
+        ) : (
+          <BackendLegend data={backend.data} layers={backendLayers} />
+        )
       ) : (
         <MapLegend
           snapshot={snapshot}
@@ -500,11 +733,19 @@ function Workspace({
       )}
       {sourcesOpen &&
         (sourceMode === "backend" ? (
-          <BackendSourcesPanel
-            data={backend.data}
-            onRefresh={backend.refresh}
-            onClose={() => setSourcesOpen(false)}
-          />
+          transitActive ? (
+            <TransitSourcesPanel
+              data={transit.data}
+              onClose={() => setSourcesOpen(false)}
+              onRefresh={transit.refresh}
+            />
+          ) : (
+            <BackendSourcesPanel
+              data={backend.data}
+              onRefresh={backend.refresh}
+              onClose={() => setSourcesOpen(false)}
+            />
+          )
         ) : (
           <SourcesPanel
             snapshot={snapshot}
@@ -566,7 +807,9 @@ function Workspace({
           <i />
           {sourceMode === "fixture"
             ? "SYNTHETIC DEMONSTRATION · NO LIVE INFRASTRUCTURE DATA"
-            : "LOCAL SNAPSHOT · BK0601 COVERAGE · NOT A LIVE FEED"}
+            : transitActive
+              ? `TRANSIT ${transit.data.feedState.toUpperCase()} · LOCAL FLOOD CONTEXT · BK0601`
+              : "LOCAL SNAPSHOT · BK0601 COVERAGE · NOT A LIVE FEED"}
         </span>
         <button onClick={() => setSourcesOpen((v) => !v)}>
           Data provenance <Icon name="info" size={11} />

@@ -508,3 +508,23 @@ export function parseSources(value: unknown): BackendSourceInfo[] {
     "source register",
   );
 }
+
+// Shared strict primitives for the separately typed transit API contract.
+export const backendValidation = {
+  record,
+  string,
+  id,
+  nullableString,
+  bool,
+  finite,
+  integer,
+  literal,
+  array,
+  strings,
+  instant,
+  nullableInstant,
+  geometry,
+  sourceRef,
+  safeBackendLink,
+  validateBackendBbox,
+};

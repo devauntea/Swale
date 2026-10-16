@@ -266,7 +266,7 @@ describe("backend panels and keyboard state", () => {
     expect(screen.getByText(/PARTIAL \/ TRUNCATED SUBSET/)).toBeTruthy();
     expect(screen.getByText(/Last loaded subset retained/)).toBeTruthy();
     expect(screen.getByText(/1 location unavailable \/ off map/)).toBeTruthy();
-    expect(screen.getByText(/Flood scenarios, flood polygons/)).toBeTruthy();
+    expect(screen.getByText(/unavailable in this snapshot view/)).toBeTruthy();
     expect(
       screen
         .getByRole("switch", { name: "Catch basin inventory" })

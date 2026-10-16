@@ -1,0 +1,25 @@
+.backend-view-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0 18px 12px;
+}
+.backend-view-switch button {
+  flex: 1 1 auto;
+  padding: 8px 6px;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 5px;
+  color: var(--sidebar-text);
+  background: var(--sidebar-elevated);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+.backend-view-switch button[aria-pressed="true"] {
+  border-color: var(--sidebar-accent);
+  background: var(--sidebar-selected);
+}
+.backend-view-switch button:focus-visible {
+  outline: 2px solid var(--sidebar-accent);
+  outline-offset: 2px;
+}

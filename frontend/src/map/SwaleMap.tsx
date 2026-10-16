@@ -35,10 +35,30 @@ import type {
   BackendFeature,
   BackendKind,
 } from "../backend/contracts";
+import type {
+  TransitData,
+  TransitLayerVisibility,
+} from "../backend/transitContracts";
+import {
+  transitMapLayers,
+  type TransitMapSelection,
+  type TransitPickKind,
+} from "./transitLayers";
+
+export type TransitCameraRequest = { nonce: number } & (
+  | { kind: "focus"; position: Coordinate }
+  | { kind: "fit"; positions: Coordinate[] }
+  | { kind: "overview" }
+);
 
 setWorkerUrl(workerUrl);
 
 export interface SwaleMapProps {
+  transit?: TransitData | null;
+  transitLayers?: TransitLayerVisibility;
+  transitSelection?: TransitMapSelection;
+  transitCamera?: TransitCameraRequest | null;
+  onSelectTransit?: (kind: TransitPickKind, id: string) => void;
   backend?: BackendData | null;
   backendSelectedId?: string | null;
   backendFocus?: { position: Coordinate; nonce: number } | null;
@@ -109,6 +129,7 @@ export function SwaleMap(props: SwaleMapProps) {
   const labelLayerRef = useRef<string | undefined>(undefined);
   const lastCameraRequestRef = useRef(0);
   const lastBackendFocusRef = useRef(0);
+  const lastTransitCameraRef = useRef(0);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -127,7 +148,11 @@ export function SwaleMap(props: SwaleMapProps) {
     // Map callbacks must observe the latest committed UI, never a pending render.
     propsRef.current = props;
   }, [props]);
-  const backendMode = !!props.backend;
+  const backendMode = props.transit
+    ? "transit"
+    : props.backend
+      ? "snapshot"
+      : "fixture";
   useLayoutEffect(() => {
     // A mode transition cannot finish a navigation started in the other mode.
     // stop() retains the current camera; it neither resets nor reconstructs it.
@@ -329,6 +354,30 @@ export function SwaleMap(props: SwaleMapProps) {
     if (!ready || !map || !overlay) return;
 
     const colors = MAP_THEMES[theme];
+    if (props.transit && props.transitLayers && props.transitSelection) {
+      overlay.setProps({
+        layers: transitMapLayers(
+          props.transit,
+          props.transitLayers,
+          props.transitSelection,
+          theme,
+          labelLayerRef.current,
+          (kind, id) => {
+            if (propsRef.current.transit)
+              propsRef.current.onSelectTransit?.(kind, id);
+          },
+          setTooltip,
+        ),
+      });
+      if (buildingLayerRef.current)
+        map.setLayoutProperty(
+          buildingLayerRef.current,
+          "visibility",
+          layers.buildings ? "visible" : "none",
+        );
+      setTooltip(null);
+      return;
+    }
     if (props.backend) {
       const data = props.backend;
       const selectedId = props.backendSelectedId;
@@ -625,6 +674,9 @@ export function SwaleMap(props: SwaleMapProps) {
     theme,
     props.backend,
     props.backendSelectedId,
+    props.transit,
+    props.transitLayers,
+    props.transitSelection,
   ]);
 
   useEffect(() => {
@@ -684,6 +736,55 @@ export function SwaleMap(props: SwaleMapProps) {
     });
     setTooltip(null);
   }, [ready, props.backend, props.backendFocus]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const request = props.transitCamera;
+    if (
+      !ready ||
+      !map ||
+      !props.transit ||
+      !request ||
+      request.nonce === lastTransitCameraRef.current
+    )
+      return;
+    lastTransitCameraRef.current = request.nonce;
+    const duration = prefersReducedMotion() ? 0 : 900;
+    if (request.kind === "overview") {
+      map.flyTo({
+        ...HOME_CAMERA,
+        padding: cameraPadding(map.getContainer().clientWidth),
+        duration,
+        essential: false,
+      });
+    } else if (request.kind === "focus") {
+      map.flyTo({
+        center: request.position,
+        zoom: 16.6,
+        padding: cameraPadding(map.getContainer().clientWidth),
+        duration,
+        essential: false,
+      });
+    } else if (request.positions.length) {
+      const lons = request.positions.map((p) => p[0]);
+      const lats = request.positions.map((p) => p[1]);
+      map.fitBounds(
+        [
+          [Math.min(...lons), Math.min(...lats)],
+          [Math.max(...lons), Math.max(...lats)],
+        ],
+        {
+          padding: cameraPadding(map.getContainer().clientWidth),
+          maxZoom: 17.5,
+          bearing: map.getBearing(),
+          pitch: map.getPitch(),
+          duration,
+          essential: false,
+        },
+      );
+    }
+    setTooltip(null);
+  }, [ready, props.transit, props.transitCamera]);
 
   const animate = (operation: (map: Map, duration: number) => void) => {
     if (mapRef.current && ready)

@@ -218,7 +218,14 @@ export class BackendClient {
     parser: (value: unknown) => T,
     signal?: AbortSignal,
   ): Promise<T> {
-    const url = buildBackendUrl(request);
+    return this.requestUrl(buildBackendUrl(request), parser, signal);
+  }
+  protected async requestUrl<T>(
+    url: string,
+    parser: (value: unknown) => T,
+    signal?: AbortSignal,
+  ): Promise<T> {
+    if (!isApprovedBackendRequest("GET", url)) return requestInvalid();
     if (signal?.aborted) throw aborted();
     const controller = new AbortController();
     let timedOut = false;
