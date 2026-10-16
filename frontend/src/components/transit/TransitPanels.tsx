@@ -262,9 +262,9 @@ export function TransitSidebar(p: {
           <ResourceNotice state={p.data.exposures} label="Station exposure" />
           <ResourceNotice state={p.data.zones} label="Flood context zones" />
           <p className="transit-copy">
-            Exposure and zones do not show present station flooding. No
-            simulation is started. No exact train positions, station interiors
-            or live flood sensors are supplied.
+            Exposure and zones do not show present station flooding or start a
+            simulation. Exact train positions, surveyed station interiors and
+            measured interior flood levels are unavailable from these sources.
           </p>
         </section>
         <WeatherContext data={p.data} compact />
@@ -870,13 +870,14 @@ function StationSchematic({
         <p className="transit-copy">No entrance points loaded.</p>
       )}
       <div className="transit-schematic-unknown">
-        <strong>Interior / underground geometry unavailable</strong>
+        <strong>Surveyed interior / underground geometry unavailable</strong>
         <span>
           Source structure: {station.properties.structure ?? "unknown"}
         </span>
         <p>
-          No depth, tunnel, corridor, platform layout or exact train path is
-          supplied. Unknown structure does not establish an underground
+          No measured depth, surveyed corridor/platform layout or exact train
+          path is supplied. Explorer detail is a separate schematic
+          illustration. Unknown structure does not establish an underground
           location.
         </p>
       </div>

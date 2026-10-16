@@ -8,6 +8,7 @@ import type {
 } from "../infrastructure/contracts";
 import type { TransitMapTooltip } from "./transitLayers";
 import { MAP_THEMES } from "./presentation";
+import { buildEntranceLayers } from "./entranceLayers";
 
 type Position = [number, number, number];
 type Color = [number, number, number, number];
@@ -87,6 +88,12 @@ export function infrastructureMapLayers(
   const primitives = state.chunk.primitives.filter(
     (primitive) =>
       infrastructurePrimitiveVisible(state, primitive) &&
+      !(
+        state.entranceDetail &&
+        (primitive.id === `entrance_${state.entranceDetail.entranceId}` ||
+          primitive.id ===
+            `entrance_${state.entranceDetail.entranceId}_connector`)
+      ) &&
       (primitive.polygon
         ? primitive.polygon.length >= 3 &&
           primitive.polygon.every(finitePosition)
@@ -222,5 +229,22 @@ export function infrastructureMapLayers(
         }),
       );
   }
+  if (
+    state.entranceDetail &&
+    state.entranceDetail.stationId === state.stationId &&
+    state.visible.entrances
+  )
+    layers.push(
+      ...buildEntranceLayers(
+        state.entranceDetail,
+        theme,
+        state.mode,
+        exaggeration,
+        onPick,
+        onTooltip,
+        state.selectedDetailComponentId ?? undefined,
+        state.entranceScenario,
+      ),
+    );
   return layers;
 }

@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 // Camera/owner lifecycle with MapLibre/WebGL replaced, not browser acceptance.
 import { createElement } from "react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   act,
   cleanup,
@@ -13,6 +15,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import SwaleMap, { type SwaleMapProps } from "../map/SwaleMap";
 import { DEMO_SNAPSHOT } from "../data/fixtures/demo";
 import type { InfrastructureMapState } from "../infrastructure/contracts";
+import {
+  parseInfrastructureChunk,
+  parseInfrastructureManifest,
+} from "../infrastructure/contracts";
+import { parseEntranceCatalog } from "../infrastructure/entranceCatalog";
+import { buildEntranceDetail } from "../infrastructure/entranceGeometry";
+import {
+  DEFAULT_FLOOD_INPUTS,
+  simulateFloodScenario,
+} from "../infrastructure/floodModel";
 
 const renderer = vi.hoisted(() => ({
   maps: [] as Record<string, unknown>[],
@@ -29,8 +41,10 @@ vi.mock("maplibre-gl", () => ({
       zoom: 16.25,
       pitch: 47,
       bearing: -19,
+      elevation: 0,
       padding: { left: 20, right: 30, top: 40, bottom: 50 },
     };
+    centerClampedToGround = true;
     options: Record<string, unknown>;
     constructor(options: Record<string, unknown>) {
       this.options = options;
@@ -39,10 +53,13 @@ vi.mock("maplibre-gl", () => ({
         "zoom",
         "pitch",
         "bearing",
+        "elevation",
         "padding",
       ] as const)
         if (options[key] !== undefined)
           Object.assign(this.camera, { [key]: options[key] });
+      if (typeof options.centerClampedToGround === "boolean")
+        this.centerClampedToGround = options.centerClampedToGround;
       renderer.maps.push(this as unknown as Record<string, unknown>);
     }
     getCanvas = () => this.canvas;
@@ -55,6 +72,14 @@ vi.mock("maplibre-gl", () => ({
     getPitch = () => this.camera.pitch;
     getBearing = () => this.camera.bearing;
     getPadding = () => this.camera.padding;
+    getCenterElevation = () => this.camera.elevation;
+    setCenterElevation = vi.fn((value: number) => {
+      this.camera.elevation = value;
+    });
+    getCenterClampedToGround = () => this.centerClampedToGround;
+    setCenterClampedToGround = vi.fn((value: boolean) => {
+      this.centerClampedToGround = value;
+    });
     getBounds = () => ({
       getWest: () => -74.01,
       getSouth: () => 40.67,
@@ -77,7 +102,10 @@ vi.mock("maplibre-gl", () => ({
       Object.assign(this.camera, options);
     });
     easeTo = vi.fn((options: Record<string, unknown>) => {
-      Object.assign(this.camera, options);
+      // MapLibre 6.14 ignores elevation in easeTo; the explicit setter owns it.
+      const cameraOptions = { ...options };
+      delete cameraOptions.elevation;
+      Object.assign(this.camera, cameraOptions);
     });
     fitBounds = vi.fn();
   },
@@ -174,6 +202,9 @@ type MockMap = {
   options: { maxZoom: number; maxPitch: number };
   handlers: Map<string, () => void>;
   camera: Record<string, unknown>;
+  centerClampedToGround: boolean;
+  setCenterClampedToGround: ReturnType<typeof vi.fn>;
+  setCenterElevation: ReturnType<typeof vi.fn>;
   flyTo: ReturnType<typeof vi.fn>;
   easeTo: ReturnType<typeof vi.fn>;
   fitBounds: ReturnType<typeof vi.fn>;
@@ -185,6 +216,188 @@ function map() {
 }
 
 describe("infrastructure uses the original map and camera owner", () => {
+  it("rejects retained detail pick/hover callbacks after entrance changes, hiding, and scenario comparison/evidence changes", async () => {
+    const read = (path: string): unknown =>
+      JSON.parse(
+        readFileSync(
+          resolve(process.cwd(), "public/infrastructure", path),
+          "utf8",
+        ),
+      );
+    const manifest = parseInfrastructureManifest(read("index.json"));
+    const catalog = parseEntranceCatalog(read("entrance-details.json"));
+    const station = manifest.stations.find((item) => item.id === "F21")!;
+    const chunk = parseInfrastructureChunk(read("stations/F21.json"), "F21");
+    const sources = catalog.entrances.filter(
+      (item) => item.gtfsStopId === "F21" && item.type === "Stair",
+    );
+    const first = buildEntranceDetail(station, chunk, sources[0])!;
+    const second = buildEntranceDetail(station, chunk, sources[1])!;
+    const active = { ...detail, chunk, entranceDetail: first };
+    const pick = vi.fn();
+    const base = { ...props(), onSelectInfrastructure: pick };
+    const view = render(
+      createElement(SwaleMap, { ...base, infrastructure: active }),
+    );
+    await act(async () => {
+      map().handlers.get("load")!();
+    });
+    type LayerProps = {
+      id: string;
+      props: {
+        data: { componentId: string }[];
+        onHover: (value: unknown) => unknown;
+        onClick: (value: unknown) => unknown;
+      };
+    };
+    const layer = (id: string) => {
+      const calls = (renderer.overlays[0].setProps as ReturnType<typeof vi.fn>)
+        .mock.calls;
+      const latest = calls.at(-1)?.[0] as { layers: LayerProps[] } | undefined;
+      return latest?.layers.find((item) => item.id === id)?.props;
+    };
+    await waitFor(() =>
+      expect(layer("swale-entrance-detail-treads")).toBeTruthy(),
+    );
+    const oldTread = layer("swale-entrance-detail-treads")!;
+    const treadInfo = { object: oldTread.data[0], x: 10, y: 20 };
+    act(() => {
+      oldTread.onHover(treadInfo);
+      oldTread.onClick(treadInfo);
+    });
+    expect(screen.getByRole("tooltip")).toBeTruthy();
+    expect(pick).toHaveBeenCalledOnce();
+    pick.mockClear();
+    view.rerender(
+      createElement(SwaleMap, {
+        ...base,
+        infrastructure: { ...active, entranceDetail: second },
+      }),
+    );
+    act(() => {
+      oldTread.onHover(treadInfo);
+      oldTread.onClick(treadInfo);
+    });
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    expect(pick).not.toHaveBeenCalled();
+
+    const trajectory = simulateFloodScenario(first.floodGeometry, {
+      ...DEFAULT_FLOOD_INPUTS,
+      durationS: 60,
+    });
+    const scenario = {
+      inputs: trajectory.inputs,
+      frame: trajectory.frames.at(-1)!,
+    };
+    view.rerender(
+      createElement(SwaleMap, {
+        ...base,
+        infrastructure: { ...active, entranceScenario: scenario },
+      }),
+    );
+    const oldWater = layer("swale-entrance-scenario-water")!;
+    expect(oldWater).toBeTruthy();
+    const waterInfo = { object: oldWater.data[0], x: 10, y: 20 };
+    act(() => oldWater.onHover(waterInfo));
+    expect(screen.getByRole("tooltip").textContent).toContain("HYPOTHETICAL");
+    view.rerender(
+      createElement(SwaleMap, {
+        ...base,
+        infrastructure: {
+          ...active,
+          entranceScenario: { ...scenario, compareBaseline: true },
+        },
+      }),
+    );
+    act(() => oldWater.onHover(waterInfo));
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    view.rerender(createElement(SwaleMap, { ...base, infrastructure: active }));
+    act(() => oldWater.onHover(waterInfo));
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    view.rerender(
+      createElement(SwaleMap, {
+        ...base,
+        infrastructure: {
+          ...active,
+          visible: { ...active.visible, entrances: false },
+        },
+      }),
+    );
+    act(() => {
+      oldTread.onHover(treadInfo);
+      oldTread.onClick(treadInfo);
+    });
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    expect(pick).not.toHaveBeenCalled();
+    expect(renderer.maps).toHaveLength(1);
+    expect(renderer.overlays).toHaveLength(1);
+  });
+  it("uses negative entrance-camera elevation without clamping and restores the original elevation/clamp on return", async () => {
+    const base = props();
+    const view = render(createElement(SwaleMap, base));
+    await act(async () => {
+      map().handlers.get("load")!();
+    });
+    const original = structuredClone(map().camera);
+    view.rerender(
+      createElement(SwaleMap, {
+        ...base,
+        infrastructure: detail,
+        infrastructureCamera: {
+          kind: "explore",
+          stationId: "F21",
+          position: [-73.995, 40.68],
+          nonce: 1,
+        },
+      }),
+    );
+    view.rerender(
+      createElement(SwaleMap, {
+        ...base,
+        infrastructure: detail,
+        infrastructureCamera: {
+          kind: "entrance_detail",
+          position: [-73.9949, 40.6801],
+          elevation: -3.5,
+          bearing: 175,
+          zoom: 22,
+          pitch: 57,
+          nonce: 2,
+        },
+      }),
+    );
+    expect(map().setCenterClampedToGround).toHaveBeenLastCalledWith(false);
+    expect(map().setCenterElevation).toHaveBeenLastCalledWith(-3.5);
+    expect(map().easeTo).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        elevation: -3.5,
+        zoom: 22,
+        pitch: 57,
+        duration: 0,
+      }),
+    );
+    expect(map().camera.elevation).toBe(-3.5);
+    expect(map().centerClampedToGround).toBe(false);
+    view.rerender(
+      createElement(SwaleMap, {
+        ...base,
+        infrastructureCamera: { kind: "return", nonce: 3 },
+      }),
+    );
+    expect(map().setCenterClampedToGround).toHaveBeenLastCalledWith(true);
+    expect(map().setCenterElevation).toHaveBeenLastCalledWith(
+      original.elevation,
+    );
+    expect(map().camera.elevation).toBe(original.elevation);
+    expect(map().centerClampedToGround).toBe(true);
+    expect(map().easeTo).toHaveBeenLastCalledWith({
+      ...original,
+      duration: 0,
+      essential: false,
+    });
+    expect(renderer.maps).toHaveLength(1);
+    expect(renderer.overlays).toHaveLength(1);
+  });
   it("explores geometry without TransitData, retains camera through theme changes, and restores the captured camera on return", async () => {
     const base = props();
     const view = render(createElement(SwaleMap, base));

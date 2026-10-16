@@ -52,6 +52,15 @@ import {
 import "./transitView.css";
 import { useInfrastructure } from "../infrastructure/useInfrastructure";
 import {
+  loadEntranceCatalog,
+  sourceEntranceForPrimitive,
+  type EntranceCatalog,
+} from "../infrastructure/entranceCatalog";
+import { buildEntranceDetail } from "../infrastructure/entranceGeometry";
+import { useFloodPlayback } from "../infrastructure/useFloodPlayback";
+import { EntranceExperience } from "../infrastructure/EntranceExperience";
+import { StationEvidence } from "../infrastructure/StationEvidence";
+import {
   InfrastructureControls,
   InfrastructureInspection,
 } from "../infrastructure/InfrastructurePanels";
@@ -269,6 +278,80 @@ function Workspace({
         ]).values(),
       ])
     : null;
+  const [entranceCatalog, setEntranceCatalog] =
+    useState<EntranceCatalog | null>(null);
+  const [entranceCatalogStatus, setEntranceCatalogStatus] = useState("idle");
+  const [entranceCatalogError, setEntranceCatalogError] = useState("");
+  const [entranceCatalogRevision, setEntranceCatalogRevision] = useState(0);
+  const [selectedDetailComponentId, setSelectedDetailComponentId] = useState<
+    string | null
+  >(null);
+  const needsEntranceCatalog =
+    infrastructureOpen &&
+    transitActive &&
+    !!infrastructure.chunk?.primitives.some(
+      (primitive) => primitive.kind === "entrance",
+    );
+  useEffect(() => {
+    if (!needsEntranceCatalog || entranceCatalog) return;
+    const controller = new AbortController();
+    let current = true;
+    setEntranceCatalogStatus("loading");
+    setEntranceCatalogError("");
+    loadEntranceCatalog(controller.signal)
+      .then((catalog) => {
+        if (!current) return;
+        setEntranceCatalog(catalog);
+        setEntranceCatalogStatus("ready");
+      })
+      .catch((cause: unknown) => {
+        if (!current || controller.signal.aborted) return;
+        setEntranceCatalogStatus("error");
+        setEntranceCatalogError(
+          cause instanceof Error
+            ? cause.message
+            : "Entrance source types unavailable.",
+        );
+      });
+    return () => {
+      current = false;
+      controller.abort();
+    };
+  }, [needsEntranceCatalog, entranceCatalog, entranceCatalogRevision]);
+  const detailEntrances = useMemo(
+    () =>
+      entranceCatalog && modelStation && infrastructure.chunk
+        ? infrastructure.chunk.primitives
+            .map((primitive) =>
+              sourceEntranceForPrimitive(
+                entranceCatalog,
+                modelStation.id,
+                primitive,
+              ),
+            )
+            .filter((entry) => entry !== null)
+        : [],
+    [entranceCatalog, modelStation, infrastructure.chunk],
+  );
+  const selectedSourceEntrance =
+    detailEntrances.find(
+      (entry) => `entrance_${entry.id}` === selectedPrimitiveId,
+    ) ?? null;
+  const entranceDetail = useMemo(
+    () =>
+      modelStation && infrastructure.chunk && selectedSourceEntrance
+        ? buildEntranceDetail(
+            modelStation,
+            infrastructure.chunk,
+            selectedSourceEntrance,
+          )
+        : null,
+    [modelStation, infrastructure.chunk, selectedSourceEntrance],
+  );
+  const floodPlayback = useFloodPlayback(
+    entranceDetail?.floodGeometry ?? null,
+    infrastructureOpen && transitActive,
+  );
   const infrastructureMapState: InfrastructureMapState | null =
     infrastructureOpen && transitActive && modelStation
       ? {
@@ -278,6 +361,16 @@ function Workspace({
           verticalExaggeration,
           visible: infrastructureVisible,
           selectedPrimitiveId,
+          entranceDetail,
+          selectedDetailComponentId,
+          entranceScenario: floodPlayback.showScenario
+            ? {
+                frame: floodPlayback.frame,
+                inputs: floodPlayback.inputs,
+                compareBaseline: floodPlayback.compareBaseline,
+                playing: floodPlayback.playing,
+              }
+            : undefined,
         }
       : null;
   const [transitCamera, setTransitCamera] =
@@ -331,6 +424,10 @@ function Workspace({
     });
   }, [infrastructureOpen, transitActive, modelStation]);
   const selectInfrastructurePrimitive = (id: string) => {
+    if (entranceDetail?.components.some((component) => component.id === id)) {
+      if (infrastructureVisible.entrances) setSelectedDetailComponentId(id);
+      return;
+    }
     const primitive = infrastructure.chunk?.primitives.find(
       (item) => item.id === id && item.stationId === infrastructureStationId,
     );
@@ -345,6 +442,56 @@ function Workspace({
             : infrastructureVisible.structure;
     if (visible) setSelectedPrimitiveId(id);
   };
+  const focusEntranceDetail = (
+    part: "entrance" | "stairwell" | "landing" | "overview",
+  ) => {
+    if (!entranceDetail || !modelStation) return;
+    if (part === "overview") {
+      floodPlayback.evidence();
+      setInfrastructureCamera({
+        kind: "explore",
+        stationId: modelStation.id,
+        position: modelStation.position,
+        nonce: ++infrastructureCameraSequence.current,
+      });
+      return;
+    }
+    const kind = part === "stairwell" ? "flight" : part;
+    const component = entranceDetail.components.find(
+      (item) => item.kind === kind,
+    );
+    if (!component) return;
+    setSelectedDetailComponentId(component.id);
+    setInfrastructureMode("xray");
+    setInfrastructureVisible((previous) => ({ ...previous, entrances: true }));
+    setInfrastructureCamera({
+      kind: "entrance_detail",
+      position: [component.position[0], component.position[1]],
+      elevation: component.position[2] * verticalExaggeration,
+      bearing: entranceDetail.orientationDeg + 175,
+      zoom: part === "entrance" ? 21.8 : 22,
+      pitch: part === "entrance" ? 48 : 57,
+      nonce: ++infrastructureCameraSequence.current,
+    });
+  };
+  useEffect(() => {
+    setSelectedDetailComponentId(null);
+    if (!entranceDetail) return;
+    setVerticalExaggeration(1);
+    setInfrastructureMode("xray");
+    const center = entranceDetail.components.find(
+      (item) => item.kind === "flight",
+    )!.position;
+    setInfrastructureCamera({
+      kind: "entrance_detail",
+      position: [center[0], center[1]],
+      elevation: center[2],
+      bearing: entranceDetail.orientationDeg + 175,
+      zoom: 21.8,
+      pitch: 50,
+      nonce: ++infrastructureCameraSequence.current,
+    });
+  }, [entranceDetail]);
   const fitInfrastructureEntrances = () => {
     const positions =
       infrastructure.chunk?.primitives
@@ -676,12 +823,51 @@ function Workspace({
     : selectedStation;
   const infrastructureInspection =
     modelStation && infrastructureMapState && infrastructureBinding ? (
-      <InfrastructureInspection
-        station={modelStation}
-        chunk={infrastructure.chunk}
-        state={infrastructureMapState}
-        binding={infrastructureBinding}
-      />
+      <>
+        <EntranceExperience
+          key={modelStation.id}
+          station={modelStation}
+          entrances={detailEntrances}
+          selectedId={selectedSourceEntrance?.id ?? null}
+          detail={entranceDetail}
+          status={
+            infrastructure.chunkStatus === "loading"
+              ? "loading"
+              : entranceCatalogStatus
+          }
+          error={entranceCatalogError}
+          onRetry={() => setEntranceCatalogRevision((value) => value + 1)}
+          onSelect={(id) => selectInfrastructurePrimitive(`entrance_${id}`)}
+          onFocus={focusEntranceDetail}
+          selectedComponentId={selectedDetailComponentId}
+          onComponent={selectInfrastructurePrimitive}
+          playback={{
+            ...floodPlayback,
+            open: () => {
+              setVerticalExaggeration(1);
+              floodPlayback.open();
+            },
+          }}
+          evidence={
+            <StationEvidence
+              station={
+                infrastructureBinding.kind === "supported"
+                  ? infrastructureBinding.station
+                  : null
+              }
+              data={transit.data}
+              evidence={transit.evidence}
+              onEvidence={transit.openEvidence}
+            />
+          }
+        />
+        <InfrastructureInspection
+          station={modelStation}
+          chunk={infrastructure.chunk}
+          state={infrastructureMapState}
+          binding={infrastructureBinding}
+        />
+      </>
     ) : null;
   const infrastructureControls = (
     <InfrastructureControls
@@ -994,24 +1180,28 @@ function Workspace({
           />
         )}
       </div>
-      <div className="map-context-heading">
-        <span className="eyebrow">BROOKLYN / FOCUS AREA</span>
-        <h2>
-          Understand the landscape.
-          <br />
-          <span>Inspect with context.</span>
-        </h2>
-        <p>
-          {sourceMode === "fixture"
-            ? "Explore illustrative infrastructure priorities."
-            : transitActive
-              ? "Station service, entrances and flood evidence."
-              : "Explore snapshot inventory and reported incidents."}
-        </p>
-      </div>
+      {!entranceDetail && (
+        <div className="map-context-heading">
+          <span className="eyebrow">BROOKLYN / FOCUS AREA</span>
+          <h2>
+            Understand the landscape.
+            <br />
+            <span>Inspect with context.</span>
+          </h2>
+          <p>
+            {sourceMode === "fixture"
+              ? "Explore illustrative infrastructure priorities."
+              : transitActive
+                ? "Station service, entrances and flood evidence."
+                : "Explore snapshot inventory and reported incidents."}
+          </p>
+        </div>
+      )}
       {sourceMode === "backend" ? (
         transitActive ? (
-          <TransitLegend data={transit.data} layers={transitLayers} />
+          !entranceDetail && (
+            <TransitLegend data={transit.data} layers={transitLayers} />
+          )
         ) : (
           <BackendLegend data={backend.data} layers={backendLayers} />
         )

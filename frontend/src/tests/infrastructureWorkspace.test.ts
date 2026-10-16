@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 // App regression with the map and resource hooks replaced; no browser/live calls.
-import { createElement } from "react";
+import { createElement, useMemo } from "react";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -15,15 +16,26 @@ import { emptyTransitData } from "../backend/useTransitData";
 import { emptyBackendData } from "../backend/provider";
 import type { TransitStation } from "../backend/transitContracts";
 import type { InfrastructureManifest } from "../infrastructure/contracts";
+import type { EntranceCatalog } from "../infrastructure/entranceCatalog";
+
+const mapProps = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
 
 vi.mock("../map/SwaleMap", () => ({
-  default: (props: Record<string, unknown>) =>
-    createElement("div", {
+  default: (props: Record<string, unknown>) => {
+    mapProps.current = props;
+    return createElement("div", {
       "data-testid": "infrastructure-map-double",
       "data-infrastructure": JSON.stringify(props.infrastructure),
       "data-transit-selection": JSON.stringify(props.transitSelection),
       "data-transit-layers": JSON.stringify(props.transitLayers),
-    }),
+    });
+  },
+}));
+vi.mock("../infrastructure/entranceCatalog", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../infrastructure/entranceCatalog")
+  >()),
+  loadEntranceCatalog: (...args: unknown[]) => catalogLoad(...args),
 }));
 vi.mock("../backend/useBackendData", () => ({
   useBackendData: () => ({
@@ -63,31 +75,45 @@ vi.mock("../backend/useTransitData", async (importOriginal) => ({
 vi.mock("../infrastructure/useInfrastructure", () => ({
   useInfrastructure: (enabled: boolean, id: string | null) => ({
     manifest: enabled ? manifest : null,
-    chunk:
-      enabled && id
-        ? {
-            stationId: id,
-            primitives: [
-              {
-                id: `${id}-platform`,
-                stationId: id,
-                kind: "platform",
-                sourceIds: [`S3:${id}`],
-                assumption: "Generated schematic platform, not surveyed",
-                polygon: [
-                  [-74, 40.68, -6],
-                  [-73.9999, 40.68, -6],
-                  [-73.9999, 40.6801, -6],
-                ],
+    chunk: useMemo(
+      () =>
+        enabled && id
+          ? {
+              stationId: id,
+              primitives: [
+                {
+                  id: `${id}-platform`,
+                  stationId: id,
+                  kind: "platform",
+                  sourceIds: [`S3:${id}`],
+                  assumption: "Generated schematic platform, not surveyed",
+                  polygon: [
+                    [-74, 40.68, -6],
+                    [-73.9999, 40.68, -6],
+                    [-73.9999, 40.6801, -6],
+                  ],
+                },
+                ...catalog.entrances
+                  .filter((entry) => entry.gtfsStopId === id)
+                  .map((entry) => ({
+                    id: `entrance_${entry.id}`,
+                    stationId: id,
+                    kind: "entrance",
+                    sourceIds: entry.sourceIds,
+                    assumption:
+                      "Test source inventory point, no surveyed dimensions",
+                    position: [...entry.position, 0],
+                  })),
+              ],
+              metadata: {
+                modelVintage: "source edition",
+                referencePolicy: "flat reference",
+                schematic: true,
               },
-            ],
-            metadata: {
-              modelVintage: "source edition",
-              referencePolicy: "flat reference",
-              schematic: true,
-            },
-          }
-        : null,
+            }
+          : null,
+      [enabled, id],
+    ),
     manifestStatus: enabled ? "ready" : "idle",
     chunkStatus: enabled && id ? "ready" : "idle",
     error: "",
@@ -97,6 +123,26 @@ vi.mock("../infrastructure/useInfrastructure", () => ({
 }));
 
 const clearEvidence = vi.fn();
+const catalog: EntranceCatalog = {
+  version: 1,
+  sourceEdition: "2024 test source edition",
+  sourceTimestamp: "2026-10-01T00:00:00Z",
+  inputSha256: "a".repeat(64),
+  entrances: ["test-entrance-one", "test-entrance-two"].map((id, index) => ({
+    id,
+    gtfsStopId: "F21",
+    stationId: "237",
+    complexId: "237",
+    position: [-74 + index * 0.0001, 40.68],
+    type: "Stair",
+    matched: true,
+    reason: null,
+    sourceIds: [`S4:${id}`],
+  })),
+};
+const catalogLoad = vi
+  .fn<(...args: unknown[]) => Promise<EntranceCatalog>>()
+  .mockImplementation(async () => catalog);
 const station: TransitStation = {
   type: "Feature",
   id: "subway_station:opaque-F21",
@@ -207,6 +253,8 @@ transitData.feedState = "stale";
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.useRealTimers();
+  Reflect.deleteProperty(document, "hidden");
 });
 async function openTransit() {
   localStorage.clear();
@@ -220,6 +268,105 @@ async function openTransit() {
   fireEvent.click(screen.getByRole("button", { name: /Carroll test station/ }));
 }
 describe("infrastructure identity and failure isolation in App", () => {
+  it("loads entrance sources only after exploration, propagates local scenario state to the original map and resets on source/station changes", async () => {
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      get: () => false,
+    });
+    const liveBefore = JSON.stringify(transitData);
+    await openTransit();
+    expect(catalogLoad).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Explore infrastructure" }),
+    );
+    await waitFor(() => expect(catalogLoad).toHaveBeenCalledOnce());
+    const entranceChoice = await screen.findByRole("combobox", {
+      name: "Source-linked entrance",
+    });
+    await waitFor(() =>
+      expect((entranceChoice as HTMLSelectElement).options.length).toBe(3),
+    );
+    fireEvent.change(entranceChoice, {
+      target: { value: "test-entrance-one" },
+    });
+    const state = () =>
+      mapProps.current
+        .infrastructure as import("../infrastructure/contracts").InfrastructureMapState;
+    const camera = () =>
+      mapProps.current
+        .infrastructureCamera as import("../infrastructure/contracts").InfrastructureCameraRequest;
+    expect(state().selectedPrimitiveId).toBe("entrance_test-entrance-one");
+    expect(state().entranceDetail?.sourcePosition).toEqual(
+      catalog.entrances[0].position,
+    );
+    expect(state().verticalExaggeration).toBe(1);
+    expect(state().entranceScenario).toBeUndefined();
+    expect(camera().kind).toBe("entrance_detail");
+    fireEvent.click(screen.getByRole("button", { name: "3 · Landing" }));
+    expect(state().selectedDetailComponentId).toBe(
+      state().entranceDetail!.components.find(
+        (item) => item.kind === "landing",
+      )!.id,
+    );
+    expect(camera()).toEqual(
+      expect.objectContaining({
+        kind: "entrance_detail",
+        elevation: expect.any(Number),
+        zoom: 22,
+      }),
+    );
+    vi.useFakeTimers();
+    fireEvent.click(
+      screen.getByRole("button", { name: "What-if flood simulation" }),
+    );
+    expect(state().entranceScenario?.frame).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Run illustrative scenario" }),
+    );
+    act(() => vi.advanceTimersByTime(1000));
+    expect(state().entranceScenario!.frame!.timeS).toBe(30);
+    expect(state().entranceScenario!.frame!.ledger.suppliedM3).toBeGreaterThan(
+      0,
+    );
+    const frame = state().entranceScenario!.frame;
+    fireEvent.click(screen.getByRole("button", { name: "Baseline geometry" }));
+    expect(state().entranceScenario?.compareBaseline).toBe(true);
+    expect(state().entranceScenario?.frame).toBe(frame);
+    fireEvent.change(
+      screen.getByRole("combobox", { name: "Source-linked entrance" }),
+      {
+        target: { value: "test-entrance-two" },
+      },
+    );
+    expect(state().entranceDetail?.entranceId).toBe("test-entrance-two");
+    expect(state().entranceDetail?.sourcePosition).toEqual(
+      catalog.entrances[1].position,
+    );
+    expect(state().entranceScenario).toBeUndefined();
+    expect(state().selectedDetailComponentId).toBeNull();
+    expect(
+      screen
+        .getByRole("button", { name: "Current evidence" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(screen.getByText("fixture-carroll-trip")).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: "What-if flood simulation" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Run illustrative scenario" }),
+    );
+    fireEvent.change(
+      screen.getByRole("combobox", { name: "Select geometry" }),
+      { target: { value: "R99" } },
+    );
+    expect(state().stationId).toBe("R99");
+    expect(state().entranceDetail).toBeNull();
+    expect(state().entranceScenario).toBeUndefined();
+    expect(screen.queryByText("fixture-carroll-trip")).toBeNull();
+    expect(JSON.stringify(transitData)).toBe(liveBefore);
+    expect(clearEvidence).toHaveBeenCalled();
+  });
   it("keeps genuine backend error and stale board visible while supported static geometry remains usable", async () => {
     await openTransit();
     fireEvent.click(
@@ -253,7 +400,11 @@ describe("infrastructure identity and failure isolation in App", () => {
       name: "Geometry-only infrastructure inspector",
     });
     expect(
-      within(inspector).getByText(/GEOMETRY ONLY \/ NO LIVE COVERAGE/),
+      within(
+        within(inspector).getByRole("region", {
+          name: "Selected infrastructure",
+        }),
+      ).getByText(/GEOMETRY ONLY \/ NO LIVE COVERAGE/),
     ).toBeTruthy();
     expect(screen.queryByText("fixture-carroll-trip")).toBeNull();
     const map = screen.getByTestId("infrastructure-map-double");

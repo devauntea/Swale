@@ -56,6 +56,8 @@ interface SavedInfrastructureCamera {
   pitch: number;
   bearing: number;
   padding: ReturnType<Map["getPadding"]>;
+  elevation: number;
+  centerClampedToGround: boolean;
 }
 
 function captureMapCamera(map: Map): SavedInfrastructureCamera {
@@ -66,6 +68,14 @@ function captureMapCamera(map: Map): SavedInfrastructureCamera {
     pitch: map.getPitch(),
     bearing: map.getBearing(),
     padding: { ...map.getPadding() },
+    elevation:
+      typeof map.getCenterElevation === "function"
+        ? map.getCenterElevation()
+        : 0,
+    centerClampedToGround:
+      typeof map.getCenterClampedToGround === "function"
+        ? map.getCenterClampedToGround()
+        : true,
   };
 }
 
@@ -423,6 +433,19 @@ export function SwaleMap(props: SwaleMapProps) {
               const primitive = current?.chunk?.primitives.find(
                 (item) => item.id === id,
               );
+              const detailComponent = current?.entranceDetail?.components.some(
+                (component) => component.id === id,
+              );
+              if (
+                current &&
+                detailComponent &&
+                current.visible.entrances &&
+                current.entranceDetail?.entranceId ===
+                  props.infrastructure?.entranceDetail?.entranceId
+              ) {
+                propsRef.current.onSelectInfrastructure?.(id);
+                return;
+              }
               if (
                 current &&
                 primitive &&
@@ -436,11 +459,23 @@ export function SwaleMap(props: SwaleMapProps) {
                 propsRef.current.onSelectInfrastructure?.(id);
             },
             (tip) => {
+              const current = propsRef.current.infrastructure;
+              const captured = props.infrastructure;
+              if (!current || current.stationId !== captured?.stationId) return;
               if (
-                propsRef.current.infrastructure?.stationId ===
-                props.infrastructure?.stationId
+                tip &&
+                captured.entranceDetail &&
+                (!current.visible.entrances ||
+                  current.entranceDetail?.entranceId !==
+                    captured.entranceDetail.entranceId ||
+                  (tip.context.startsWith("SCENARIO") &&
+                    (!current.entranceScenario ||
+                      current.entranceScenario.compareBaseline ||
+                      current.entranceScenario.frame !==
+                        captured.entranceScenario?.frame)))
               )
-                setTooltip(tip);
+                return;
+              setTooltip(tip);
             },
             (primitive) => {
               const current = propsRef.current.infrastructure;
@@ -912,19 +947,42 @@ export function SwaleMap(props: SwaleMapProps) {
       activeInfrastructureStationRef.current = null;
       fittedInfrastructureChunkRef.current = null;
       previousInfrastructureCameraRef.current = null;
-      if (previous) map.easeTo({ ...previous, duration, essential: false });
+      if (previous) {
+        const { centerClampedToGround, ...camera } = previous;
+        map.setCenterClampedToGround?.(centerClampedToGround);
+        map.setCenterElevation?.(camera.elevation);
+        map.easeTo({ ...camera, duration, essential: false });
+      }
     } else if (request.kind === "explore") {
       if (!previousInfrastructureCameraRef.current) {
         previousInfrastructureCameraRef.current = captureMapCamera(map);
       }
       activeInfrastructureStationRef.current = request.stationId;
       fittedInfrastructureChunkRef.current = null;
+      map.setCenterClampedToGround?.(true);
+      map.setCenterElevation?.(0);
       map.flyTo({
         center: request.position,
+        elevation: 0,
         zoom: 20.5,
         pitch: 59,
         padding: cameraPadding(map.getContainer().clientWidth),
         duration,
+        essential: false,
+      });
+    } else if (request.kind === "entrance_detail") {
+      map.setCenterClampedToGround?.(false);
+      // MapLibre 6.14's animated camera path does not apply options.elevation.
+      // Its public setter updates the shared map/deck camera before the planar move.
+      map.setCenterElevation?.(request.elevation);
+      map.easeTo({
+        center: request.position,
+        elevation: request.elevation,
+        zoom: request.zoom,
+        bearing: request.bearing,
+        pitch: request.pitch,
+        padding: cameraPadding(map.getContainer().clientWidth),
+        duration: prefersReducedMotion() ? 0 : 650,
         essential: false,
       });
     } else if (request.positions.length) {
@@ -958,7 +1016,8 @@ export function SwaleMap(props: SwaleMapProps) {
       !state?.chunk ||
       !infrastructureRenderer ||
       state.stationId !== activeInfrastructureStationRef.current ||
-      state.chunk === fittedInfrastructureChunkRef.current
+      state.chunk === fittedInfrastructureChunkRef.current ||
+      !!state.entranceDetail
     )
       return;
     const positions =
@@ -1105,6 +1164,22 @@ export function SwaleMap(props: SwaleMapProps) {
           <strong>{tooltip.title}</strong>
           <span>{tooltip.detail}</span>
           <small>{tooltip.context}</small>
+        </div>
+      )}
+      {props.infrastructure?.entranceDetail && (
+        <div className="entrance-map-badge" role="status">
+          <strong>
+            {props.infrastructure.entranceScenario
+              ? "HYPOTHETICAL WHAT-IF"
+              : "STATIC / SCHEMATIC ENTRANCE"}{" "}
+            · {props.infrastructure.mode === "xray" ? "X-RAY" : "SURFACE"} ·{" "}
+            {props.infrastructure.verticalExaggeration}×
+          </strong>
+          <span>
+            {props.infrastructure.entranceScenario
+              ? `Illustrative what-if model — not calibrated station flooding. ${Math.floor(props.infrastructure.entranceScenario.frame?.timeS ?? 0)} s · ${props.infrastructure.entranceScenario.playing ? "PLAYING" : "PAUSED"} · ${props.infrastructure.entranceScenario.compareBaseline ? "BASELINE GEOMETRY" : "SCENARIO WATER"}`
+              : "Interior water level unknown · assumed dimensions and orientation"}
+          </span>
         </div>
       )}
       <div className="map-building-note">

@@ -1,0 +1,31 @@
+.station-evidence h3 {
+  margin-block-end: 5px;
+  font-size: 12px;
+  letter-spacing: 0.2px;
+}
+.station-evidence-label {
+  margin-block: 4px 9px;
+  color: var(--text-secondary);
+  font-size: 9px;
+  line-height: 1.6;
+  letter-spacing: 0.5px;
+}
+.station-evidence-current,
+.station-evidence-history {
+  border-inline-start: 2px solid var(--accent);
+  padding-inline-start: 10px;
+}
+.station-evidence-history {
+  border-inline-start-style: dashed;
+}
+.station-evidence-factor + .station-evidence-factor {
+  margin-block-start: 12px;
+  border-block-start: 1px solid var(--border);
+}
+.station-evidence :is(button, summary, a):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+.station-evidence :is(summary, button) {
+  min-block-size: 36px;
+}

@@ -1,4 +1,6 @@
 import type { TransitStation } from "../backend/transitContracts";
+import type { EntranceDetailGeometry } from "./entranceGeometry";
+import type { FloodFrame, FloodInputs } from "./floodModel";
 
 export type InfrastructurePosition = [number, number, number];
 export type InfrastructureKind =
@@ -70,6 +72,14 @@ export interface InfrastructureMapState {
   verticalExaggeration: number;
   visible: InfrastructureVisibility;
   selectedPrimitiveId: string | null;
+  entranceDetail?: EntranceDetailGeometry | null;
+  selectedDetailComponentId?: string | null;
+  entranceScenario?: {
+    frame: FloodFrame | null;
+    inputs: FloodInputs;
+    compareBaseline?: boolean;
+    playing?: boolean;
+  };
 }
 export type InfrastructureCameraRequest =
   | {
@@ -79,6 +89,15 @@ export type InfrastructureCameraRequest =
       nonce: number;
     }
   | { kind: "fit_entrances"; positions: [number, number][]; nonce: number }
+  | {
+      kind: "entrance_detail";
+      position: [number, number];
+      bearing: number;
+      elevation: number;
+      zoom: number;
+      pitch: number;
+      nonce: number;
+    }
   | { kind: "return"; nonce: number };
 
 export type InfrastructureBinding =
