@@ -175,7 +175,7 @@ def update() -> None:
         "sudo -u swale bash -lc 'cd /opt/swale/frontend && npm ci --no-audit --no-fund && npm run build' > /tmp/swale-update.log 2>&1",
         "sudo -u swale bash -lc 'cd /opt/swale/backend && uv sync --frozen' >> /tmp/swale-update.log 2>&1",
         "cp /opt/swale/deploy/aws/nginx.conf /etc/nginx/conf.d/swale.conf && nginx -t && systemctl reload nginx",
-        "cd /opt/swale && git log -1 --format='deployed %h %s'",
+        "sudo -u swale git -C /opt/swale log -1 --format='deployed %h %s'",
     ], "swale: update")
     print("update:", r["Status"], r.get("StandardOutputContent", "").strip()[-400:], r.get("StandardErrorContent", "").strip()[-600:])
     secrets()
