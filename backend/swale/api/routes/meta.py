@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
@@ -55,6 +56,18 @@ def health(request: Request, db: Any = Depends(get_db)) -> dict[str, Any]:
         "build": code_version(),
         "db": {"status": db_status, "engine": "surrealdb", "mode": _mode(request.app.state.settings.db_url)},
         "sources": sources,
+        "integrations": integrations(),
+    }
+
+
+def integrations() -> dict[str, bool]:
+    """Which optional services are configured on this server (booleans only; never the keys)."""
+    env = os.environ
+    return {
+        "daytona": bool(env.get("DAYTONA_API_KEY")),
+        "bedrock": bool(env.get("AWS_BEARER_TOKEN_BEDROCK") or env.get("ANTHROPIC_AWS_API_KEY") or env.get("AWS_ACCESS_KEY_ID") or env.get("AWS_PROFILE")),
+        "arize": bool(env.get("ARIZE_SPACE_ID") and env.get("ARIZE_API_KEY")),
+        "elevenlabs": bool(env.get("ELEVENLABS_API_KEY")),
     }
 
 

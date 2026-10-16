@@ -134,7 +134,8 @@ def spoken_text(briefing: Briefing, pack: dict[str, Any]) -> str:
 
 
 def llm_available() -> bool:
-    return bool(os.environ.get("AWS_ACCESS_KEY_ID") or os.environ.get("AWS_PROFILE") or os.environ.get("AWS_BEARER_TOKEN_BEDROCK"))
+    env = os.environ
+    return bool(env.get("AWS_BEARER_TOKEN_BEDROCK") or env.get("ANTHROPIC_AWS_API_KEY") or env.get("AWS_ACCESS_KEY_ID") or env.get("AWS_PROFILE"))
 
 
 def generate(pack: dict[str, Any], tracer: Any | None = None) -> dict[str, Any]:

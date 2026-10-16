@@ -3,102 +3,422 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Swale dev map</title>
+<title>Swale demo console</title>
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <style>
-  html, body, #map { margin: 0; height: 100%; }
-  body { font: 13px/1.4 system-ui, sans-serif; }
-  .panel { position: absolute; top: 10px; left: 10px; background: #fff; color: #1b1f24; padding: 10px 12px; border-radius: 6px;
-           box-shadow: 0 1px 4px rgba(0, 0, 0, .3); max-width: 300px; }
-  .panel h1 { font-size: 14px; margin: 0 0 6px; }
-  .key { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
-  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; box-sizing: border-box; }
-  #status { color: #57606a; margin-top: 6px; }
+  :root {
+    --bg: #ffffff; --panel: #ffffff; --ink: #1b1f24; --muted: #57606a; --line: #d0d7de; --chip: #f6f8fa;
+    --accent: #0969da; --observed: #1f6feb; --reported: #d4631a; --finding: #b42318; --sensor: #8250df;
+    --minor: #d4a72c; --nuisance: #e16f24; --deep: #a40e26; --inferred: #1a7f37; --warn: #9a6700;
+    --shadow: 0 2px 10px rgba(0,0,0,.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0d1117; --panel: #161b22; --ink: #e6edf3; --muted: #9da7b3; --line: #30363d; --chip: #21262d;
+            --accent: #4493f8; --shadow: 0 2px 12px rgba(0,0,0,.6); }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #map { position: absolute; inset: 0 0 0 380px; }
+  #panel { position: absolute; top: 0; bottom: 0; left: 0; width: 380px; overflow-y: auto; background: var(--panel); border-right: 1px solid var(--line); }
+  header { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 17px; margin: 0; }
+  .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  section { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  .row { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+  .row label { flex: 1; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .chip { background: var(--chip); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; font-size: 11px; white-space: nowrap; }
+  .chip.bad { border-color: var(--warn); color: var(--warn); }
+  .chip.ok::before { content: "● "; color: var(--inferred); }
+  .chip.off::before { content: "○ "; color: var(--muted); }
+  .kt { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; padding: 0 5px; border-radius: 3px; border: 1px solid currentColor; }
+  .kt.observed { color: var(--observed); } .kt.reported { color: var(--reported); } .kt.predicted { color: var(--deep); } .kt.inferred { color: var(--inferred); }
+  .sw { width: 14px; height: 14px; border-radius: 50%; flex: none; }
+  select, button { font: inherit; color: inherit; }
+  select { background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; max-width: 100%; }
+  button { background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 7px 11px; cursor: pointer; font-weight: 600; }
+  button.secondary { background: var(--chip); color: var(--ink); border: 1px solid var(--line); }
+  button:disabled { opacity: .5; cursor: progress; }
+  .card { background: var(--chip); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; margin-top: 8px; }
+  .big { font-size: 15px; font-weight: 650; }
+  .note { color: var(--muted); font-size: 11.5px; }
+  .rank { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center; padding: 7px 4px; border-radius: 6px; cursor: pointer; }
+  .rank:hover, .rank.sel { background: var(--chip); }
+  .badge { width: 24px; height: 24px; border-radius: 50%; border: 2px dashed var(--inferred); display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+  .bar { height: 5px; background: var(--line); border-radius: 3px; margin-top: 3px; overflow: hidden; }
+  .bar > div { height: 100%; background: var(--inferred); }
+  .tier-high { color: var(--deep); font-weight: 700; } .tier-medium { color: var(--nuisance); font-weight: 700; } .tier-low { color: var(--muted); }
+  .factor { margin: 6px 0; padding-left: 8px; border-left: 3px solid var(--line); }
+  .factor b { font-weight: 600; }
+  a.ev { color: var(--accent); cursor: pointer; text-decoration: underline; font-size: 11.5px; margin-right: 6px; word-break: break-all; }
+  .stop { margin: 8px 0; }
+  .stop .why { margin: 2px 0; }
+  .status { min-height: 18px; color: var(--muted); font-size: 12px; margin-top: 6px; }
+  audio { width: 100%; margin-top: 8px; }
+  #toast { position: fixed; right: 14px; bottom: 14px; max-width: 420px; background: var(--panel); color: var(--ink); border: 1px solid var(--warn);
+           border-radius: 8px; padding: 10px 12px; box-shadow: var(--shadow); display: none; z-index: 10; }
+  .rank-marker { width: 26px; height: 26px; border-radius: 50%; border: 3px dashed var(--inferred); background: rgba(255,255,255,.92); color: #0b3d1a;
+                 display: grid; place-items: center; font: 700 12px system-ui; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+  .rank-marker.sel { background: var(--inferred); color: #fff; border-style: solid; }
+  @media (max-width: 760px) {
+    #map { inset: 0 0 45vh 0; }
+    #panel { top: auto; height: 45vh; width: 100%; border-right: 0; border-top: 1px solid var(--line); }
+  }
 </style>
 </head>
 <body>
-<div id="map"></div>
-<div class="panel">
-  <h1>Swale dev map (not the product UI)</h1>
-  <div class="key"><span class="dot" style="background:#1f6feb"></span>Catch basin: observed (DEP inventory)</div>
-  <div class="key"><span class="dot" style="border:2px solid #d4631a"></span>311 report: reported, not verified</div>
-  <div class="key"><span class="dot" style="border:3px solid #b42318"></span>311 report with a DEP field finding</div>
-  <div id="status">Loading…</div>
-</div>
+<div id="map" role="region" aria-label="Map of the demo area"></div>
+<aside id="panel">
+  <header>
+    <h1>Swale</h1>
+    <div class="sub">Brooklyn catch-basin flood intelligence · demo console</div>
+    <div class="sub" id="area-name">BK0601 · Carroll Gardens–Cobble Hill–Gowanus–Red Hook</div>
+    <div class="chips" id="health" aria-live="polite"></div>
+  </header>
+
+  <section>
+    <h2>Layers</h2>
+    <div class="row"><span class="sw" style="background:var(--observed)"></span><label><input type="checkbox" id="lyr-basins" checked> Catch basins <span class="kt observed">observed</span></label></div>
+    <div class="row"><span class="sw" style="border:2px solid var(--reported)"></span><label><input type="checkbox" id="lyr-incidents" checked> 311 reports <span class="kt reported">reported</span></label></div>
+    <div class="row" style="padding-left:22px"><select id="inc-filter" aria-label="Which 311 reports">
+      <option value="">All flood, sewer and street reports</option>
+      <option value="agency_found_obstruction">Only where DEP found an obstruction</option>
+      <option value="capacity_surcharge">Only where DEP confirmed rain overwhelmed the sewer</option>
+    </select>
+    <select id="inc-since" aria-label="Reports since">
+      <option value="365">Last 12 months</option><option value="730" selected>Last 24 months</option><option value="2020">Since 2020</option>
+    </select></div>
+    <div class="row"><span class="sw" style="border:3px solid var(--finding)"></span><label class="note">Red ring = DEP's own resolution recorded a field finding <span class="kt observed">observed</span></label></div>
+    <div class="row"><span class="sw" style="background:var(--sensor)"></span><label><input type="checkbox" id="lyr-sensors" checked> FloodNet sensors (measured floods) <span class="kt observed">observed</span></label></div>
+    <div class="row"><span class="sw" style="background:var(--nuisance);opacity:.6"></span><label><input type="checkbox" id="lyr-results" checked> Simulated ponding <span class="kt predicted">predicted</span></label></div>
+    <div class="row"><span class="sw" style="border:2px dashed var(--inferred)"></span><label><input type="checkbox" id="lyr-ranks" checked> Inspection priorities <span class="kt inferred">inferred</span></label></div>
+  </section>
+
+  <section>
+    <h2>Simulate a storm (EPA SWMM)</h2>
+    <div class="row"><select id="scenario" aria-label="Rainfall scenario" style="flex:1"></select></div>
+    <div class="row"><label><input type="checkbox" id="blocked" checked> Basins DEP found obstructed (last 12 months) are half-blocked</label></div>
+    <div class="row"><label>Run on <select id="runner" aria-label="Where to run"><option value="local">this server</option><option value="daytona">Daytona sandbox</option></select></label></div>
+    <div class="row">
+      <button id="run">Run storm</button>
+      <button id="compare" class="secondary" title="Runs the storm twice: flagged basins half-blocked, then all clear">What if we clear them?</button>
+    </div>
+    <div class="status" id="run-status" aria-live="polite"></div>
+    <div id="run-card"></div>
+  </section>
+
+  <section>
+    <h2>Where to inspect first</h2>
+    <div class="note" id="rank-note">Rule-based score (risk-v1) from DEP findings, FloodNet floods, 311 reports and the selected storm.</div>
+    <div id="ranks" aria-live="polite"></div>
+  </section>
+
+  <section>
+    <h2>Crew briefing</h2>
+    <div class="row"><button id="brief">Write briefing for the top 5</button></div>
+    <div class="status" id="brief-status" aria-live="polite"></div>
+    <div id="briefing"></div>
+  </section>
+
+  <section>
+    <h2>Details</h2>
+    <div id="details" class="note">Click anything on the map or in the lists.</div>
+  </section>
+</aside>
+<div id="toast" role="alert"></div>
+
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script>
+"use strict";
 const API = "/api/v1";
+const AREA = "BK0601";
+const AREA_BBOX = "-74.01995,40.66457,-73.97962,40.69255";
 const EMPTY = { type: "FeatureCollection", features: [] };
-const map = new maplibregl.Map({
-  container: "map",
-  center: [-73.9998, 40.6786],
-  zoom: 15,
-  style: {
-    version: 8,
-    sources: { osm: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256,
-                      attribution: "© OpenStreetMap contributors" } },
-    layers: [{ id: "osm", type: "raster", source: "osm" }],
-  },
-});
+const state = { runId: null, runLabel: null, health: null, rankMarkers: [], selectedRank: null, busy: false };
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const fmt = (n, d = 0) => (n == null ? "–" : Number(n).toLocaleString(undefined, { maximumFractionDigits: d }));
+const day = (iso) => (iso ? iso.slice(0, 10) : "–");
 
-map.on("load", () => {
-  map.addSource("basins", { type: "geojson", data: EMPTY });
-  map.addSource("incidents", { type: "geojson", data: EMPTY });
-  map.addLayer({ id: "basins", type: "circle", source: "basins",
-                 paint: { "circle-radius": 4, "circle-color": "#1f6feb", "circle-opacity": 0.85 } });
-  map.addLayer({ id: "incidents", type: "circle", source: "incidents", paint: {
-    "circle-radius": 6, "circle-color": "rgba(0,0,0,0)",
-    "circle-stroke-color": ["case", ["==", ["get", "finding"], "observed"], "#b42318", "#d4631a"],
-    "circle-stroke-width": ["case", ["==", ["get", "finding"], "observed"], 3, 2],
-  } });
-  for (const layer of ["basins", "incidents"]) {
-    map.on("click", layer, (e) => {
-      const pretty = JSON.stringify(JSON.parse(e.features[0].properties.raw), null, 1);
-      new maplibregl.Popup({ maxWidth: "360px" }).setLngLat(e.lngLat)
-        .setHTML(`<pre style="white-space:pre-wrap;margin:0;max-height:300px;overflow:auto">${escapeHtml(pretty)}</pre>`).addTo(map);
-    });
-  }
-  refresh();
-  map.on("moveend", refresh);
-});
-
-// MapLibre flattens nested properties, so keep the full properties as JSON and lift out what the style needs.
-function flatten(fc, kind) {
-  return { type: "FeatureCollection", features: fc.features.map((f) => ({
-    type: "Feature", id: f.id, geometry: f.geometry,
-    properties: { raw: JSON.stringify({ id: f.id, ...f.properties }),
-                  finding: kind === "incidents" ? f.properties.verification.knowledge_type : "observed" },
-  })) };
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.style.display = "block";
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => (t.style.display = "none"), 8000);
 }
 
-async function fetchLayer(path, params) {
-  const response = await fetch(`${API}/${path}?${new URLSearchParams(params)}`);
-  const body = await response.json();
-  if (!response.ok) throw new Error(`${path}: ${body.title}: ${body.detail}`);
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, { headers: { "content-type": "application/json" }, ...opts });
+  const body = res.headers.get("content-type")?.includes("json") ? await res.json() : await res.text();
+  if (!res.ok) throw new Error(body?.detail ? `${body.title}: ${body.detail}` : `HTTP ${res.status}`);
   return body;
 }
 
-async function refresh() {
-  const b = map.getBounds();
-  const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].map((v) => v.toFixed(6)).join(",");
-  const status = document.getElementById("status");
-  try {
-    const [basins, incidents] = await Promise.all([
-      fetchLayer("catch-basins", { bbox, limit: 5000 }),
-      fetchLayer("incidents", { bbox, limit: 5000, since: "2020-01-01T00:00:00Z" }),
-    ]);
-    map.getSource("basins").setData(flatten(basins, "basins"));
-    map.getSource("incidents").setData(flatten(incidents, "incidents"));
-    const more = (m) => (m.truncated ? " (truncated: zoom in)" : "");
-    status.textContent = `${basins.meta.count} basins${more(basins.meta)} · ${incidents.meta.count} reports since 2020${more(incidents.meta)}`;
-  } catch (err) {
-    status.textContent = String(err);
+// ---------- map ----------
+const map = new maplibregl.Map({
+  container: "map", center: [-73.9998, 40.6786], zoom: 14.6, attributionControl: { compact: true },
+  style: { version: 8, sources: { osm: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256,
+           attribution: "© OpenStreetMap contributors · data: NYC Open Data (DEP, 311, FloodNet)" } },
+           layers: [{ id: "osm", type: "raster", source: "osm", paint: { "raster-saturation": -0.35 } }] },
+});
+map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+
+map.on("load", async () => {
+  for (const id of ["basins", "incidents", "sensors", "results"]) map.addSource(id, { type: "geojson", data: EMPTY });
+  map.addLayer({ id: "results", type: "circle", source: "results", paint: {
+    "circle-radius": ["interpolate", ["linear"], ["get", "flood_volume_ft3"], 0, 4, 2000, 9, 12000, 18],
+    "circle-color": ["match", ["get", "risk_class"], "deep", "#a40e26", "nuisance", "#e16f24", "#d4a72c"],
+    "circle-opacity": 0.45, "circle-stroke-width": 0 } });
+  map.addLayer({ id: "basins", type: "circle", source: "basins", paint: { "circle-radius": 3, "circle-color": "#1f6feb", "circle-opacity": 0.9 } });
+  map.addLayer({ id: "incidents", type: "circle", source: "incidents", paint: {
+    "circle-radius": ["case", ["==", ["get", "finding"], "observed"], 6.5, 5.5], "circle-color": "rgba(0,0,0,0)",
+    "circle-stroke-color": ["case", ["==", ["get", "finding"], "observed"], "#b42318", "#d4631a"],
+    "circle-stroke-width": ["case", ["==", ["get", "finding"], "observed"], 2.6, 1.6] } });
+  map.addLayer({ id: "sensors", type: "circle", source: "sensors", paint: {
+    "circle-radius": ["interpolate", ["linear"], ["coalesce", ["get", "max_depth_in"], 0], 0, 6, 12, 10, 36, 15],
+    "circle-color": ["case", ["==", ["get", "tidal"], true], "#8b949e", "#8250df"], "circle-opacity": 0.85,
+    "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 } });
+  for (const layer of ["results", "basins", "incidents", "sensors"]) {
+    map.on("click", layer, (e) => showFeature(layer, JSON.parse(e.features[0].properties.raw)));
+    map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
+    map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
   }
+  map.on("moveend", debounce(refreshViewport, 250));
+  await Promise.all([loadHealth(), loadScenarios(), refreshViewport(), refreshRankings()]);
+});
+
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+function bbox() { const b = map.getBounds(); return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].map((v) => v.toFixed(6)).join(","); }
+function flatten(fc, extra) {
+  return { type: "FeatureCollection", features: fc.features.map((f) => ({ type: "Feature", id: f.id, geometry: f.geometry,
+    properties: { raw: JSON.stringify({ id: f.id, ...f.properties }), ...extra(f.properties) } })) };
+}
+function since() {
+  const v = $("inc-since").value;
+  if (v === "2020") return "2020-01-01T00:00:00Z";
+  return new Date(Date.now() - Number(v) * 86400000).toISOString().slice(0, 19) + "Z";
+}
+function setVisible(layer, on) { if (map.getLayer(layer)) map.setLayoutProperty(layer, "visibility", on ? "visible" : "none"); }
+
+async function refreshViewport() {
+  const bb = bbox();
+  const jobs = [];
+  jobs.push($("lyr-basins").checked ? api(`/catch-basins?bbox=${bb}&limit=5000`).then((fc) => map.getSource("basins").setData(flatten(fc, () => ({})))) : null);
+  if ($("lyr-incidents").checked) {
+    const v = $("inc-filter").value;
+    jobs.push(api(`/incidents?bbox=${bb}&limit=5000&since=${encodeURIComponent(since())}${v ? "&verification=" + v : ""}`)
+      .then((fc) => { map.getSource("incidents").setData(flatten(fc, (p) => ({ finding: p.verification.knowledge_type })));
+                      if (fc.meta.truncated) toast("Showing the first 5,000 reports in view; zoom in for the rest."); }));
+  }
+  jobs.push($("lyr-sensors").checked ? api(`/sensors?bbox=${bb}&limit=500`).then((fc) =>
+    map.getSource("sensors").setData(flatten(fc, (p) => ({ max_depth_in: p.max_depth_in ?? 0, tidal: !!p.tidally_influenced })))) : null);
+  jobs.push(state.runId && $("lyr-results").checked ? api(`/simulation-runs/${encodeURIComponent(state.runId)}/results?bbox=${bb}&limit=5000`)
+    .then((fc) => map.getSource("results").setData(flatten(fc, (p) => ({ flood_volume_ft3: p.flood_volume_ft3, risk_class: p.risk_class })))) : null);
+  try { await Promise.all(jobs.filter(Boolean)); } catch (err) { toast(String(err.message || err)); }
 }
 
-function escapeHtml(s) {
-  return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+for (const [box, layer] of [["lyr-basins", "basins"], ["lyr-incidents", "incidents"], ["lyr-sensors", "sensors"], ["lyr-results", "results"]]) {
+  $(box).addEventListener("change", () => { setVisible(layer, $(box).checked); if ($(box).checked) refreshViewport(); });
 }
+$("lyr-ranks").addEventListener("change", () => state.rankMarkers.forEach((m) => (m.getElement().style.display = $("lyr-ranks").checked ? "" : "none")));
+$("inc-filter").addEventListener("change", refreshViewport);
+$("inc-since").addEventListener("change", refreshViewport);
+
+// ---------- health ----------
+async function loadHealth() {
+  try {
+    const h = await api("/health");
+    state.health = h;
+    const names = { nyc_catch_basins: "Catch basins", nyc311: "311", nyc_nta_2020: "Area", floodnet_sensors: "FloodNet sensors", floodnet_events: "FloodNet events" };
+    const chips = h.sources.map((s) => `<span class="chip ${s.stale ? "bad" : ""}" title="dataset updated ${esc(day(s.dataset_updated_at))}">${esc(names[s.id] || s.id)}: ${s.stale ? "stale, " : ""}as of ${esc(day(s.fetched_at))}</span>`);
+    const integ = Object.entries(h.integrations || {}).map(([k, on]) => `<span class="chip ${on ? "ok" : "off"}">${esc({ daytona: "Daytona", bedrock: "Bedrock", arize: "Arize", elevenlabs: "ElevenLabs" }[k] || k)}</span>`);
+    $("health").innerHTML = chips.join("") + integ.join("") + `<span class="chip">SurrealDB ${esc(h.db.mode)}</span>`;
+    const daytona = $("runner").querySelector('option[value="daytona"]');
+    daytona.disabled = !h.integrations?.daytona; if (daytona.disabled) daytona.textContent = "Daytona sandbox (no key)";
+  } catch (err) { toast("Health check failed: " + err.message); }
+}
+
+// ---------- scenarios and runs ----------
+async function loadScenarios() {
+  const { scenarios } = await api(`/scenarios?area_id=${AREA}`);
+  const order = ["dep_limited", "dep_moderate", "dep_extreme"];
+  scenarios.sort((a, b) => order.findIndex((o) => a.id.includes(o)) - order.findIndex((o) => b.id.includes(o)));
+  $("scenario").innerHTML = scenarios.map((s) => `<option value="${esc(s.id)}" ${s.id.includes("dep_moderate") ? "selected" : ""}>${esc(s.name)} · ${fmt(s.total_depth_in, 2)} in total</option>`).join("")
+    + `<option value="__nws">Live NWS forecast, next 48 h (fetch now)</option>`;
+}
+
+async function scenarioId() {
+  const v = $("scenario").value;
+  if (v !== "__nws") return v;
+  $("run-status").textContent = "Fetching the NWS forecast…";
+  const s = await api("/scenarios", { method: "POST", body: JSON.stringify({ kind: "nws_forecast", area_id: AREA, hours: 48 }) });
+  const opt = document.createElement("option"); opt.value = s.id; opt.textContent = `${s.name} · ${fmt(s.total_depth_in, 2)} in total`;
+  $("scenario").insertBefore(opt, $("scenario").lastElementChild); $("scenario").value = s.id;
+  return s.id;
+}
+
+async function runStorm(blockage, label) {
+  const sid = await scenarioId();
+  const runner = $("runner").value;
+  const run = await api("/simulation-runs", { method: "POST", body: JSON.stringify({ scenario_id: sid, runner, params: { blockage_factor: blockage } }) });
+  const t0 = performance.now();
+  let r = run;
+  while (r.status === "queued" || r.status === "running") {
+    $("run-status").textContent = `${label}: ${r.status} on ${runner === "daytona" ? "a Daytona sandbox" : "this server"}… ${((performance.now() - t0) / 1000).toFixed(0)} s`;
+    await new Promise((ok) => setTimeout(ok, 1200));
+    r = await api(`/simulation-runs/${encodeURIComponent(run.id)}`);
+  }
+  if (r.status !== "succeeded") throw new Error(`${label}: ${r.status}${r.error ? " – " + r.error.message : ""}`);
+  return r;
+}
+
+function runCard(r, title) {
+  const s = r.summary;
+  return `<div class="card"><div class="row"><span class="kt predicted">predicted</span><b>${esc(title)}</b></div>
+    <div class="big">${fmt(s.basins_flooded)} of ${fmt(s.basins_modeled)} basins pond · ${fmt(s.deep)} deep (≥ 12 in)</div>
+    <div>${fmt(s.total_flood_volume_ft3)} ft³ of street flooding · max ${fmt(s.max_ponded_depth_in, 1)} in · ${fmt(s.precip_in, 2)} in of rain</div>
+    <div class="note">${esc(s.engine)} · ran on ${r.runner === "daytona" ? "Daytona sandbox" : "this server"} in ${fmt(r.runner_meta?.wall_s, 1)} s ·
+      water-balance error ${fmt(s.routing_continuity_error_pct, 3)}% · ${fmt(s.basins_with_blockage_applied)} DEP-flagged basins ${r.params.blockage_factor > 0 ? "half-blocked" : "clear"}</div>
+    <div class="note">Swale SWMM demonstrator: schematic, uncalibrated. A prediction for a hypothetical storm, not current conditions.
+      <a class="ev" href="${API}/simulation-runs/${encodeURIComponent(r.id)}/model.inp" target="_blank" rel="noopener">model input</a></div></div>`;
+}
+
+async function useRun(r) {
+  state.runId = r.id; state.runLabel = $("scenario").selectedOptions[0]?.textContent || r.scenario_id;
+  $("lyr-results").checked = true; setVisible("results", true);
+  await Promise.all([refreshViewport(), refreshRankings()]);
+}
+
+async function guard(button, fn) {
+  if (state.busy) return; state.busy = true;
+  document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+  try { await fn(); } catch (err) { toast(String(err.message || err)); $("run-status").textContent = ""; }
+  finally { state.busy = false; document.querySelectorAll("button").forEach((b) => (b.disabled = false)); }
+}
+
+$("run").addEventListener("click", () => guard($("run"), async () => {
+  const blocked = $("blocked").checked ? 0.5 : 0;
+  const r = await runStorm(blocked, "Storm");
+  $("run-status").textContent = "";
+  $("run-card").innerHTML = runCard(r, state.runLabel || "Storm");
+  await useRun(r);
+}));
+
+$("compare").addEventListener("click", () => guard($("compare"), async () => {
+  const blocked = await runStorm(0.5, "Run 1 of 2 (flagged basins half-blocked)");
+  const clear = await runStorm(0, "Run 2 of 2 (all basins clear)");
+  $("run-status").textContent = "";
+  const db = blocked.summary, dc = clear.summary;
+  const deep = db.deep - dc.deep, vol = db.total_flood_volume_ft3 - dc.total_flood_volume_ft3;
+  $("run-card").innerHTML = `<div class="card"><div class="row"><span class="kt predicted">predicted</span><b>What clearing ${fmt(db.basins_with_blockage_applied)} DEP-flagged basins is worth</b></div>
+      <div class="big">${deep > 0 ? fmt(deep) + " fewer deep-flooding basins" : "No change in deep-flooding basins"} · ${fmt(vol)} ft³ less street flooding</div>
+      <div class="note">${fmt(db.deep)} → ${fmt(dc.deep)} deep basins, ${fmt(db.total_flood_volume_ft3)} → ${fmt(dc.total_flood_volume_ft3)} ft³, same storm, same model.
+      Only basins where DEP's own resolution recorded an obstruction in the last 12 months are blocked in run 1.</div></div>`
+    + runCard(blocked, "Run 1: flagged basins half-blocked") + runCard(clear, "Run 2: all basins clear");
+  await useRun(blocked);
+}));
+
+// ---------- rankings ----------
+async function refreshRankings() {
+  try {
+    const fc = await api(`/risk-rankings?bbox=${AREA_BBOX}&limit=10${state.runId ? "&run_id=" + encodeURIComponent(state.runId) : ""}`);
+    state.rankMarkers.forEach((m) => m.remove()); state.rankMarkers = [];
+    $("rank-note").textContent = `Top 10 of ${fmt(fc.meta.ranked)} basins · risk-v1, rule-based${state.runId ? " · includes the selected storm" : " · run a storm to add predicted flooding"}`;
+    $("ranks").innerHTML = fc.features.map((f, i) => {
+      const p = f.properties;
+      const kinds = [...new Set(p.factors.filter((x) => x.value > 0).map((x) => x.knowledge_type))];
+      return `<div class="rank" data-i="${i}" tabindex="0" role="button" aria-label="Rank ${p.rank}, basin ${esc(p.unitid)}">
+        <div class="badge">${p.rank}</div>
+        <div><b>${esc(p.unitid)}</b> <span class="tier-${p.tier}">${p.tier}</span>
+          <div class="bar"><div style="width:${Math.min(100, p.score)}%"></div></div>
+          <div class="chips">${kinds.map((k) => `<span class="kt ${k}">${k}</span>`).join("")}</div></div>
+        <div class="big">${fmt(p.score, 1)}</div></div>`;
+    }).join("");
+    fc.features.forEach((f, i) => {
+      const el = document.createElement("div"); el.className = "rank-marker"; el.textContent = f.properties.rank;
+      el.style.display = $("lyr-ranks").checked ? "" : "none";
+      el.addEventListener("click", (e) => { e.stopPropagation(); selectRank(fc.features, i); });
+      state.rankMarkers.push(new maplibregl.Marker({ element: el }).setLngLat(f.geometry.coordinates).addTo(map));
+    });
+    document.querySelectorAll(".rank").forEach((row) => {
+      const go = () => selectRank(fc.features, Number(row.dataset.i));
+      row.addEventListener("click", go); row.addEventListener("keydown", (e) => (e.key === "Enter" || e.key === " ") && go());
+    });
+  } catch (err) { toast("Rankings: " + err.message); }
+}
+
+function selectRank(features, i) {
+  const f = features[i], p = f.properties;
+  document.querySelectorAll(".rank").forEach((r) => r.classList.toggle("sel", Number(r.dataset.i) === i));
+  state.rankMarkers.forEach((m, j) => m.getElement().classList.toggle("sel", j === i));
+  map.flyTo({ center: f.geometry.coordinates, zoom: Math.max(map.getZoom(), 17) });
+  $("details").innerHTML = `<div class="row"><span class="kt inferred">inferred</span><b>#${p.rank} · basin ${esc(p.unitid)} · score ${fmt(p.score, 1)} (${p.tier})</b></div>`
+    + p.factors.map((x) => `<div class="factor"><b>${esc(x.label)}</b> <span class="kt ${x.knowledge_type}">${x.knowledge_type}</span>
+        <div>${esc(x.explanation)}</div><div class="note">value ${fmt(x.value, 2)} × weight ${x.weight} → +${fmt(x.contribution, 1)}</div>
+        <div>${x.evidence_ids.map((id) => `<a class="ev" data-id="${esc(id)}">${esc(id)}</a>`).join("")}</div></div>`).join("")
+    + (p.missing_factors.length ? `<div class="note">Not counted: ${p.missing_factors.map((m) => esc(m.reason)).join("; ")}</div>` : "")
+    + `<div class="note">${p.caveats.map(esc).join(" ")}</div>`;
+  bindEvidence($("details"));
+}
+
+// ---------- details and evidence ----------
+function bindEvidence(root) { root.querySelectorAll("a.ev[data-id]").forEach((a) => a.addEventListener("click", () => openEvidence(a.dataset.id))); }
+
+async function openEvidence(id) {
+  const [table] = id.split(":");
+  const path = { incident: "incidents", flood_event: "flood-observations", sensor: null, flood_result: null }[table];
+  try {
+    if (path) { const f = await api(`/${path}/${encodeURIComponent(id)}`); showFeature(path === "incidents" ? "incidents" : "observation", { id: f.id, ...f.properties }, true); }
+    else if (table === "sensor") { toast("This sensor is on the map as a purple circle."); }
+    else { toast("Simulated result for this basin: see the predicted layer on the map."); }
+  } catch (err) { toast(err.message); }
+}
+
+function showFeature(kind, p, appended = false) {
+  let html = "";
+  if (kind === "incidents") {
+    const v = p.verification;
+    html = `<div class="row"><span class="kt reported">reported</span><b>${esc(p.category_label)} · 311 #${esc(p.source.record_id)}</b></div>
+      <div>${esc(p.address || "")} · reported ${esc(day(p.reported_at))} · ${esc(p.source_status || "")}</div>
+      <div class="card"><div class="row"><span class="kt ${v.knowledge_type}">${v.knowledge_type}</span><b>${esc(v.status.replaceAll("_", " "))}</b></div>
+        ${v.text ? `<div>“${esc(v.text)}”</div><div class="note">DEP resolution${v.at ? ", " + esc(day(v.at)) : ""} · rule ${esc(v.rule || "none")}</div>` : `<div class="note">No DEP resolution text.</div>`}</div>
+      ${p.linked_basin ? `<div class="note">Linked to ${esc(p.linked_basin.id)}, ${fmt(p.linked_basin.distance_ft)} ft away (inferred link)</div>` : ""}
+      <a class="ev" href="${esc(p.source.url)}" target="_blank" rel="noopener">source record</a>`;
+  } else if (kind === "basins") {
+    html = `<div class="row"><span class="kt observed">observed</span><b>Catch basin ${esc(p.unitid)}</b></div>
+      <div class="note">DEP inventory record · dataset updated ${esc(day(p.source.updated_at))} · no condition data in the source</div>
+      <a class="ev" href="${esc(p.source.url)}" target="_blank" rel="noopener">source record</a>`;
+  } else if (kind === "sensors") {
+    html = `<div class="row"><span class="kt observed">observed</span><b>FloodNet sensor: ${esc(p.name)}</b></div>
+      <div>${fmt(p.event_count)} measured flood events · deepest ${fmt(p.max_depth_in, 1)} in · latest ${esc(day(p.last_event_at))}</div>
+      <div class="note">${p.tidally_influenced ? "Tidally influenced: also records tidal flooding. " : ""}Installed ${esc(day(p.installed_at))}.</div>`;
+  } else if (kind === "observation") {
+    html = `<div class="row"><span class="kt observed">observed</span><b>FloodNet flood event</b></div>
+      <div>${esc(day(p.started_at))}: up to ${fmt(p.max_depth_in, 1)} in for ${fmt(p.duration_min)} min at ${esc(p.sensor_id)}</div>`;
+  } else if (kind === "results") {
+    html = `<div class="row"><span class="kt predicted">predicted</span><b>Simulated ponding: ${esc(p.risk_class)}</b></div>
+      <div>${fmt(p.max_ponded_depth_in, 1)} in deep, ${fmt(p.flood_volume_ft3)} ft³, ${fmt(p.hours_flooded, 2)} h at ${esc(p.basin_id)}</div>
+      <div class="note">${esc(p.scenario_label)} · ${p.blockage_applied ? "inlet half-blocked (DEP finding)" : "inlet clear"} · ${esc(p.note)}</div>`;
+  }
+  $("details").innerHTML = appended ? $("details").innerHTML + `<div class="card">${html}</div>` : html;
+  bindEvidence($("details"));
+}
+
+// ---------- briefing ----------
+$("brief").addEventListener("click", () => guard($("brief"), async () => {
+  $("brief-status").textContent = state.health?.integrations?.bedrock ? "Claude (Bedrock) is writing the briefing…" : "Writing the briefing (no Bedrock key: template)…";
+  const b = await api("/briefings", { method: "POST", body: JSON.stringify({ bbox: AREA_BBOX, run_id: state.runId, top_n: 5, audio: true }) });
+  $("brief-status").textContent = "";
+  const who = b.source === "llm" ? `Written by ${esc(b.model)} on Amazon Bedrock · every claim checked against the evidence`
+    : `Template briefing${b.error ? " · " + esc(b.error) : ""}`;
+  $("briefing").innerHTML = `<div class="card"><div class="row"><span class="kt inferred">inferred</span><b>${esc(b.briefing.headline)}</b></div>
+      ${b.briefing.stops.map((s, i) => `<div class="stop"><b>${i + 1}. ${esc(s.basin_id.replace("catch_basin:", "Basin "))}</b>
+        <div class="why">${esc(s.why)}</div><div><i>${esc(s.action)}</i></div>
+        <div>${s.evidence_ids.map((id) => `<a class="ev" data-id="${esc(id)}">${esc(id)}</a>`).join("")}</div></div>`).join("")}
+      <div class="note">${esc(b.briefing.caveat)}</div>
+      <div class="note">${who}${b.checks.length ? " · checks flagged: " + b.checks.map(esc).join("; ") : ""}</div>
+      ${b.links.audio ? `<audio controls src="${b.links.audio}"></audio>` : `<div class="note">${esc(b.audio_error || "")}</div>`}</div>`;
+  bindEvidence($("briefing"));
+}));
 </script>
 </body>
 </html>
