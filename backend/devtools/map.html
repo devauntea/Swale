@@ -101,8 +101,8 @@
     <div class="row"><label><input type="checkbox" id="blocked" checked> Basins DEP found obstructed (last 12 months) are half-blocked</label></div>
     <div class="row"><label>Run on <select id="runner" aria-label="Where to run"><option value="local">this server</option><option value="daytona">Daytona sandbox</option></select></label></div>
     <div class="row">
-      <button id="run">Run storm</button>
-      <button id="compare" class="secondary" title="Runs the storm twice: flagged basins half-blocked, then all clear">What if we clear them?</button>
+      <button id="run" disabled>Run storm</button>
+      <button id="compare" class="secondary" disabled title="Runs the storm twice: flagged basins half-blocked, then all clear">What if we clear them?</button>
     </div>
     <div class="status" id="run-status" aria-live="polite"></div>
     <div id="run-card"></div>
@@ -244,6 +244,7 @@ async function loadScenarios() {
   scenarios.sort((a, b) => order.findIndex((o) => a.id.includes(o)) - order.findIndex((o) => b.id.includes(o)));
   $("scenario").innerHTML = scenarios.map((s) => `<option value="${esc(s.id)}" ${s.id.includes("dep_moderate") ? "selected" : ""}>${esc(s.name)} · ${fmt(s.total_depth_in, 2)} in total</option>`).join("")
     + `<option value="__nws">Live NWS forecast, next 48 h (fetch now)</option>`;
+  $("run").disabled = false; $("compare").disabled = false;
 }
 
 async function scenarioId() {
@@ -292,7 +293,7 @@ async function guard(button, fn) {
   if (state.busy) return; state.busy = true;
   document.querySelectorAll("button").forEach((b) => (b.disabled = true));
   try { await fn(); } catch (err) { toast(String(err.message || err)); $("run-status").textContent = ""; }
-  finally { state.busy = false; document.querySelectorAll("button").forEach((b) => (b.disabled = false)); }
+  finally { state.busy = false; document.querySelectorAll("button").forEach((b) => (b.disabled = !$("scenario").value && b.id !== "brief")); }
 }
 
 $("run").addEventListener("click", () => guard($("run"), async () => {

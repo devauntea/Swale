@@ -8,6 +8,7 @@ reads every statement's status from ``query_raw()``.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -18,6 +19,8 @@ from surrealdb import Surreal
 NAMESPACE = "swale"
 DATABASE = "main"
 FILE_SCHEMES = ("surrealkv://", "surrealkv+versioned://", "file://")
+# One query at a time per process: the embedded SDK connection is shared across API threads.
+_QUERY_LOCK = threading.RLock()
 
 
 class QueryFailed(RuntimeError):
@@ -44,7 +47,8 @@ def connect(url: str, namespace: str = NAMESPACE, database: str = DATABASE) -> I
 def run(db: Any, sql: str, vars: dict[str, Any] | None = None) -> list[Any]:
     """Run SurrealQL and return one result per statement; raise QueryFailed if any statement failed."""
     try:
-        response = db.query_raw(sql, vars or {})
+        with _QUERY_LOCK:
+            response = db.query_raw(sql, vars or {})
     except Exception as exc:  # the SDK raises RuntimeError for parse errors
         raise QueryFailed(-1, str(exc), sql) from exc
     if response.get("error"):

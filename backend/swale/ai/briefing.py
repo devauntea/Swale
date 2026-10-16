@@ -209,19 +209,35 @@ def tracer_from_env() -> Any | None:
     return provider.get_tracer("swale.ai")
 
 
+FALLBACK_VOICE = "XrExE9yKIg1WjnnlVkGX"  # Matilda (ElevenLabs premade; works on the free plan)
+
+
 def synthesize_speech(text: str) -> bytes | None:
-    """ElevenLabs text-to-speech (mp3) when ELEVENLABS_API_KEY is set."""
+    """ElevenLabs text-to-speech (mp3) when ELEVENLABS_API_KEY is set. Returns None without a key."""
+    audio, _ = synthesize_speech_with_voice(text)
+    return audio
+
+
+def synthesize_speech_with_voice(text: str) -> tuple[bytes | None, str | None]:
+    """(mp3, note). Voice Library voices need a paid ElevenLabs plan (HTTP 402); then the premade voice is used."""
     key = os.environ.get("ELEVENLABS_API_KEY")
     if not key:
-        return None
+        return None, None
     import httpx
 
-    voice = os.environ.get("ELEVENLABS_VOICE_ID") or "XrExE9yKIg1WjnnlVkGX"  # Matilda (ElevenLabs premade)
-    response = httpx.post(
-        f"https://api.elevenlabs.io/v1/text-to-speech/{voice}",
-        headers={"xi-api-key": key, "accept": "audio/mpeg"},
-        json={"text": text[:4500], "model_id": os.environ.get("ELEVENLABS_MODEL_ID", "eleven_multilingual_v2")},
-        timeout=120,
-    )
+    def speak(voice: str) -> httpx.Response:
+        return httpx.post(
+            f"https://api.elevenlabs.io/v1/text-to-speech/{voice}",
+            headers={"xi-api-key": key, "accept": "audio/mpeg"},
+            json={"text": text[:4500], "model_id": os.environ.get("ELEVENLABS_MODEL_ID", "eleven_multilingual_v2")},
+            timeout=120,
+        )
+
+    voice = os.environ.get("ELEVENLABS_VOICE_ID") or FALLBACK_VOICE
+    response = speak(voice)
+    note = None
+    if response.status_code in (402, 403) and voice != FALLBACK_VOICE:
+        note = f"voice {voice} was refused (HTTP {response.status_code}; Voice Library voices need a paid ElevenLabs plan), used the premade Matilda voice"
+        response = speak(FALLBACK_VOICE)
     response.raise_for_status()
-    return response.content
+    return response.content, note

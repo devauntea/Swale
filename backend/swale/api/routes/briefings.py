@@ -65,7 +65,7 @@ def create_briefing(body: BriefingCreate, request: Request) -> dict[str, Any]:
     audio_file, audio_error = None, None
     if body.audio:
         try:
-            audio = ai.synthesize_speech(spoken)
+            audio, audio_error = ai.synthesize_speech_with_voice(spoken)
             if audio:
                 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
                 audio_file = str(AUDIO_DIR / f"{key}.mp3")

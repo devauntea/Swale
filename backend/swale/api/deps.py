@@ -1,11 +1,11 @@
-"""FastAPI dependencies. The embedded connection is shared, so requests take turns behind a lock."""
+"""FastAPI dependencies."""
 
-from collections.abc import Iterator
 from typing import Any
 
 from fastapi import Request
 
 
-def get_db(request: Request) -> Iterator[Any]:
-    with request.app.state.db_lock:
-        yield request.app.state.db
+def get_db(request: Request) -> Any:
+    """The shared connection. Each query is serialized inside swale.db.connection.run(); never hold a lock across a
+    yield dependency here: FastAPI may run its setup and teardown on different threads."""
+    return request.app.state.db

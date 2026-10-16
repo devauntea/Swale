@@ -153,12 +153,12 @@ def area_basins(db: Any, area_id: str) -> list[dict[str, Any]]:
 
 def obstructed_basins(db: Any, since: datetime) -> set[str]:
     """Basins linked to a complaint where DEP's own resolution recorded an obstruction since ``since``."""
-    # Filter incidents first: comparing a datetime through the link (in.reported_at >= $since) silently
-    # matches nothing in surrealdb-core 2.3.10 (verified 2026-10-16), while direct comparisons work.
+    # Start from the matching incidents and follow their links: a subquery filter on near_basin re-ran per
+    # edge (20 s on BK0601), and comparing a datetime through the link (in.reported_at) matches nothing
+    # in surrealdb-core 2.3.10. This form takes ~50 ms. Both verified 2026-10-16.
     rows = run_one(
         db,
-        "SELECT VALUE record::id(out) FROM near_basin WHERE in IN (SELECT VALUE id FROM incident "
-        "WHERE verification_status = 'agency_found_obstruction' AND reported_at >= $since);",
+        "SELECT VALUE ->near_basin.out FROM incident WHERE verification_status = 'agency_found_obstruction' AND reported_at >= $since;",
         {"since": since},
     )
-    return set(rows)
+    return {basin.id for links in rows for basin in links}
