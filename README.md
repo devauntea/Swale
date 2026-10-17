@@ -3,6 +3,9 @@
 </p>
 
 <h1 align="center">Swale</h1>
+
+Licensed under the [MIT License](LICENSE).
+
 <p align="center"><b>Urban flood readiness for Brooklyn, built on evidence.</b><br>
 <a href="https://d1tl5jij0x3sdf.cloudfront.net">Live app</a> · <a href="docs/media/swale-tour.mp4">2:47 tour video</a> · <a href="docs/DEMO.md">Demo script</a></p>
 
