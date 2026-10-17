@@ -1,4 +1,16 @@
-# Swale
+<p align="center">
+  <img src="docs/media/swale-logo.png" alt="Swale logo: three waves on navy" width="120">
+</p>
+
+<h1 align="center">Swale</h1>
+<p align="center"><b>Urban flood readiness for Brooklyn, built on evidence.</b><br>
+<a href="https://d1tl5jij0x3sdf.cloudfront.net">Live app</a> · <a href="docs/media/swale-tour.mp4">Watch the 2:47 tour</a> · <a href="docs/DEMO.md">Demo script</a></p>
+
+<p align="center">
+  <a href="docs/media/swale-tour.mp4" title="Watch the Swale tour video">
+    <img src="docs/media/swale-tour-poster.jpg" alt="Swale tour video: click to watch" width="720">
+  </a>
+</p>
 
 A map-first Brooklyn planning workspace combining React/TypeScript/Vite,
 MapLibre GL JS and deck.gl with a Python/FastAPI/embedded SurrealDB backend.
